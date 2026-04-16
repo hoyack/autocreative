@@ -29,7 +29,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. All five exception types (ComfyError, VisionError, CompositionError, RasterizationError, MaxAttemptsExceededError) are importable and form a hierarchy
   4. Six style presets are registered and retrievable by name (photorealistic, anime, western_cartoon, scifi, watercolor, retro_poster)
   5. pyproject.toml defines all dependencies and the project installs cleanly with uv
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 01-01-PLAN.md -- Project scaffold, config, errors, logging
+- [ ] 01-02-PLAN.md -- Data models, zones, presets, tests, public API
 
 ### Phase 2: Image Pipeline
 **Goal**: Given event data and a style preset, the system can generate an AI background image via ComfyCloud and evaluate it with Claude vision for suitability, zones, and text color
@@ -74,7 +77,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/TBD | Not started | - |
+| 1. Foundation | 0/2 | Not started | - |
 | 2. Image Pipeline | 0/TBD | Not started | - |
 | 3. Composition | 0/TBD | Not started | - |
 | 4. Orchestration & CLI | 0/TBD | Not started | - |
