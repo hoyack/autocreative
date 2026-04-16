@@ -31,7 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. pyproject.toml defines all dependencies and the project installs cleanly with uv
 **Plans:** 2 plans
 Plans:
-- [ ] 01-01-PLAN.md -- Project scaffold, config, errors, logging
+- [x] 01-01-PLAN.md -- Project scaffold, config, errors, logging
 - [ ] 01-02-PLAN.md -- Data models, zones, presets, tests, public API
 
 ### Phase 2: Image Pipeline
