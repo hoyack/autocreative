@@ -8,10 +8,10 @@
 ### Foundation
 
 - [x] **FOUND-01**: Project uses Python 3.11+ with uv for dependency management and pyproject.toml config
-- [ ] **FOUND-02**: All cross-stage data contracts defined as Pydantic v2 models (EventInput, ComfyJob, GeneratedBackground, VisionVerdict, LayoutZones, ResolvedLayout, FlyerOutput)
+- [x] **FOUND-02**: All cross-stage data contracts defined as Pydantic v2 models (EventInput, ComfyJob, GeneratedBackground, VisionVerdict, LayoutZones, ResolvedLayout, FlyerOutput)
 - [x] **FOUND-03**: Configuration loaded from environment variables via Pydantic Settings with FLYER_ prefix
 - [x] **FOUND-04**: Typed exception hierarchy covering every failure mode (ComfyError, VisionError, CompositionError, RasterizationError, MaxAttemptsExceededError)
-- [ ] **FOUND-05**: Six built-in style presets registered (photorealistic, anime, western_cartoon, scifi, watercolor, retro_poster) with exact prompt text from n8n workflow
+- [x] **FOUND-05**: Six built-in style presets registered (photorealistic, anime, western_cartoon, scifi, watercolor, retro_poster) with exact prompt text from n8n workflow
 
 ### Image Generation
 
@@ -89,10 +89,10 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | FOUND-01 | Phase 1 | Complete |
-| FOUND-02 | Phase 1 | Pending |
+| FOUND-02 | Phase 1 | Complete |
 | FOUND-03 | Phase 1 | Complete |
 | FOUND-04 | Phase 1 | Complete |
-| FOUND-05 | Phase 1 | Pending |
+| FOUND-05 | Phase 1 | Complete |
 | IGEN-01 | Phase 2 | Pending |
 | IGEN-02 | Phase 2 | Pending |
 | IGEN-03 | Phase 2 | Pending |

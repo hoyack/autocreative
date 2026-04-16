@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 2 plans
 Plans:
 - [x] 01-01-PLAN.md -- Project scaffold, config, errors, logging
-- [ ] 01-02-PLAN.md -- Data models, zones, presets, tests, public API
+- [x] 01-02-PLAN.md -- Data models, zones, presets, tests, public API
 
 ### Phase 2: Image Pipeline
 **Goal**: Given event data and a style preset, the system can generate an AI background image via ComfyCloud and evaluate it with Claude vision for suitability, zones, and text color
