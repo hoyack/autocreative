@@ -75,6 +75,11 @@ Plans:
   3. `--list-presets` prints all available presets, `--dry-run` prints the prompt without calling ComfyCloud, `--event-json` loads event data from file
   4. Public API (generate_flyer, FlyerGenerator, EventInput, FlyerOutput, PresetRegistry) is importable and functional
   5. Every pipeline run emits structured logs with a trace_id correlating all events from attempt_start through flyer_generated
+**Plans:** 3 plans
+Plans:
+- [ ] 04-01-PLAN.md -- FlyerGenerator pipeline orchestrator with retry loop and structured logging
+- [ ] 04-02-PLAN.md -- CLI entrypoint via typer with all flags
+- [ ] 04-03-PLAN.md -- Public API surface (generate_flyer, exports, custom preset registration)
 
 ## Progress
 
@@ -86,4 +91,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Foundation | 2/2 | Complete | 2026-04-16 |
 | 2. Image Pipeline | 3/3 | Complete   | 2026-04-17 |
 | 3. Composition | 2/2 | Complete   | 2026-04-17 |
-| 4. Orchestration & CLI | 0/TBD | Not started | - |
+| 4. Orchestration & CLI | 0/3 | Not started | - |
