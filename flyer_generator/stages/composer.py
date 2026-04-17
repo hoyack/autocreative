@@ -156,7 +156,9 @@ class PosterComposer:
         layout: ResolvedLayout,
     ) -> str:
         # ----- a. XML-escape all user strings -----
-        title_esc = escape(event.title)
+        # Title: uppercase FIRST, then escape (escaping after upper would
+        # corrupt entities like &amp; -> &AMP;).
+        title_upper = escape(event.title.upper())
         date_esc = escape(event.date)
         time_esc = escape(event.time)
         venue_esc = escape(event.location_name)
@@ -164,9 +166,6 @@ class PosterComposer:
         fees_esc = escape(event.fees)
         org_esc = escape(event.org)
         url_esc = escape(event.url) if event.url is not None else None
-
-        # Title gets uppercased AFTER escaping
-        title_upper = title_esc.upper()
 
         # ----- b. Derive colors -----
         if verdict.text_color == "white":
