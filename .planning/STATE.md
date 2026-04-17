@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-04-17T00:27:49.350Z"
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-04-17T00:32:52.156Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 5
-  completed_plans: 3
-  percent: 60
+  completed_plans: 4
+  percent: 80
 ---
 
 # Project State
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-16)
 ## Current Position
 
 Phase: 2 (Image Pipeline) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-17
 
@@ -55,6 +55,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01 P01 | 3min | 2 tasks | 10 files |
 | Phase 01 P02 | 4min | 2 tasks | 13 files |
 | Phase 02 P01 | 2min | 2 tasks | 4 files |
+| Phase 02 P02 | 3min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,8 @@ Recent decisions affecting current work:
 - [Phase 01]: ResolvedLayout uses BaseModel with arbitrary_types_allowed for ZoneCoord consistency
 - [Phase 01]: style_preset on EventInput is plain str, validated at runtime in Phase 2
 - [Phase 02]: Used secrets.randbelow for seed generation; ImagePreprocessor accepts arbitrary source dimensions
+- [Phase 02]: Used ComfyWorkflowLike Protocol for loose coupling between stages
+- [Phase 02]: generate() returns (ComfyJob, bytes) tuple; GeneratedBackground constructed by orchestrator
 
 ### Pending Todos
 
@@ -90,6 +93,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-17T00:27:49.346Z
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-04-17T00:32:52.153Z
+Stopped at: Completed 02-02-PLAN.md
 Resume file: None

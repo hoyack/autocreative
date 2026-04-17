@@ -47,7 +47,7 @@ Plans:
 **Plans:** 3 plans
 Plans:
 - [x] 02-01-PLAN.md -- StylePromptBuilder and ImagePreprocessor (pure logic stages)
-- [ ] 02-02-PLAN.md -- ComfyClient (ComfyCloud submit, poll, download)
+- [x] 02-02-PLAN.md -- ComfyClient (ComfyCloud submit, poll, download)
 - [ ] 02-03-PLAN.md -- VisionEvaluator (Claude vision evaluation with parsing and validation)
 
 ### Phase 3: Composition
