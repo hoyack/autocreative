@@ -63,7 +63,7 @@ Plans:
 **Plans:** 2 plans
 Plans:
 - [x] 03-01-PLAN.md -- LayoutResolver and Rasterizer (zone mapping + SVG-to-PNG)
-- [ ] 03-02-PLAN.md -- PosterComposer (SVG composition with all overlays)
+- [x] 03-02-PLAN.md -- PosterComposer (SVG composition with all overlays)
 
 ### Phase 4: Orchestration & CLI
 **Goal**: All pipeline stages are wired into a complete generate-evaluate-retry loop with CLI access and a clean public API

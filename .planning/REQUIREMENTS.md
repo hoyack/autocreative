@@ -32,13 +32,13 @@
 ### Composition
 
 - [x] **COMP-01**: LayoutResolver maps zone labels (TOP_LEFT, MIDDLE_CENTER, etc.) to pixel coordinates and text anchors on 1080x1920 canvas
-- [ ] **COMP-02**: PosterComposer generates SVG with base64-embedded background image
-- [ ] **COMP-03**: Title auto-sized by length with word-wrap and widow-line merge
-- [ ] **COMP-04**: Text color (white/dark) and stroke applied from vision verdict
-- [ ] **COMP-05**: Zone-specific scrim gradients applied only to zones used by title/details
-- [ ] **COMP-06**: Fee badge rendered as pill shape with dynamic width clamped [140, 400]
-- [ ] **COMP-07**: Accent line under title and accent stripe at bottom from event color_accent
-- [ ] **COMP-08**: All user-supplied strings XML-escaped before SVG insertion
+- [x] **COMP-02**: PosterComposer generates SVG with base64-embedded background image
+- [x] **COMP-03**: Title auto-sized by length with word-wrap and widow-line merge
+- [x] **COMP-04**: Text color (white/dark) and stroke applied from vision verdict
+- [x] **COMP-05**: Zone-specific scrim gradients applied only to zones used by title/details
+- [x] **COMP-06**: Fee badge rendered as pill shape with dynamic width clamped [140, 400]
+- [x] **COMP-07**: Accent line under title and accent stripe at bottom from event color_accent
+- [x] **COMP-08**: All user-supplied strings XML-escaped before SVG insertion
 - [x] **COMP-09**: Rasterizer converts SVG to 1080x1920 PNG via cairosvg with dimension sanity check
 
 ### Pipeline
@@ -104,13 +104,13 @@
 | VISN-04 | Phase 2 | Complete |
 | VISN-05 | Phase 2 | Complete |
 | COMP-01 | Phase 3 | Complete |
-| COMP-02 | Phase 3 | Pending |
-| COMP-03 | Phase 3 | Pending |
-| COMP-04 | Phase 3 | Pending |
-| COMP-05 | Phase 3 | Pending |
-| COMP-06 | Phase 3 | Pending |
-| COMP-07 | Phase 3 | Pending |
-| COMP-08 | Phase 3 | Pending |
+| COMP-02 | Phase 3 | Complete |
+| COMP-03 | Phase 3 | Complete |
+| COMP-04 | Phase 3 | Complete |
+| COMP-05 | Phase 3 | Complete |
+| COMP-06 | Phase 3 | Complete |
+| COMP-07 | Phase 3 | Complete |
+| COMP-08 | Phase 3 | Complete |
 | COMP-09 | Phase 3 | Complete |
 | PIPE-01 | Phase 4 | Pending |
 | PIPE-02 | Phase 4 | Pending |
