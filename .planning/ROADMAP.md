@@ -79,7 +79,7 @@ Plans:
 Plans:
 - [x] 04-01-PLAN.md -- FlyerGenerator pipeline orchestrator with retry loop and structured logging
 - [x] 04-02-PLAN.md -- CLI entrypoint via typer with all flags
-- [ ] 04-03-PLAN.md -- Public API surface (generate_flyer, exports, custom preset registration)
+- [x] 04-03-PLAN.md -- Public API surface (generate_flyer, exports, custom preset registration)
 
 ## Progress
 

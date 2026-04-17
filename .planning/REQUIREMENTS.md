@@ -54,8 +54,8 @@
 - [x] **CLI-02**: `--event-json` flag loads EventInput from JSON file
 - [x] **CLI-03**: `--list-presets` enumerates available style presets
 - [x] **CLI-04**: `--dry-run` builds prompt and prints without calling ComfyCloud
-- [ ] **CLI-05**: Public API exports generate_flyer(), FlyerGenerator, EventInput, FlyerOutput, PresetRegistry, StylePreset, and key exceptions
-- [ ] **CLI-06**: Custom preset registration via PresetRegistry before calling generate_flyer()
+- [x] **CLI-05**: Public API exports generate_flyer(), FlyerGenerator, EventInput, FlyerOutput, PresetRegistry, StylePreset, and key exceptions
+- [x] **CLI-06**: Custom preset registration via PresetRegistry before calling generate_flyer()
 
 ## v2 Requirements
 
@@ -120,8 +120,8 @@
 | CLI-02 | Phase 4 | Complete |
 | CLI-03 | Phase 4 | Complete |
 | CLI-04 | Phase 4 | Complete |
-| CLI-05 | Phase 4 | Pending |
-| CLI-06 | Phase 4 | Pending |
+| CLI-05 | Phase 4 | Complete |
+| CLI-06 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 34 total
