@@ -46,7 +46,7 @@ Plans:
   5. Confidence gate rejects verdicts below threshold, and zone validation rejects verdicts with invalid zone names
 **Plans:** 3 plans
 Plans:
-- [ ] 02-01-PLAN.md -- StylePromptBuilder and ImagePreprocessor (pure logic stages)
+- [x] 02-01-PLAN.md -- StylePromptBuilder and ImagePreprocessor (pure logic stages)
 - [ ] 02-02-PLAN.md -- ComfyClient (ComfyCloud submit, poll, download)
 - [ ] 02-03-PLAN.md -- VisionEvaluator (Claude vision evaluation with parsing and validation)
 

@@ -15,11 +15,11 @@
 
 ### Image Generation
 
-- [ ] **IGEN-01**: StylePromptBuilder composes positive/negative prompts from preset + event concept + optional refinement hint
+- [x] **IGEN-01**: StylePromptBuilder composes positive/negative prompts from preset + event concept + optional refinement hint
 - [ ] **IGEN-02**: ComfyClient submits workflow JSON to ComfyCloud API with X-API-Key header
 - [ ] **IGEN-03**: ComfyClient polls job status with configurable interval and max attempts, with exponential backoff on 5xx
 - [ ] **IGEN-04**: ComfyClient downloads result image via history_v2 + view endpoints
-- [ ] **IGEN-05**: ImagePreprocessor upscales 832x1472 to 1080x1920 using Pillow LANCZOS
+- [x] **IGEN-05**: ImagePreprocessor upscales 832x1472 to 1080x1920 using Pillow LANCZOS
 
 ### Vision Evaluation
 
@@ -93,11 +93,11 @@
 | FOUND-03 | Phase 1 | Complete |
 | FOUND-04 | Phase 1 | Complete |
 | FOUND-05 | Phase 1 | Complete |
-| IGEN-01 | Phase 2 | Pending |
+| IGEN-01 | Phase 2 | Complete |
 | IGEN-02 | Phase 2 | Pending |
 | IGEN-03 | Phase 2 | Pending |
 | IGEN-04 | Phase 2 | Pending |
-| IGEN-05 | Phase 2 | Pending |
+| IGEN-05 | Phase 2 | Complete |
 | VISN-01 | Phase 2 | Pending |
 | VISN-02 | Phase 2 | Pending |
 | VISN-03 | Phase 2 | Pending |
