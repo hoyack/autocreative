@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 1: Foundation** - Data contracts, configuration, error hierarchy, style presets, and project scaffolding
 - [x] **Phase 2: Image Pipeline** - AI background generation via ComfyCloud and vision evaluation via Claude (completed 2026-04-17)
 - [x] **Phase 3: Composition** - Layout resolution, SVG composition with text overlays, and PNG rasterization (completed 2026-04-17)
-- [ ] **Phase 4: Orchestration & CLI** - Pipeline wiring with retry loop, CLI entrypoint, and public API surface
+- [x] **Phase 4: Orchestration & CLI** - Pipeline wiring with retry loop, CLI entrypoint, and public API surface (completed 2026-04-17)
 
 ## Phase Details
 
@@ -75,7 +75,7 @@ Plans:
   3. `--list-presets` prints all available presets, `--dry-run` prints the prompt without calling ComfyCloud, `--event-json` loads event data from file
   4. Public API (generate_flyer, FlyerGenerator, EventInput, FlyerOutput, PresetRegistry) is importable and functional
   5. Every pipeline run emits structured logs with a trace_id correlating all events from attempt_start through flyer_generated
-**Plans:** 1/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 - [x] 04-01-PLAN.md -- FlyerGenerator pipeline orchestrator with retry loop and structured logging
 - [x] 04-02-PLAN.md -- CLI entrypoint via typer with all flags
@@ -91,4 +91,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 1. Foundation | 2/2 | Complete | 2026-04-16 |
 | 2. Image Pipeline | 3/3 | Complete   | 2026-04-17 |
 | 3. Composition | 2/2 | Complete   | 2026-04-17 |
-| 4. Orchestration & CLI | 1/3 | In Progress|  |
+| 4. Orchestration & CLI | 3/3 | Complete   | 2026-04-17 |
