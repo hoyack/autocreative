@@ -23,11 +23,11 @@
 
 ### Vision Evaluation
 
-- [ ] **VISN-01**: VisionEvaluator sends background + event context to Claude in a single API call
-- [ ] **VISN-02**: Vision response parsed into VisionVerdict with approved, confidence, zones, text_color, rejection_reasons
-- [ ] **VISN-03**: Confidence gate flips approved to False when confidence < configurable threshold (default 0.6)
-- [ ] **VISN-04**: Parse failure triggers one retry with "return valid JSON only" follow-up prompt
-- [ ] **VISN-05**: Zone validation rejects approved verdicts with null or invalid zone names
+- [x] **VISN-01**: VisionEvaluator sends background + event context to Claude in a single API call
+- [x] **VISN-02**: Vision response parsed into VisionVerdict with approved, confidence, zones, text_color, rejection_reasons
+- [x] **VISN-03**: Confidence gate flips approved to False when confidence < configurable threshold (default 0.6)
+- [x] **VISN-04**: Parse failure triggers one retry with "return valid JSON only" follow-up prompt
+- [x] **VISN-05**: Zone validation rejects approved verdicts with null or invalid zone names
 
 ### Composition
 
@@ -98,11 +98,11 @@
 | IGEN-03 | Phase 2 | Complete |
 | IGEN-04 | Phase 2 | Complete |
 | IGEN-05 | Phase 2 | Complete |
-| VISN-01 | Phase 2 | Pending |
-| VISN-02 | Phase 2 | Pending |
-| VISN-03 | Phase 2 | Pending |
-| VISN-04 | Phase 2 | Pending |
-| VISN-05 | Phase 2 | Pending |
+| VISN-01 | Phase 2 | Complete |
+| VISN-02 | Phase 2 | Complete |
+| VISN-03 | Phase 2 | Complete |
+| VISN-04 | Phase 2 | Complete |
+| VISN-05 | Phase 2 | Complete |
 | COMP-01 | Phase 3 | Pending |
 | COMP-02 | Phase 3 | Pending |
 | COMP-03 | Phase 3 | Pending |
