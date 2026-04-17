@@ -60,8 +60,10 @@ Plans:
   3. Title text auto-sizes based on length, wraps words correctly, and merges widow lines
   4. All user-supplied strings are XML-escaped before SVG insertion (no injection possible)
   5. Rasterizer produces a 1080x1920 PNG from the SVG via cairosvg with dimension verification
-**Plans**: TBD
-**UI hint**: yes
+**Plans:** 2 plans
+Plans:
+- [ ] 03-01-PLAN.md -- LayoutResolver and Rasterizer (zone mapping + SVG-to-PNG)
+- [ ] 03-02-PLAN.md -- PosterComposer (SVG composition with all overlays)
 
 ### Phase 4: Orchestration & CLI
 **Goal**: All pipeline stages are wired into a complete generate-evaluate-retry loop with CLI access and a clean public API
@@ -83,5 +85,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Foundation | 2/2 | Complete | 2026-04-16 |
 | 2. Image Pipeline | 3/3 | Complete   | 2026-04-17 |
-| 3. Composition | 0/TBD | Not started | - |
+| 3. Composition | 0/2 | Not started | - |
 | 4. Orchestration & CLI | 0/TBD | Not started | - |
