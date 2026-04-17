@@ -62,7 +62,7 @@ Plans:
   5. Rasterizer produces a 1080x1920 PNG from the SVG via cairosvg with dimension verification
 **Plans:** 2 plans
 Plans:
-- [ ] 03-01-PLAN.md -- LayoutResolver and Rasterizer (zone mapping + SVG-to-PNG)
+- [x] 03-01-PLAN.md -- LayoutResolver and Rasterizer (zone mapping + SVG-to-PNG)
 - [ ] 03-02-PLAN.md -- PosterComposer (SVG composition with all overlays)
 
 ### Phase 4: Orchestration & CLI
