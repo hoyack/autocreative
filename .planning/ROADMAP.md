@@ -13,7 +13,7 @@ This roadmap delivers an AI-powered event flyer generator in 4 phases, progressi
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Foundation** - Data contracts, configuration, error hierarchy, style presets, and project scaffolding
-- [ ] **Phase 2: Image Pipeline** - AI background generation via ComfyCloud and vision evaluation via Claude
+- [x] **Phase 2: Image Pipeline** - AI background generation via ComfyCloud and vision evaluation via Claude (completed 2026-04-17)
 - [ ] **Phase 3: Composition** - Layout resolution, SVG composition with text overlays, and PNG rasterization
 - [ ] **Phase 4: Orchestration & CLI** - Pipeline wiring with retry loop, CLI entrypoint, and public API surface
 
@@ -44,7 +44,7 @@ Plans:
   3. Downloaded 832x1472 image is upscaled to exactly 1080x1920 via Pillow LANCZOS
   4. VisionEvaluator sends background + context to Claude and returns a structured VisionVerdict with approval status, confidence, zones, and text color
   5. Confidence gate rejects verdicts below threshold, and zone validation rejects verdicts with invalid zone names
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 Plans:
 - [x] 02-01-PLAN.md -- StylePromptBuilder and ImagePreprocessor (pure logic stages)
 - [x] 02-02-PLAN.md -- ComfyClient (ComfyCloud submit, poll, download)
@@ -82,6 +82,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 2/2 | Complete | 2026-04-16 |
-| 2. Image Pipeline | 0/3 | Planning complete | - |
+| 2. Image Pipeline | 3/3 | Complete   | 2026-04-17 |
 | 3. Composition | 0/TBD | Not started | - |
 | 4. Orchestration & CLI | 0/TBD | Not started | - |
