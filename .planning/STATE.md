@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-04-17T01:23:04.945Z"
-last_activity: 2026-04-17 -- Phase 4 planning complete
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-04-17T01:32:53.930Z"
+last_activity: 2026-04-17
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 10
-  completed_plans: 7
-  percent: 70
+  completed_plans: 8
+  percent: 80
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-16)
 
 **Core value:** Given structured event data and a style preset, produce a polished 1080x1920 event flyer with AI-generated artwork and intelligently placed text -- every time, without manual design work.
-**Current focus:** Phase 3 — Composition
+**Current focus:** Phase 4 — Orchestration & CLI
 
 ## Current Position
 
-Phase: 3 (Composition) — EXECUTING
-Plan: 2 of 2
+Phase: 4 (Orchestration & CLI) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-04-17 -- Phase 4 planning complete
+Last activity: 2026-04-17
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -59,6 +59,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02 P03 | 3min | 2 tasks | 3 files |
 | Phase 03-composition P01 | 3min | 2 tasks | 5 files |
 | Phase 03-composition P02 | 3min | 2 tasks | 2 files |
+| Phase 04 P01 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,7 @@ Recent decisions affecting current work:
 - [Phase 02]: AsyncAnthropic client created in __init__ with timeout from Settings
 - [Phase 03-composition]: Inlined 1080/1920 literals in Rasterizer; conftest.py generates sample PNG programmatically
 - [Phase 03-composition]: Uppercase title before XML-escape to prevent entity corruption
+- [Phase 04]: Prompt hash (sha256[:12]) logged at info, full prompt at debug only per D-17
 
 ### Pending Todos
 
@@ -100,6 +102,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-17T01:10:32.121Z
-Stopped at: Completed 03-02-PLAN.md
+Last session: 2026-04-17T01:32:53.927Z
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None

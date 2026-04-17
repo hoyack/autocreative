@@ -43,10 +43,10 @@
 
 ### Pipeline
 
-- [ ] **PIPE-01**: FlyerGenerator orchestrates all stages in sequence with regeneration loop on vision rejection
-- [ ] **PIPE-02**: Regeneration loop runs up to max_bg_attempts (default 3), feeding refinement hints back to prompt builder
-- [ ] **PIPE-03**: Each pipeline run generates a trace_id (UUID4) for log correlation
-- [ ] **PIPE-04**: Structured logging with structlog emitting key events (attempt_start, comfy_submitted, vision_approved/rejected, flyer_generated)
+- [x] **PIPE-01**: FlyerGenerator orchestrates all stages in sequence with regeneration loop on vision rejection
+- [x] **PIPE-02**: Regeneration loop runs up to max_bg_attempts (default 3), feeding refinement hints back to prompt builder
+- [x] **PIPE-03**: Each pipeline run generates a trace_id (UUID4) for log correlation
+- [x] **PIPE-04**: Structured logging with structlog emitting key events (attempt_start, comfy_submitted, vision_approved/rejected, flyer_generated)
 
 ### CLI & API
 
@@ -112,10 +112,10 @@
 | COMP-07 | Phase 3 | Complete |
 | COMP-08 | Phase 3 | Complete |
 | COMP-09 | Phase 3 | Complete |
-| PIPE-01 | Phase 4 | Pending |
-| PIPE-02 | Phase 4 | Pending |
-| PIPE-03 | Phase 4 | Pending |
-| PIPE-04 | Phase 4 | Pending |
+| PIPE-01 | Phase 4 | Complete |
+| PIPE-02 | Phase 4 | Complete |
+| PIPE-03 | Phase 4 | Complete |
+| PIPE-04 | Phase 4 | Complete |
 | CLI-01 | Phase 4 | Pending |
 | CLI-02 | Phase 4 | Pending |
 | CLI-03 | Phase 4 | Pending |
