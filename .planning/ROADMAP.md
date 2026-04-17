@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Foundation** - Data contracts, configuration, error hierarchy, style presets, and project scaffolding
 - [x] **Phase 2: Image Pipeline** - AI background generation via ComfyCloud and vision evaluation via Claude (completed 2026-04-17)
-- [ ] **Phase 3: Composition** - Layout resolution, SVG composition with text overlays, and PNG rasterization
+- [x] **Phase 3: Composition** - Layout resolution, SVG composition with text overlays, and PNG rasterization (completed 2026-04-17)
 - [ ] **Phase 4: Orchestration & CLI** - Pipeline wiring with retry loop, CLI entrypoint, and public API surface
 
 ## Phase Details
@@ -60,7 +60,7 @@ Plans:
   3. Title text auto-sizes based on length, wraps words correctly, and merges widow lines
   4. All user-supplied strings are XML-escaped before SVG insertion (no injection possible)
   5. Rasterizer produces a 1080x1920 PNG from the SVG via cairosvg with dimension verification
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
 - [x] 03-01-PLAN.md -- LayoutResolver and Rasterizer (zone mapping + SVG-to-PNG)
 - [x] 03-02-PLAN.md -- PosterComposer (SVG composition with all overlays)
@@ -85,5 +85,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 |-------|----------------|--------|-----------|
 | 1. Foundation | 2/2 | Complete | 2026-04-16 |
 | 2. Image Pipeline | 3/3 | Complete   | 2026-04-17 |
-| 3. Composition | 0/2 | Not started | - |
+| 3. Composition | 2/2 | Complete   | 2026-04-17 |
 | 4. Orchestration & CLI | 0/TBD | Not started | - |
