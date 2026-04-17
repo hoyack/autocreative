@@ -193,6 +193,7 @@ class VisionEvaluator:
                 ]
                 if invalid_zones:
                     data["approved"] = False
+                    data["zones"] = None
                     data.setdefault("rejection_reasons", []).append(
                         f"Invalid zone names: {', '.join(invalid_zones)}"
                     )
