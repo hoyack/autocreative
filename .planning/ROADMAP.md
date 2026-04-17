@@ -44,7 +44,11 @@ Plans:
   3. Downloaded 832x1472 image is upscaled to exactly 1080x1920 via Pillow LANCZOS
   4. VisionEvaluator sends background + context to Claude and returns a structured VisionVerdict with approval status, confidence, zones, and text color
   5. Confidence gate rejects verdicts below threshold, and zone validation rejects verdicts with invalid zone names
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 02-01-PLAN.md -- StylePromptBuilder and ImagePreprocessor (pure logic stages)
+- [ ] 02-02-PLAN.md -- ComfyClient (ComfyCloud submit, poll, download)
+- [ ] 02-03-PLAN.md -- VisionEvaluator (Claude vision evaluation with parsing and validation)
 
 ### Phase 3: Composition
 **Goal**: Given a background image and vision verdict, the system can produce a complete 1080x1920 PNG flyer with properly placed text, scrims, badges, and accents
@@ -77,7 +81,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/2 | Not started | - |
-| 2. Image Pipeline | 0/TBD | Not started | - |
+| 1. Foundation | 2/2 | Complete | 2026-04-16 |
+| 2. Image Pipeline | 0/3 | Planning complete | - |
 | 3. Composition | 0/TBD | Not started | - |
 | 4. Orchestration & CLI | 0/TBD | Not started | - |
