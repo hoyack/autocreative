@@ -38,7 +38,7 @@ Context:
 Return JSON with this exact shape:
 {{
   "sections": [
-    {{"heading": "...", "body_brief": "one-sentence direction", "image_hint": "...|null", "panel_role": "cover|feature|detail|cta"}},
+    {{"heading": "...", "body_brief": "one-sentence direction", "image_hint": "...|null", "panel_role": "cover|feature|detail|cta", "cover_image_concept": "...|null"}},
     ...
   ],
   "tone": "short phrase describing overall tone",
@@ -53,7 +53,8 @@ Rules:
 - image_hint may be non-null on at most 3 sections total.
 - If user specified style_preset or color_accent above, echo them in suggested_preset / suggested_accent.
 - suggested_accent must be a 6-digit hex color like #2E8B57.
-- body_brief should be a one-sentence direction for a copywriter, NOT the final body text."""
+- body_brief should be a one-sentence direction for a copywriter, NOT the final body text.
+- cover_image_concept is REQUIRED on the cover section and must describe a concrete VISUAL scene to render (e.g. "sunlit yoga studio with potted plants and a folded mat"). Keep it to one sentence with concrete nouns + adjectives. Set it to null on non-cover sections."""
 
 
 class BrochureOutlineError(Exception):

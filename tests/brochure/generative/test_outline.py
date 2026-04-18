@@ -119,3 +119,124 @@ async def test_generate_outline_passes_response_format_json() -> None:
     client = _mock_text_client(_valid_outline_json())
     await generate_outline(BrochurePrompt(prompt="x"), client)
     assert client.complete.call_args.kwargs["response_format"] == "json"
+
+
+@pytest.mark.asyncio
+async def test_generate_outline_parses_cover_image_concept() -> None:
+    """Cover section carries through the dedicated image concept."""
+    payload = json.dumps(
+        {
+            "sections": [
+                {
+                    "heading": "Welcome",
+                    "body_brief": "introduce the studio",
+                    "image_hint": None,
+                    "panel_role": "cover",
+                    "cover_image_concept": "sunlit yoga studio with plants and a folded mat",
+                },
+                {
+                    "heading": "Classes",
+                    "body_brief": "list class formats",
+                    "image_hint": None,
+                    "panel_role": "feature",
+                },
+            ],
+            "tone": "calm",
+            "cta_intent": "come try a class",
+            "suggested_preset": "photorealistic",
+            "suggested_accent": "#7BB661",
+        }
+    )
+    outline = await generate_outline(BrochurePrompt(prompt="x"), _mock_text_client(payload))
+    cover = next(s for s in outline.sections if s.panel_role == "cover")
+    assert cover.cover_image_concept == "sunlit yoga studio with plants and a folded mat"
+    # Non-cover section: field absent in JSON → defaults to None
+    non_cover = next(s for s in outline.sections if s.panel_role != "cover")
+    assert non_cover.cover_image_concept is None
+
+
+@pytest.mark.asyncio
+async def test_generate_outline_omits_cover_image_concept_gracefully() -> None:
+    """Missing cover_image_concept is tolerated (defaults to None)."""
+    # Use existing _valid_outline_json which doesn't include the new field.
+    outline = await generate_outline(
+        BrochurePrompt(prompt="x"), _mock_text_client(_valid_outline_json())
+    )
+    cover = next(s for s in outline.sections if s.panel_role == "cover")
+    assert cover.cover_image_concept is None
+
+
+def test_assemble_brochure_input_prefers_cover_image_concept() -> None:
+    """_assemble_brochure_input picks cover_image_concept over body_brief."""
+    from flyer_generator.brochure.generative.models import (
+        BrochureOutline,
+        SectionSpec,
+        SectionText,
+    )
+    from flyer_generator.brochure.generative.pipeline import _assemble_brochure_input
+
+    outline = BrochureOutline(
+        sections=[
+            SectionSpec(
+                heading="Welcome",
+                body_brief="copywriter-direction-that-should-not-be-used",
+                image_hint=None,
+                panel_role="cover",
+                cover_image_concept="backlit studio with sheer curtains and soft dawn light",
+            ),
+            SectionSpec(
+                heading="Classes",
+                body_brief="list class formats",
+                image_hint=None,
+                panel_role="feature",
+            ),
+        ],
+        tone="calm",
+        cta_intent="visit us",
+        suggested_preset="photorealistic",
+        suggested_accent="#7BB661",
+    )
+    texts = [
+        SectionText(heading="Welcome", body="hello"),
+        SectionText(heading="Classes", body="classes body"),
+    ]
+    prompt = BrochurePrompt(prompt="yoga for moms")
+    brochure_input = _assemble_brochure_input(prompt, outline, texts)
+    assert brochure_input.hero_concept == "backlit studio with sheer curtains and soft dawn light"
+
+
+def test_assemble_brochure_input_falls_back_to_body_brief_when_concept_missing() -> None:
+    """With cover_image_concept=None, hero_concept uses body_brief as before."""
+    from flyer_generator.brochure.generative.models import (
+        BrochureOutline,
+        SectionSpec,
+        SectionText,
+    )
+    from flyer_generator.brochure.generative.pipeline import _assemble_brochure_input
+
+    outline = BrochureOutline(
+        sections=[
+            SectionSpec(
+                heading="Welcome",
+                body_brief="introduce the studio",
+                image_hint=None,
+                panel_role="cover",
+            ),
+            SectionSpec(
+                heading="Classes",
+                body_brief="list",
+                image_hint=None,
+                panel_role="feature",
+            ),
+        ],
+        tone="calm",
+        cta_intent="visit",
+        suggested_preset="photorealistic",
+        suggested_accent="#7BB661",
+    )
+    texts = [
+        SectionText(heading="Welcome", body="hello"),
+        SectionText(heading="Classes", body="c"),
+    ]
+    brochure_input = _assemble_brochure_input(BrochurePrompt(prompt="p"), outline, texts)
+    assert brochure_input.hero_concept == "introduce the studio"

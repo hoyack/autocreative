@@ -80,7 +80,13 @@ def _assemble_brochure_input(
     """
     cover_section = next(s for s in outline.sections if s.panel_role == "cover")
     title = cover_section.heading
-    hero_concept = cover_section.body_brief or prompt.prompt[:120]
+    # Prefer the outline's dedicated cover_image_concept (describes the hero
+    # visually) over body_brief (copywriter direction) over raw prompt slice.
+    hero_concept = (
+        cover_section.cover_image_concept
+        or cover_section.body_brief
+        or prompt.prompt[:120]
+    )
 
     # Split into cta vs content sections.
     cta_section = next((s for s in outline.sections if s.panel_role == "cta"), None)

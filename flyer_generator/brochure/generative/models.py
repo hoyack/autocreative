@@ -49,6 +49,14 @@ class SectionSpec(BaseModel):
     body_brief: str = Field(description="one-sentence direction for stage 2")
     image_hint: str | None = None
     panel_role: PanelRole
+    cover_image_concept: str | None = Field(
+        default=None,
+        description=(
+            "Cover-section only: concrete visual concept for the hero image "
+            "(what to render, not how to describe it in copy). Ignored on "
+            "non-cover sections."
+        ),
+    )
 
 
 class BrochureOutline(BaseModel):
