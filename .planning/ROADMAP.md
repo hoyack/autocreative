@@ -2,7 +2,9 @@
 
 ## Overview
 
-This roadmap delivers an AI-powered event flyer generator in 4 phases, progressing from data contracts through image generation, visual composition, and finally pipeline orchestration with CLI exposure. Each phase delivers a coherent, testable capability that builds on the previous. The structure follows the natural data flow of the pipeline: define contracts, generate images, compose flyers, wire and expose.
+This roadmap delivers an AI-powered event flyer generator, then extends the same pipeline to a tri-fold landscape brochure generator. Phases 1-4 deliver the flyer (data contracts → image generation → visual composition → orchestration). Phases 5-9 deliver the brochure extension (models/geometry → landscape workflow → SVG composition → PDF assembly → CLI/public API), reusing the flyer's ComfyCloud client, vision evaluator, preset registry, and rasterizer.
+
+Design reference: [docs/brochure-plan.md](../docs/brochure-plan.md).
 
 ## Phases
 
@@ -16,6 +18,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Image Pipeline** - AI background generation via ComfyCloud and vision evaluation via Claude (completed 2026-04-17)
 - [x] **Phase 3: Composition** - Layout resolution, SVG composition with text overlays, and PNG rasterization (completed 2026-04-17)
 - [x] **Phase 4: Orchestration & CLI** - Pipeline wiring with retry loop, CLI entrypoint, and public API surface (completed 2026-04-17)
+- [ ] **Phase 5: Brochure Models & Panel Geometry** - BrochureInput / BrochureSection / BrochureOutput Pydantic models and panel geometry layout module
+- [ ] **Phase 6: Brochure Workflow & Prompt Builder** - turbo_landscape ComfyCloud workflow, brochure cover prompt builder, vision hook for cover evaluation
+- [ ] **Phase 7: Brochure Composition** - Two-sheet SVG composer (outside + inside), rasterizer integration producing two 3300x2550 PNGs
+- [ ] **Phase 8: Brochure PDF Assembly** - reportlab-based 2-page print-ready PDF with bleed canvas and crop marks
+- [ ] **Phase 9: Brochure CLI & Public API** - `brochure` subcommand, generate_brochure public API, end-to-end smoke test
 
 ## Phase Details
 
@@ -81,10 +88,65 @@ Plans:
 - [x] 04-02-PLAN.md -- CLI entrypoint via typer with all flags
 - [x] 04-03-PLAN.md -- Public API surface (generate_flyer, exports, custom preset registration)
 
+### Phase 5: Brochure Models & Panel Geometry
+**Goal**: BrochureInput, BrochureSection, BrochureBackPanel, ContactBlock, and BrochureOutput Pydantic models exist and validate correctly; a pure-function panel geometry module returns correct pixel rectangles (with bleed and safe zones) for all six tri-fold panels on a 3300x2550 landscape sheet
+**Depends on**: Phase 4
+**Requirements**: From docs/brochure-plan.md sections 2 and 3
+**Success Criteria** (what must be TRUE):
+  1. `from flyer_generator.brochure.models import BrochureInput, BrochureSection, BrochureBackPanel, ContactBlock, BrochureOutput` succeeds
+  2. BrochureInput validates hex accent colours, enforces 2-5 sections, and accepts optional contact/back_panel fields
+  3. flyer_generator.brochure.stages.layout.compute_panel_layout(dims, bleed, safe_zone) returns a ResolvedBrochureLayout with six panel rectangles in correct positions
+  4. Unit tests cover geometry math (panel widths sum to sheet width, safe zones inset correctly, bleed canvas larger than trim) and model validation (boundary section counts, invalid colours rejected)
+  5. No runtime dependency on ComfyCloud, Anthropic, or reportlab in this phase
+
+### Phase 6: Brochure Workflow & Prompt Builder
+**Goal**: The system can generate a landscape cover hero image end-to-end (ComfyCloud → upscale → vision evaluation) using a new brochure-specific prompt and workflow, with no composition yet
+**Depends on**: Phase 5
+**Requirements**: From docs/brochure-plan.md sections 4, 5, and 6
+**Success Criteria** (what must be TRUE):
+  1. `flyer_generator/workflows/turbo_landscape.json` exists with latent_dimensions [1472, 832] and valid injection_points; workflow_loader.load_workflow('turbo_landscape') returns a valid WorkflowConfig
+  2. A brochure prompt builder composes positive/negative prompts from a style preset, hero_concept, and BROCHURE_COVER_DIRECTIVES (centred subject, clean edges, landscape framing)
+  3. VisionEvaluator accepts an optional prompt_template parameter that swaps the flyer template for a brochure cover template (no 9-zone grid)
+  4. An async hero-generation entrypoint returns upscaled bytes + VisionVerdict given a BrochureInput, mirroring flyer's attempt/retry semantics
+  5. Integration tests with respx-mocked ComfyCloud and anthropic stubs confirm regen loop, confidence gate, and attempt limit behave identically to flyer pipeline
+
+### Phase 7: Brochure Composition
+**Goal**: Given a BrochureInput plus a generated hero image, the system produces two 3300x2550 PNGs (outside sheet, inside sheet) with the hero embedded on the front cover, accent-tinted gradients on other panels, panel text laid out within safe zones, and fold/crop marks on a separate non-printing SVG layer
+**Depends on**: Phase 6
+**Requirements**: From docs/brochure-plan.md sections 4 and 7
+**Success Criteria** (what must be TRUE):
+  1. BrochureComposer produces two valid SVG documents (outside, inside) with six panels total
+  2. Front cover panel embeds the hero image as base64; other five panels render accent-tinted gradients derived from BrochureInput.color_accent
+  3. Each panel's heading and body text renders within the safe zone with word wrapping and auto font-size reduction on overflow
+  4. Fold lines and crop marks are on a separate SVG layer that can be toggled non-printing
+  5. Existing Rasterizer.rasterize() (cairosvg) converts both SVGs to PNGs at exactly 3300x2550; all user-supplied strings are XML-escaped
+
+### Phase 8: Brochure PDF Assembly
+**Goal**: A 2-page print-ready PDF is produced from the two brochure PNGs, sized to the bleed canvas (3375x2625 @ 300 DPI), with crop marks drawn in the bleed area and pages ordered outside-first then inside
+**Depends on**: Phase 7
+**Requirements**: From docs/brochure-plan.md section 7
+**Success Criteria** (what must be TRUE):
+  1. `reportlab` is added to pyproject.toml and installs cleanly
+  2. A pdf assembly module accepts front_png_bytes + back_png_bytes and returns a 2-page PDF as bytes
+  3. PDF page dimensions match the bleed canvas (3375x2625 at 300 DPI); images placed with correct origin offset so trim area aligns
+  4. Crop marks are drawn in the bleed area at all four trim corners on both pages
+  5. A new BrochurePDFError is raised on assembly failure; tests verify page count, dimensions, and crop mark presence (parsed via pypdf)
+
+### Phase 9: Brochure CLI & Public API
+**Goal**: End-to-end `python -m flyer_generator brochure ...` produces brochure_front.png, brochure_back.png, and brochure_print.pdf from CLI arguments or a JSON input file; public API exposes generate_brochure, BrochureGenerator, and related models
+**Depends on**: Phase 8
+**Requirements**: From docs/brochure-plan.md sections 8 and 9
+**Success Criteria** (what must be TRUE):
+  1. Running `python -m flyer_generator brochure --brochure-json sample.json --output out/` produces three files without errors
+  2. `from flyer_generator.brochure import generate_brochure, BrochureGenerator, BrochureInput, BrochureOutput` succeeds
+  3. BrochureGenerator orchestrates prompt_builder → comfy_client → preprocessor → vision → composer → rasterizer → pdf with structured logging and trace_id propagation
+  4. CLI flags include --title, --subtitle, --concept, --preset, --accent, --org, --sections-json, --brochure-json, --output, --dry-run, --max-attempts; --dry-run prints prompt and panel plan without API calls
+  5. Smoke test with mocked ComfyCloud + vision produces three artifacts of correct type and dimensions; existing flyer CLI behaviour is unchanged
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -92,3 +154,8 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4
 | 2. Image Pipeline | 3/3 | Complete   | 2026-04-17 |
 | 3. Composition | 2/2 | Complete   | 2026-04-17 |
 | 4. Orchestration & CLI | 3/3 | Complete   | 2026-04-17 |
+| 5. Brochure Models & Panel Geometry | 0/? | Not Started | - |
+| 6. Brochure Workflow & Prompt Builder | 0/? | Not Started | - |
+| 7. Brochure Composition | 0/? | Not Started | - |
+| 8. Brochure PDF Assembly | 0/? | Not Started | - |
+| 9. Brochure CLI & Public API | 0/? | Not Started | - |
