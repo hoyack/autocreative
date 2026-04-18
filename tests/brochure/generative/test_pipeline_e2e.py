@@ -153,6 +153,9 @@ async def test_generate_from_prompt_end_to_end(monkeypatch: pytest.MonkeyPatch) 
     # verify_threshold was 70 → verification must be attached to the output
     assert result.verification is not None
     assert 0 <= result.verification.score <= 100
+    # Mechanical lint runs unconditionally; report must be attached
+    assert result.lint_report is not None
+    assert "_summary" in result.lint_report
 
 
 @pytest.mark.asyncio

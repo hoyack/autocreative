@@ -235,7 +235,23 @@ async def generate_brochure_from_prompt(
         prompt=prompt,
         log=log,
     )
-    front_png, back_png, pdf_bytes, verdict = rendered
+    front_png, back_png, pdf_bytes, verdict, outside_svg, inside_svg = rendered
+
+    # --- Stage 8: mechanical lint ---
+    try:
+        from flyer_generator.brochure.generative.lint import lint_brochure
+
+        lint_report = lint_brochure(
+            outside_svg=outside_svg,
+            inside_svg=inside_svg,
+            front_png_bytes=front_png,
+            back_png_bytes=back_png,
+            layout=compute_panel_layout(),
+        )
+        log.info("brochure_linted", summary=lint_report.get("_summary", ""))
+    except Exception as exc:  # lint is best-effort; don't fail generation on bug
+        log.warning("brochure_lint_failed", error=str(exc))
+        lint_report = {"_summary": f"lint error: {exc}"}
 
     return BrochureOutput(
         front_png_bytes=front_png,
@@ -245,6 +261,7 @@ async def generate_brochure_from_prompt(
         attempts_used=imagery.hero_attempts_used,
         hero_vision_verdict=imagery.hero_vision_verdict,
         verification=verdict,
+        lint_report=lint_report,
         trace_id=trace_id,
     )
 
@@ -262,8 +279,13 @@ async def _render_and_verify(
     max_verify_iterations,
     prompt,
     log,
-) -> tuple[bytes, bytes, bytes, VerificationVerdict | None]:
-    """Compose + rasterize + PDF, then verify with regen loop."""
+) -> tuple[bytes, bytes, bytes, VerificationVerdict | None, str, str]:
+    """Compose + rasterize + PDF, then verify with regen loop.
+
+    Returns (front_png, back_png, pdf, verdict, outside_svg, inside_svg) — the
+    SVGs are handed back so the caller can run the mechanical linter on the
+    accepted iteration's markup.
+    """
     rasterizer = Rasterizer(width=BLEED_CANVAS_WIDTH, height=BLEED_CANVAS_HEIGHT)
     layout = compute_panel_layout()
 
@@ -272,11 +294,15 @@ async def _render_and_verify(
     # genuinely different composition to evaluate (not the same bytes).
     base_title = brochure_input.title
 
+    outside_svg = ""
+    inside_svg = ""
+    front_png = b""
+    back_png = b""
+
     for iteration in range(1, max_verify_iterations + 1):
         # Nudge the title with an invisible marker per iteration so the composer's
         # seed (derived from title hash) produces different shape positions.
         if iteration > 1:
-            # Mutate a copy so we don't leak the marker into the final title.
             iter_brochure = brochure_input.model_copy(
                 update={"title": base_title + "\u200b" * (iteration - 1)}
             )
@@ -296,9 +322,8 @@ async def _render_and_verify(
         back_png = rasterizer.rasterize(inside_svg)
 
         if verify_threshold <= 0:
-            # Fast mode — skip verification entirely
             pdf = assemble_brochure_pdf(front_png, back_png)
-            return front_png, back_png, pdf, None
+            return front_png, back_png, pdf, None, outside_svg, inside_svg
 
         try:
             verdict = await verify_brochure(
@@ -311,9 +336,8 @@ async def _render_and_verify(
             )
         except Exception as exc:
             log.warning("brochure_verify_failed", error=str(exc))
-            # On verify failure, accept what we have.
             pdf = assemble_brochure_pdf(front_png, back_png)
-            return front_png, back_png, pdf, None
+            return front_png, back_png, pdf, None, outside_svg, inside_svg
 
         last_verdict = verdict
         log.info("brochure_verified",
@@ -321,15 +345,10 @@ async def _render_and_verify(
                  weakest=verdict.weakest_stage)
         if verdict.score >= verify_threshold:
             pdf = assemble_brochure_pdf(front_png, back_png)
-            return front_png, back_png, pdf, verdict
+            return front_png, back_png, pdf, verdict, outside_svg, inside_svg
 
-        # Below threshold: for cheap regen, retry compose with a different seed
-        # by nudging brochure_input (e.g. add a zero-width space to title to change hash).
-        # Stop after max_verify_iterations.
-
-    # Exhausted iterations — ship what we have.
     pdf = assemble_brochure_pdf(front_png, back_png)
-    return front_png, back_png, pdf, last_verdict
+    return front_png, back_png, pdf, last_verdict, outside_svg, inside_svg
 
 
 def _placeholder_hero() -> bytes:

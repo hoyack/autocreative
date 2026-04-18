@@ -133,6 +133,9 @@ def main(
             passed = verify_threshold > 0 and v.score >= verify_threshold
             status = "passed" if passed else f"below threshold={verify_threshold}, weakest={v.weakest_stage or 'none'} — accepted"
             typer.echo(f"Verification: score={v.score} ({status})")
+        if result.lint_report is not None:
+            summary = result.lint_report.get("_summary", "no summary")
+            typer.echo(f"Lint: {summary}")
         raise typer.Exit(0)
 
     # --- Build BrochureInput (v1 path) ---
