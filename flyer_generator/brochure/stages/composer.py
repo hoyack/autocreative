@@ -18,13 +18,19 @@ from __future__ import annotations
 import base64
 from xml.sax.saxutils import escape
 
+from flyer_generator.brochure.generative.models import LayoutChoice
 from flyer_generator.brochure.models import (
+    BrochureBackPanel,
     BrochureInput,
     BrochureSection,
     PanelRect,
     ResolvedBrochureLayout,
 )
+from flyer_generator.brochure.shapes import render_shape
+from flyer_generator.brochure.templates import EDITORIAL, LayoutTemplate, get_template
 from flyer_generator.errors import CompositionError
+
+# --- Fallback typography (used when no template is supplied — keeps v1 tests green) ---
 
 _FONT_TITLE = "'Arial Black', Arial, sans-serif"
 _FONT_BODY = "Arial, sans-serif"
@@ -36,6 +42,15 @@ _BODY_MAX_CHARS_PER_LINE = 28
 
 _TITLE_FONT_SIZE = 110
 _SUBTITLE_FONT_SIZE = 48
+
+# --- Back-panel kind → human-readable heading (fixes v1 "CTA" leak) ---
+
+_BACK_PANEL_HEADINGS: dict[str, str] = {
+    "cta": "Visit Us",
+    "bio": "About",
+    "map_stub": "Find Us",
+    "contact": "Contact",
+}
 
 _FOLD_LINE_COLOR = "#FF00FF"  # magenta, visible guide color; on a non-printing layer
 _CROP_MARK_COLOR = "#000000"
@@ -178,11 +193,12 @@ def _render_back_panel_text(panel: PanelRect, brochure: BrochureInput) -> str:
     parts: list[str] = []
     y = sy + _HEADING_FONT_SIZE
     if brochure.back_panel is not None:
+        heading_text = _BACK_PANEL_HEADINGS.get(brochure.back_panel.kind, "Details")
         parts.append(
             f'<text x="{sx}" y="{y}" '
             f'font-family="{_FONT_TITLE}" font-size="{_HEADING_FONT_SIZE}" '
             f'fill="{brochure.color_accent}">'
-            f"{escape(brochure.back_panel.kind.replace('_', ' ').upper())}</text>"
+            f"{escape(heading_text)}</text>"
         )
         y += _HEADING_FONT_SIZE
         for line in _wrap(brochure.back_panel.content, _BODY_MAX_CHARS_PER_LINE):
@@ -247,11 +263,12 @@ def _sheet_svg(
     panel_content: str,
     fold_lines: list[int],
     crop_mark_anchors: list[tuple[int, int]],
+    render_guides: bool = False,
 ) -> str:
     """Assemble a full-sheet SVG document with ordered layers.
 
     Order (back to front): white background, panel_content, fold-line guides
-    (non-printing), crop marks.
+    (only when render_guides=True — fixes v1 print bug), crop marks.
     """
     header = (
         f'<?xml version="1.0" encoding="UTF-8"?>'
@@ -259,12 +276,17 @@ def _sheet_svg(
         f'width="{canvas_w}" height="{canvas_h}" '
         f'viewBox="0 0 {canvas_w} {canvas_h}">'
     )
+    fold_layer = ""
+    if render_guides:
+        fold_layer = (
+            f'<g id="fold-lines" data-print="false">'
+            f"{_render_fold_lines(fold_lines, canvas_h)}"
+            f"</g>"
+        )
     body = (
         f'<rect width="{canvas_w}" height="{canvas_h}" fill="#FFFFFF"/>'
         f"{panel_content}"
-        f'<g id="fold-lines" data-print="false">'
-        f"{_render_fold_lines(fold_lines, canvas_h)}"
-        f"</g>"
+        f"{fold_layer}"
         f'<g id="crop-marks" data-print="true">'
         f"{_render_crop_marks(crop_mark_anchors)}"
         f"</g>"
@@ -272,10 +294,37 @@ def _sheet_svg(
     return header + body + "</svg>"
 
 
+def _resolve_shapes_for_panel(
+    panel: PanelRect,
+    recipes: tuple[str, ...],
+    accent_hex: str,
+    seed: int,
+    density: str,
+    section_heading: str | None = None,
+) -> str:
+    """Render all shape recipes declared for a panel, scaled by shape_density."""
+    if not recipes:
+        return ""
+    if density == "sparse":
+        recipes_to_render = recipes[:1]  # keep only the first recipe
+    elif density == "dense":
+        recipes_to_render = recipes + recipes[:1]  # duplicate first for more density
+    else:
+        recipes_to_render = recipes
+    parts = []
+    for i, recipe in enumerate(recipes_to_render):
+        parts.append(render_shape(recipe, panel, accent_hex, seed=seed + i, text=section_heading))
+    return "".join(parts)
+
+
 def compose_brochure_svgs(
     brochure: BrochureInput,
     layout: ResolvedBrochureLayout,
     hero_png_bytes: bytes,
+    layout_choice: LayoutChoice | None = None,
+    template: LayoutTemplate | None = None,
+    *,
+    render_guides: bool = False,
 ) -> tuple[str, str]:
     """Return (outside_sheet_svg, inside_sheet_svg) as strings.
 
@@ -294,6 +343,9 @@ def compose_brochure_svgs(
     canvas_w = max(p.bleed_rect[0] + p.bleed_rect[2] for p in layout.outside_panels)
     canvas_h = any_panel.bleed_rect[3]
 
+    shape_density = layout_choice.shape_density if layout_choice is not None else "medium"
+    seed_base = hash(brochure.title) & 0xFFFF
+
     # --- OUTSIDE SHEET ---
     outside_parts: list[str] = []
     # Gradient on back cover and tuck flap only (front cover gets the hero image).
@@ -305,6 +357,13 @@ def compose_brochure_svgs(
             )
         elif panel.name == "back_cover":
             outside_parts.append(_render_panel_gradient(panel, brochure.color_accent))
+            if template is not None:
+                outside_parts.append(
+                    _resolve_shapes_for_panel(
+                        panel, template.shape_mix.get(panel.name, ()),
+                        brochure.color_accent, seed_base, shape_density,
+                    )
+                )
             outside_parts.append(_render_back_panel_text(panel, brochure))
         elif panel.name == "tuck_flap":
             outside_parts.append(_render_panel_gradient(panel, brochure.color_accent))
@@ -317,6 +376,14 @@ def compose_brochure_svgs(
                 body=compressed_body,
                 icon_hint=first_section.icon_hint,
             )
+            if template is not None:
+                outside_parts.append(
+                    _resolve_shapes_for_panel(
+                        panel, template.shape_mix.get(panel.name, ()),
+                        brochure.color_accent, seed_base + 1, shape_density,
+                        section_heading=compressed.heading,
+                    )
+                )
             outside_parts.append(
                 _render_section_text(panel, compressed, brochure.color_accent)
             )
@@ -327,6 +394,7 @@ def compose_brochure_svgs(
         panel_content="".join(outside_parts),
         fold_lines=layout.fold_lines_outside,
         crop_mark_anchors=layout.crop_marks[:4],
+        render_guides=render_guides,
     )
 
     # --- INSIDE SHEET ---
@@ -339,22 +407,32 @@ def compose_brochure_svgs(
             brochure.sections[idx] if idx < len(brochure.sections) else None
         )
 
-    for panel, section in zip(layout.inside_panels, inside_sections):
+    for idx, (panel, section) in enumerate(zip(layout.inside_panels, inside_sections)):
         inside_parts.append(_render_panel_gradient(panel, brochure.color_accent))
+        if template is not None:
+            inside_parts.append(
+                _resolve_shapes_for_panel(
+                    panel, template.shape_mix.get(panel.name, ()),
+                    brochure.color_accent, seed_base + 10 + idx, shape_density,
+                    section_heading=section.heading if section else None,
+                )
+            )
         if section is not None:
             inside_parts.append(
                 _render_section_text(panel, section, brochure.color_accent)
             )
 
     # Overflow section[4] → bottom of rightmost inner panel as a compact list.
+    # Fix v1 bug: heading must be ≥ body font size. Use same heading size, smaller body.
     if len(brochure.sections) == 5:
         right_panel = layout.inside_panels[-1]
         overflow = brochure.sections[4]
         sx, sy, sw, sh = right_panel.safe_rect
+        overflow_heading_size = max(_HEADING_FONT_SIZE // 2, _BODY_FONT_SIZE + 8)
         y = sy + sh - (_BODY_LINE_HEIGHT * 4)
         inside_parts.append(
             f'<text x="{sx}" y="{y}" '
-            f'font-family="{_FONT_TITLE}" font-size="{_HEADING_FONT_SIZE // 2}" '
+            f'font-family="{_FONT_TITLE}" font-size="{overflow_heading_size}" '
             f'fill="{brochure.color_accent}">{escape(overflow.heading)}</text>'
         )
         for line in _wrap(overflow.body, _BODY_MAX_CHARS_PER_LINE)[:3]:
@@ -371,6 +449,7 @@ def compose_brochure_svgs(
         panel_content="".join(inside_parts),
         fold_lines=layout.fold_lines_inside,
         crop_mark_anchors=layout.crop_marks[4:],
+        render_guides=render_guides,
     )
 
     return outside_svg, inside_svg

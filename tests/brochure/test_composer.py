@@ -25,9 +25,11 @@ from tests.brochure.fixtures.sample_brochures import FULL_BROCHURE, MINIMAL_BROC
 _FAKE_HERO_PNG = b"\x89PNG\r\n\x1a\nfake-png-bytes-for-test"
 
 
-def _both_sheets(brochure=MINIMAL_BROCHURE) -> tuple[str, str]:
+def _both_sheets(brochure=MINIMAL_BROCHURE, render_guides: bool = False) -> tuple[str, str]:
     layout = compute_panel_layout()
-    return compose_brochure_svgs(brochure, layout, _FAKE_HERO_PNG)
+    return compose_brochure_svgs(
+        brochure, layout, _FAKE_HERO_PNG, render_guides=render_guides
+    )
 
 
 def _strip_ns(elem: ET.Element) -> None:
@@ -165,15 +167,22 @@ def test_back_cover_falls_back_to_org_and_contact_when_no_back_panel() -> None:
 # ---------- Fold lines ----------
 
 
-def test_fold_lines_on_dedicated_layer() -> None:
-    outside, inside = _both_sheets()
+def test_fold_lines_on_dedicated_layer_when_render_guides_true() -> None:
+    outside, inside = _both_sheets(render_guides=True)
     for svg in (outside, inside):
         assert 'id="fold-lines"' in svg
         assert 'data-print="false"' in svg
 
 
-def test_fold_lines_count_is_two_per_sheet() -> None:
-    outside, _ = _both_sheets()
+def test_fold_lines_hidden_by_default() -> None:
+    """v1 print bug fix: fold lines must NOT render unless render_guides=True."""
+    outside, inside = _both_sheets()  # render_guides defaults to False
+    for svg in (outside, inside):
+        assert 'id="fold-lines"' not in svg
+
+
+def test_fold_lines_count_is_two_per_sheet_when_rendered() -> None:
+    outside, _ = _both_sheets(render_guides=True)
     root = _parse(outside)
     fold_group = None
     for g in root.iter("g"):
