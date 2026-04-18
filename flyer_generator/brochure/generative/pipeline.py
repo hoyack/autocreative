@@ -208,17 +208,35 @@ async def generate_brochure_from_prompt(
     log.info("brochure_input_assembled", title=brochure_input.title, n_sections=len(brochure_input.sections))
 
     # --- Stage 4: imagery ---
-    imagery = await generate_imagery(
-        brochure=brochure_input,
-        outline=outline,
-        layout_choice=layout_choice,
-        settings=settings,
-    )
-    log.info("brochure_imagery_ready",
-             has_hero=imagery.hero_png_bytes is not None,
-             n_spots=len(imagery.spot_images))
+    # Hero generation can reject all attempts (vision sees text overlays,
+    # distorted subjects, etc). Fall back to a shapes-only cover treatment
+    # rather than aborting the whole pipeline: the composer now renders a
+    # high-contrast title + accent gradient when the hero is a placeholder.
+    from flyer_generator.errors import MaxAttemptsExceededError
 
-    # Placeholder hero when shapes_only
+    try:
+        imagery = await generate_imagery(
+            brochure=brochure_input,
+            outline=outline,
+            layout_choice=layout_choice,
+            settings=settings,
+        )
+        log.info("brochure_imagery_ready",
+                 has_hero=imagery.hero_png_bytes is not None,
+                 n_spots=len(imagery.spot_images))
+    except MaxAttemptsExceededError as exc:
+        log.warning("brochure_imagery_fallback_shapes_only", error=str(exc)[:200])
+        from flyer_generator.brochure.generative.imagery import GeneratedImagery
+
+        imagery = GeneratedImagery(
+            hero_png_bytes=None,
+            spot_images={},
+            hero_vision_verdict=None,
+            hero_attempts_used=settings.max_bg_attempts,
+        )
+
+    # Placeholder hero when imagery skipped / failed.
+    hero_is_placeholder = imagery.hero_png_bytes is None
     hero_bytes = imagery.hero_png_bytes or _placeholder_hero()
 
     # --- Stage 6: compose + rasterize + PDF ---
@@ -228,6 +246,7 @@ async def generate_brochure_from_prompt(
         layout_choice=layout_choice,
         template=template,
         hero_bytes=hero_bytes,
+        hero_is_placeholder=hero_is_placeholder,
         spot_images=imagery.spot_images,
         settings=settings,
         verify_threshold=verify_threshold,
@@ -279,6 +298,7 @@ async def _render_and_verify(
     max_verify_iterations,
     prompt,
     log,
+    hero_is_placeholder: bool = False,
 ) -> tuple[bytes, bytes, bytes, VerificationVerdict | None, str, str]:
     """Compose + rasterize + PDF, then verify with regen loop.
 
@@ -317,6 +337,7 @@ async def _render_and_verify(
             template=template,
             spot_images=spot_images,
             render_guides=False,
+            hero_is_placeholder=hero_is_placeholder,
         )
         front_png = rasterizer.rasterize(outside_svg)
         back_png = rasterizer.rasterize(inside_svg)

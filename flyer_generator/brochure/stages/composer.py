@@ -180,6 +180,57 @@ def _render_hero_image(panel: PanelRect, hero_png_bytes: bytes) -> str:
     )
 
 
+def _render_placeholder_cover(
+    panel: PanelRect,
+    title: str,
+    subtitle: str | None,
+    accent_hex: str,
+    typ: _Typography,
+) -> str:
+    """Cover treatment when no hero image is available.
+
+    Renders:
+      - Accent-tinted gradient across the full panel (same as other panels)
+      - A dominant accent bar near the top for visual anchor
+      - Title rendered in dark/accent colour (NOT white) so it's visible against
+        the pale gradient — white-on-white was the silent failure from the
+        shapes_only + placeholder hero path
+      - Subtitle in a muted colour below the title
+    """
+    sx, sy, sw, sh = panel.safe_rect
+    x, y, w, h = panel.bleed_rect
+    cx = sx + sw // 2
+    title_y = sy + sh // 3
+    title_display = title.upper()
+    title_size = _fit_title_font_size(title_display, base_size=typ.cover_title_size)
+
+    # Use the same panel-gradient id pattern so multiple panels don't collide.
+    grad_id = f"grad-{panel.sheet}-{panel.name}-cover"
+    parts = [
+        f'<defs><linearGradient id="{grad_id}" x1="0" y1="0" x2="0" y2="1">'
+        f'<stop offset="0%" stop-color="{accent_hex}" stop-opacity="0.22"/>'
+        f'<stop offset="100%" stop-color="{accent_hex}" stop-opacity="0.08"/>'
+        f"</linearGradient></defs>"
+        f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="url(#{grad_id})"/>',
+        # Anchor bar above the title
+        f'<rect x="{cx - 120}" y="{title_y - title_size - 40}" width="240" height="8" fill="{accent_hex}"/>',
+        # Title (accent colour, no drop shadow — high-contrast against pale gradient)
+        f'<text x="{cx}" y="{title_y}" text-anchor="middle" '
+        f'font-family="{typ.title_font}" '
+        f'font-size="{title_size}" '
+        f'fill="{accent_hex}">'
+        f"{escape(title_display)}</text>",
+    ]
+    if subtitle:
+        sub_y = title_y + title_size + 16
+        parts.append(
+            f'<text x="{cx}" y="{sub_y}" text-anchor="middle" '
+            f'font-family="{typ.body_font}" font-size="{_SUBTITLE_FONT_SIZE}" '
+            f'fill="#333333">{escape(subtitle)}</text>'
+        )
+    return "".join(parts)
+
+
 def _render_cover_text(
     panel: PanelRect,
     title: str,
@@ -543,6 +594,7 @@ def compose_brochure_svgs(
     spot_images: dict[str, bytes] | None = None,
     *,
     render_guides: bool = False,
+    hero_is_placeholder: bool = False,
 ) -> tuple[str, str]:
     """Return (outside_sheet_svg, inside_sheet_svg) as strings.
 
@@ -571,10 +623,30 @@ def compose_brochure_svgs(
     # Gradient on back cover and tuck flap only (front cover gets the hero image).
     for panel in layout.outside_panels:
         if panel.name == "front_cover":
-            outside_parts.append(_render_hero_image(panel, hero_png_bytes))
-            outside_parts.append(
-                _render_cover_text(panel, brochure.title, brochure.subtitle, typ)
-            )
+            if hero_is_placeholder:
+                # No real hero → render gradient + shapes + high-contrast title.
+                # The previous behavior rendered white-on-white text over a 1×1
+                # transparent PNG, making the cover panel silently blank.
+                outside_parts.append(
+                    _render_placeholder_cover(
+                        panel, brochure.title, brochure.subtitle,
+                        brochure.color_accent, typ,
+                    )
+                )
+                if template is not None:
+                    outside_parts.append(
+                        _resolve_shapes_for_panel(
+                            panel,
+                            template.shape_mix.get("front_cover", ())
+                            or template.shape_mix.get("cover", ()),
+                            brochure.color_accent, seed_base + 2, shape_density,
+                        )
+                    )
+            else:
+                outside_parts.append(_render_hero_image(panel, hero_png_bytes))
+                outside_parts.append(
+                    _render_cover_text(panel, brochure.title, brochure.subtitle, typ)
+                )
         elif panel.name == "back_cover":
             outside_parts.append(_render_panel_gradient(panel, brochure.color_accent))
             if template is not None:
@@ -695,6 +767,14 @@ def compose_brochure_svgs(
         elif section is not None:
             inside_parts.append(
                 _render_section_text(panel, section, brochure.color_accent, typ)
+            )
+        else:
+            # N=2 case: inner_center has no section. Fill with org name + tagline
+            # so no inner panel ships blank. Mirror the tuck-flap tagline pattern.
+            inside_parts.append(
+                _render_tuck_flap_tagline(
+                    panel, brochure.org, brochure.color_accent, typ
+                )
             )
 
     # Overflow section[4] → bottom of rightmost inner panel as a compact list.

@@ -239,16 +239,22 @@ def lint_brochure(
     )
     report.update(check_text_clipping(outside_svg, inside_svg, layout))
 
-    # Derive a pass/fail summary for CLI convenience. A check is "failing" when
-    # its value is falsy (False, empty string, error string coerces True so we
-    # guard explicitly).
+    # Derive a pass/fail summary for CLI convenience. For each key, whether
+    # True or False counts as a pass depends on the check's polarity:
+    #   *_empty, *_text_clip → PASS when False (no emptiness / no clipping)
+    #   *_valid, *_crop_marks_present → PASS when True
+    # The _summary excludes itself from the counted total.
     checks_total = len(report)
     checks_passed = 0
     for key, value in report.items():
-        if isinstance(value, bool) and value is True:
-            checks_passed += 1
-        elif isinstance(value, bool) and value is False and key.endswith(("_empty", "_text_clip")):
-            # "_empty = False" / "_text_clip = False" are *passes* for these keys.
-            checks_passed += 1
+        if not isinstance(value, bool):
+            continue
+        # Invert polarity for defect-flavoured keys.
+        if key.endswith(("_empty", "_text_clip")):
+            if value is False:
+                checks_passed += 1
+        else:
+            if value is True:
+                checks_passed += 1
     report["_summary"] = f"{checks_passed}/{checks_total} checks passed"
     return report
