@@ -70,7 +70,8 @@ def _build_spot_workflow(
     workflow[ip["positive_prompt"]]["inputs"]["text"] = positive
     if "negative_prompt" in ip:
         workflow[ip["negative_prompt"]]["inputs"]["text"] = negative
-    workflow[ip["seed"]]["inputs"]["seed"] = seed
+    seed_inputs = workflow[ip["seed"]]["inputs"]
+    seed_inputs["noise_seed" if "noise_seed" in seed_inputs else "seed"] = seed
 
     return ComfyWorkflow(
         workflow=workflow,

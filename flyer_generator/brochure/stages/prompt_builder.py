@@ -70,7 +70,8 @@ class BrochureCoverPromptBuilder:
         workflow[ip["positive_prompt"]]["inputs"]["text"] = positive_prompt
         if "negative_prompt" in ip:
             workflow[ip["negative_prompt"]]["inputs"]["text"] = negative_prompt
-        workflow[ip["seed"]]["inputs"]["seed"] = seed
+        seed_inputs = workflow[ip["seed"]]["inputs"]
+        seed_inputs["noise_seed" if "noise_seed" in seed_inputs else "seed"] = seed
 
         return ComfyWorkflow(
             workflow=workflow,
