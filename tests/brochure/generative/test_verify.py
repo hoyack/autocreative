@@ -94,7 +94,9 @@ async def test_verify_brochure_low_score_flags_weakest_stage() -> None:
     assert verdict.score == 50
     # Low + approved → compose
     assert verdict.weakest_stage == "compose"
-    assert verdict.critique == "more balance"
+    # Two-sheet merge prefixes critiques by sheet label
+    assert "more balance" in verdict.critique
+    assert "[outside]" in verdict.critique and "[inside]" in verdict.critique
 
 
 @pytest.mark.asyncio
@@ -207,6 +209,112 @@ async def test_verify_brochure_iteration_field_set() -> None:
         iteration=2,
     )
     assert verdict.iteration == 2
+
+
+# ---------- verify_brochure (two-sheet averaging) ----------
+
+
+@pytest.mark.asyncio
+async def test_verify_brochure_averages_two_sheets_when_inside_provided() -> None:
+    """Outside rubric=80-mean, inside rubric=60-mean → merged score=70 (average)."""
+    outside_rubric = json.dumps(
+        {
+            "dimension_scores": {
+                "content_fit": 90,
+                "visual_balance": 70,
+                "text_legibility": 80,
+                "layout_coherence": 80,
+                "print_readiness": 80,
+            },
+            "critique": "outside looks great",
+            "weakest_stage": None,
+        }
+    )
+    inside_rubric = json.dumps(
+        {
+            "dimension_scores": {
+                "content_fit": 60,
+                "visual_balance": 40,
+                "text_legibility": 70,
+                "layout_coherence": 70,
+                "print_readiness": 60,
+            },
+            "critique": "inside is off",
+            "weakest_stage": "layout",
+        }
+    )
+
+    def _mk(raw: str) -> VisionVerdict:
+        return VisionVerdict(
+            approved=True,
+            confidence=0.9,
+            zones=None,
+            rejection_reasons=[],
+            refinement_hint="",
+            text_color="white",
+            mood_tags=[],
+            raw_response=raw,
+        )
+
+    evaluator = AsyncMock()
+    evaluator.evaluate_cover = AsyncMock(side_effect=[_mk(outside_rubric), _mk(inside_rubric)])
+
+    verdict = await verify_brochure(
+        outside_png_bytes=b"outside",
+        inside_png_bytes=b"inside",
+        original_prompt="p",
+        outline=_outline(),
+        settings=_settings(),
+        vision_evaluator=evaluator,
+    )
+    # outside mean = 80, inside mean = 60, merged dims average per-key:
+    # (90+60)/2=75, (70+40)/2=55, (80+70)/2=75, (80+70)/2=75, (80+60)/2=70
+    # mean = (75+55+75+75+70)/5 = 70
+    assert verdict.score == 70
+    assert verdict.dimension_scores["visual_balance"] == 55
+    # Inside had lower mean (60 < 80) → weakest_stage follows inside
+    assert verdict.weakest_stage == "layout"
+    assert "outside" in verdict.critique.lower()
+    assert "inside" in verdict.critique.lower()
+    # Both sheets were evaluated
+    assert evaluator.evaluate_cover.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_verify_brochure_skips_inside_when_flag_false() -> None:
+    """verify_inside_sheet=False → only one vision call."""
+    evaluator = AsyncMock()
+    evaluator.evaluate_cover = AsyncMock(return_value=_visiver(approved=True, confidence=0.8))
+
+    verdict = await verify_brochure(
+        outside_png_bytes=b"o",
+        inside_png_bytes=b"i",
+        original_prompt="p",
+        outline=_outline(),
+        settings=_settings(),
+        vision_evaluator=evaluator,
+        verify_inside_sheet=False,
+    )
+    assert verdict.score == 80
+    assert evaluator.evaluate_cover.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_verify_brochure_skips_inside_when_bytes_empty() -> None:
+    """Empty inside bytes → only outside scored."""
+    evaluator = AsyncMock()
+    evaluator.evaluate_cover = AsyncMock(return_value=_visiver(approved=True, confidence=0.75))
+
+    verdict = await verify_brochure(
+        outside_png_bytes=b"o",
+        inside_png_bytes=b"",
+        original_prompt="p",
+        outline=_outline(),
+        settings=_settings(),
+        vision_evaluator=evaluator,
+    )
+    assert verdict.score == 75
+    assert evaluator.evaluate_cover.await_count == 1
 
 
 # ---------- verify_with_text_critique (text-only alternative) ----------

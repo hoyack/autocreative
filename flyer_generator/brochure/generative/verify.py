@@ -120,6 +120,100 @@ Map the weakest dimension to a stage:
 - If all dimensions >= 70: set weakest_stage to null."""
 
 
+def _fallback_verdict_from_vision(
+    verdict,  # VisionVerdict
+    *,
+    iteration: int,
+) -> VerificationVerdict:
+    """Build a rubric-shaped verdict from a VisionVerdict when rubric JSON is absent."""
+    score = int(verdict.confidence * 100)
+    dimension_scores = {dim: score for dim in _DIMENSIONS}
+    weakest: Literal["outline", "text", "layout", "imagery", "compose"] | None = None
+    if score < 70:
+        weakest = "compose" if verdict.approved else "text"
+    critique = verdict.refinement_hint or (", ".join(verdict.rejection_reasons) or "No critique")
+    return VerificationVerdict(
+        score=score,
+        dimension_scores=dimension_scores,
+        critique=critique,
+        weakest_stage=weakest,
+        iteration=iteration,
+    )
+
+
+def _merge_sheet_verdicts(
+    outside: VerificationVerdict,
+    inside: VerificationVerdict,
+    *,
+    iteration: int,
+) -> VerificationVerdict:
+    """Average two per-sheet verdicts into one combined verdict.
+
+    - dimension_scores averaged per key (shared keys only; unique keys carried over at half weight).
+    - score = mean of averaged dimensions.
+    - critique concatenates both with sheet labels (drops empty critiques).
+    - weakest_stage picked from the lower-scoring sheet; null only if both agree on null.
+    """
+    keys = set(outside.dimension_scores) | set(inside.dimension_scores)
+    merged: dict[str, int] = {}
+    for k in keys:
+        o = outside.dimension_scores.get(k)
+        i = inside.dimension_scores.get(k)
+        if o is not None and i is not None:
+            merged[k] = (o + i) // 2
+        else:
+            merged[k] = o if o is not None else i  # type: ignore[assignment]
+    score = int(sum(merged.values()) / len(merged)) if merged else 0
+
+    parts = []
+    if outside.critique:
+        parts.append(f"[outside] {outside.critique}")
+    if inside.critique:
+        parts.append(f"[inside] {inside.critique}")
+    critique = " ".join(parts) or "No critique"
+
+    if outside.score <= inside.score:
+        worse_weakest = outside.weakest_stage
+    else:
+        worse_weakest = inside.weakest_stage
+
+    return VerificationVerdict(
+        score=score,
+        dimension_scores=merged,
+        critique=critique,
+        weakest_stage=worse_weakest,
+        iteration=iteration,
+    )
+
+
+async def _score_one_sheet(
+    vision_evaluator: VisionEvaluator,
+    png_bytes: bytes,
+    user_text: str,
+    sheet_label: str,
+    iteration: int,
+) -> VerificationVerdict:
+    """Score a single sheet and return a VerificationVerdict (rubric or fallback).
+
+    Critiques are NOT sheet-labeled here; _merge_sheet_verdicts adds labels only
+    when merging two sheets. Single-sheet calls keep the legacy critique format.
+    """
+    try:
+        verdict = await vision_evaluator.evaluate_cover(
+            image_bytes=png_bytes,
+            concept=user_text,
+        )
+    except (VisionAPIError, VisionResponseParseError) as exc:
+        raise BrochureVerificationError(
+            f"Verification vision call failed on {sheet_label} sheet: {exc}"
+        ) from exc
+
+    rubric = _extract_rubric_json(verdict.raw_response)
+    if rubric is not None:
+        return _verdict_from_rubric(rubric, iteration=iteration)
+    return _fallback_verdict_from_vision(verdict, iteration=iteration)
+
+
 async def verify_brochure(
     outside_png_bytes: bytes,
     inside_png_bytes: bytes,
@@ -129,10 +223,16 @@ async def verify_brochure(
     *,
     vision_evaluator: VisionEvaluator | None = None,
     iteration: int = 1,
+    verify_inside_sheet: bool = True,
 ) -> VerificationVerdict:
     """Score the composed brochure and return a VerificationVerdict.
 
-    Uses the existing VisionEvaluator with a brochure-verification system prompt. Vision backend comes from settings.vision_provider.
+    When `verify_inside_sheet` is True (default) and inside PNG bytes are
+    non-empty, both sheets are scored independently and averaged — the worse-
+    scoring sheet drives `weakest_stage`. Set False or pass empty inside bytes
+    to score outside only (halves the vision API cost).
+
+    Vision backend comes from settings.vision_provider.
     """
     if vision_evaluator is None:
         vision_evaluator = VisionEvaluator(
@@ -143,33 +243,17 @@ async def verify_brochure(
 
     user_text = _build_user_prompt(original_prompt, outline)
 
-    try:
-        verdict = await vision_evaluator.evaluate_cover(
-            image_bytes=outside_png_bytes,
-            concept=user_text,
-        )
-    except (VisionAPIError, VisionResponseParseError) as exc:
-        raise BrochureVerificationError(f"Verification vision call failed: {exc}") from exc
-
-    # Preferred path: rubric JSON came back in raw_response. Parse and use it directly.
-    rubric = _extract_rubric_json(verdict.raw_response)
-    if rubric is not None:
-        return _verdict_from_rubric(rubric, iteration=iteration)
-
-    # Fallback path: rubric JSON absent/malformed → derive uniform dims from confidence.
-    score = int(verdict.confidence * 100)
-    dimension_scores = {dim: score for dim in _DIMENSIONS}
-    weakest: Literal["outline", "text", "layout", "imagery", "compose"] | None = None
-    if score < 70:
-        weakest = "compose" if verdict.approved else "text"
-
-    return VerificationVerdict(
-        score=score,
-        dimension_scores=dimension_scores,
-        critique=verdict.refinement_hint or (", ".join(verdict.rejection_reasons) or "No critique"),
-        weakest_stage=weakest,
-        iteration=iteration,
+    outside_verdict = await _score_one_sheet(
+        vision_evaluator, outside_png_bytes, user_text, "outside", iteration
     )
+
+    if not verify_inside_sheet or not inside_png_bytes:
+        return outside_verdict
+
+    inside_verdict = await _score_one_sheet(
+        vision_evaluator, inside_png_bytes, user_text, "inside", iteration
+    )
+    return _merge_sheet_verdicts(outside_verdict, inside_verdict, iteration=iteration)
 
 
 async def verify_with_text_critique(
