@@ -1,0 +1,182 @@
+"""Tests for stage 7 — verification (rubric scoring)."""
+
+from __future__ import annotations
+
+import json
+from unittest.mock import AsyncMock
+
+import pytest
+from pydantic import SecretStr
+
+from flyer_generator.brochure.generative.models import (
+    BrochureOutline,
+    SectionSpec,
+    VerificationVerdict,
+)
+from flyer_generator.brochure.generative.verify import (
+    BrochureVerificationError,
+    verify_brochure,
+    verify_with_text_critique,
+)
+from flyer_generator.config import Settings
+from flyer_generator.models import VisionVerdict
+
+
+def _settings() -> Settings:
+    return Settings(
+        anthropic_api_key=SecretStr("sk-test"),
+        comfycloud_api_key=SecretStr("t"),
+    )
+
+
+def _outline() -> BrochureOutline:
+    return BrochureOutline(
+        sections=[
+            SectionSpec(heading="Hero", body_brief="x", image_hint=None, panel_role="cover"),
+            SectionSpec(heading="Details", body_brief="y", image_hint=None, panel_role="feature"),
+        ],
+        tone="warm",
+        cta_intent="book",
+        suggested_preset="photorealistic",
+        suggested_accent="#2E8B57",
+    )
+
+
+def _visiver(approved: bool, confidence: float, hint: str = "") -> VisionVerdict:
+    return VisionVerdict(
+        approved=approved,
+        confidence=confidence,
+        zones=None,
+        rejection_reasons=[] if approved else ["generic"],
+        refinement_hint=hint,
+        text_color="white",
+        mood_tags=[],
+        raw_response="{}",
+    )
+
+
+# ---------- verify_brochure (vision-based) ----------
+
+
+@pytest.mark.asyncio
+async def test_verify_brochure_high_score_no_weakest_stage() -> None:
+    evaluator = AsyncMock()
+    evaluator.evaluate_cover = AsyncMock(return_value=_visiver(approved=True, confidence=0.85))
+
+    verdict = await verify_brochure(
+        outside_png_bytes=b"png-outside",
+        inside_png_bytes=b"png-inside",
+        original_prompt="a brochure",
+        outline=_outline(),
+        settings=_settings(),
+        vision_evaluator=evaluator,
+    )
+    assert isinstance(verdict, VerificationVerdict)
+    assert verdict.score == 85
+    assert verdict.weakest_stage is None
+
+
+@pytest.mark.asyncio
+async def test_verify_brochure_low_score_flags_weakest_stage() -> None:
+    evaluator = AsyncMock()
+    evaluator.evaluate_cover = AsyncMock(
+        return_value=_visiver(approved=True, confidence=0.5, hint="more balance")
+    )
+
+    verdict = await verify_brochure(
+        outside_png_bytes=b"png",
+        inside_png_bytes=b"png",
+        original_prompt="a brochure",
+        outline=_outline(),
+        settings=_settings(),
+        vision_evaluator=evaluator,
+    )
+    assert verdict.score == 50
+    # Low + approved → compose
+    assert verdict.weakest_stage == "compose"
+    assert verdict.critique == "more balance"
+
+
+@pytest.mark.asyncio
+async def test_verify_brochure_rejected_flags_text_stage() -> None:
+    evaluator = AsyncMock()
+    evaluator.evaluate_cover = AsyncMock(
+        return_value=_visiver(approved=False, confidence=0.4)
+    )
+
+    verdict = await verify_brochure(
+        outside_png_bytes=b"png",
+        inside_png_bytes=b"png",
+        original_prompt="a brochure",
+        outline=_outline(),
+        settings=_settings(),
+        vision_evaluator=evaluator,
+    )
+    assert verdict.score == 40
+    assert verdict.weakest_stage == "text"
+
+
+@pytest.mark.asyncio
+async def test_verify_brochure_iteration_field_set() -> None:
+    evaluator = AsyncMock()
+    evaluator.evaluate_cover = AsyncMock(return_value=_visiver(approved=True, confidence=0.9))
+
+    verdict = await verify_brochure(
+        outside_png_bytes=b"png",
+        inside_png_bytes=b"png",
+        original_prompt="a brochure",
+        outline=_outline(),
+        settings=_settings(),
+        vision_evaluator=evaluator,
+        iteration=2,
+    )
+    assert verdict.iteration == 2
+
+
+# ---------- verify_with_text_critique (text-only alternative) ----------
+
+
+@pytest.mark.asyncio
+async def test_verify_text_critique_happy_path() -> None:
+    text_client = AsyncMock()
+    text_client.complete = AsyncMock(
+        return_value=json.dumps(
+            {
+                "dimension_scores": {
+                    "content_fit": 80,
+                    "visual_balance": 70,
+                    "text_legibility": 75,
+                    "layout_coherence": 85,
+                    "print_readiness": 90,
+                },
+                "critique": "solid overall",
+                "weakest_stage": None,
+            }
+        )
+    )
+
+    verdict = await verify_with_text_critique(
+        outside_png_bytes=b"png",
+        inside_png_bytes=b"png",
+        original_prompt="prompt",
+        outline=_outline(),
+        text_client=text_client,
+    )
+    # 80+70+75+85+90 = 400, mean 80
+    assert verdict.score == 80
+    assert verdict.weakest_stage is None
+
+
+@pytest.mark.asyncio
+async def test_verify_text_critique_raises_on_malformed_json() -> None:
+    text_client = AsyncMock()
+    text_client.complete = AsyncMock(return_value="not json")
+
+    with pytest.raises(BrochureVerificationError):
+        await verify_with_text_critique(
+            outside_png_bytes=b"png",
+            inside_png_bytes=b"png",
+            original_prompt="prompt",
+            outline=_outline(),
+            text_client=text_client,
+        )
