@@ -197,3 +197,32 @@ def test_template_body_font_reaches_inner_panels() -> None:
     _, inside = _render_with(template=template)
     # EDITORIAL's body is serif
     assert template.body_font_family in inside
+
+
+def test_composer_injects_font_face_defs_when_fonts_present(
+    tmp_path, monkeypatch
+) -> None:
+    """When assets/fonts/ has matching files, @font-face rules appear in SVG defs."""
+    # Redirect the fonts module's _FONTS_DIR to a test directory with a stub font.
+    (tmp_path / "Playfair_Display.woff2").write_bytes(b"stub-playfair")
+    monkeypatch.setattr(
+        "flyer_generator.brochure.stages.fonts._FONTS_DIR",
+        tmp_path,
+    )
+
+    outside, inside = _render_with(template=get_template("editorial"))
+    # Both sheets must carry the @font-face rule for the matched family
+    assert "@font-face" in outside
+    assert "font-family:'Playfair Display'" in outside
+    assert "data:font/woff2;base64," in outside
+    assert "@font-face" in inside
+
+
+def test_composer_no_font_defs_when_fonts_missing(tmp_path, monkeypatch) -> None:
+    """Empty fonts dir → no @font-face rules (graceful fallback to system fonts)."""
+    monkeypatch.setattr(
+        "flyer_generator.brochure.stages.fonts._FONTS_DIR",
+        tmp_path,
+    )
+    outside, _ = _render_with(template=get_template("editorial"))
+    assert "@font-face" not in outside

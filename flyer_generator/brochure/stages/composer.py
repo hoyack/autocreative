@@ -28,6 +28,7 @@ from flyer_generator.brochure.models import (
     ResolvedBrochureLayout,
 )
 from flyer_generator.brochure.shapes import render_shape
+from flyer_generator.brochure.stages.fonts import build_font_face_defs
 from flyer_generator.brochure.templates import EDITORIAL, LayoutTemplate, get_template
 from flyer_generator.errors import CompositionError
 
@@ -350,17 +351,20 @@ def _sheet_svg(
     fold_lines: list[int],
     crop_mark_anchors: list[tuple[int, int]],
     render_guides: bool = False,
+    font_defs: str = "",
 ) -> str:
     """Assemble a full-sheet SVG document with ordered layers.
 
-    Order (back to front): white background, panel_content, fold-line guides
-    (only when render_guides=True — fixes v1 print bug), crop marks.
+    Order (back to front): font-face defs (when supplied), white background,
+    panel_content, fold-line guides (only when render_guides=True — fixes v1
+    print bug), crop marks.
     """
     header = (
         f'<?xml version="1.0" encoding="UTF-8"?>'
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'width="{canvas_w}" height="{canvas_h}" '
         f'viewBox="0 0 {canvas_w} {canvas_h}">'
+        f"{font_defs}"
     )
     fold_layer = ""
     if render_guides:
@@ -493,6 +497,7 @@ def compose_brochure_svgs(
     shape_density = layout_choice.shape_density if layout_choice is not None else "medium"
     seed_base = hash(brochure.title) & 0xFFFF
     typ = _typography(template)
+    font_defs = build_font_face_defs(template) if template is not None else ""
 
     # --- OUTSIDE SHEET ---
     outside_parts: list[str] = []
@@ -565,6 +570,7 @@ def compose_brochure_svgs(
         fold_lines=layout.fold_lines_outside,
         crop_mark_anchors=layout.crop_marks[:4],
         render_guides=render_guides,
+        font_defs=font_defs,
     )
 
     # --- INSIDE SHEET ---
@@ -646,6 +652,7 @@ def compose_brochure_svgs(
         fold_lines=layout.fold_lines_inside,
         crop_mark_anchors=layout.crop_marks[4:],
         render_guides=render_guides,
+        font_defs=font_defs,
     )
 
     return outside_svg, inside_svg
