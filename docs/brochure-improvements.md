@@ -2,13 +2,15 @@
 
 **For a fresh session after `/clear`.** Everything in this doc is actionable today. For full history see `docs/brochure-plan.md` (v1 design), `docs/brochure-v2-plan.md` (v2 generative pipeline), and the ROADMAP.
 
+> **Status (2026-04-18):** all 10 improvement items below are landed across commits `155fa8c` (verify rubric), `1fe5a85` (two-sheet verify), `cc943f9` (verdict on BrochureOutput + CLI), `90c8539` (template typography), `4dec5ef` (font-face defs), `279641f` (fit retry), `8a4e54e` (tuck-flap tagline), `77f63f5` (spot aspect), `898df97` (cover_image_concept), `beb4767` (output linter). Test suite: 445/445 passing. The sections below are kept for historical reference.
+
 ---
 
 ## 1. Quick orientation (current state)
 
-- **Tests:** 400/400 pass → `python -m pytest tests/ -q` (≈20s)
+- **Tests:** 445/445 pass → `python -m pytest tests/ -q` (≈25s)
 - **Flyer suite:** 179 tests, untouched throughout brochure work
-- **Brochure suite:** 221 tests across `tests/brochure/` (+ `tests/brochure/generative/`)
+- **Brochure suite:** 266 tests across `tests/brochure/` (+ `tests/brochure/generative/`)
 - **CLI:**
   - v1 pre-filled: `python -m flyer_generator.brochure --brochure-json data.json --output out/`
   - v2 prompt-driven: `python -m flyer_generator.brochure --prompt "…" --audience "…" --output out/`
@@ -35,7 +37,7 @@
 
 ## 2. Improvements (ranked by impact)
 
-### HIGH — Template typography not wired to composer
+### HIGH — Template typography not wired to composer ✅ `90c8539` + `4dec5ef`
 
 **Problem:** `LayoutTemplate` declares `heading_font_family`, `body_font_family`, `cover_title_font_size`, `heading_font_size`, `body_font_size`, `body_line_height`, `body_max_chars_per_line`. But the composer still uses module-level constants (`_FONT_TITLE`, `_FONT_BODY`, `_HEADING_FONT_SIZE`, etc.).
 
@@ -60,7 +62,7 @@ Option (a) gives real typography differentiation. Option (b) is cheaper but cosm
 
 ---
 
-### HIGH — Verification loop is confidence-driven, not rubric-driven
+### HIGH — Verification loop is confidence-driven, not rubric-driven ✅ `155fa8c`
 
 **Problem:** `verify_brochure` in `flyer_generator/brochure/generative/verify.py` uses `VisionEvaluator.evaluate_cover` which returns a `VisionVerdict`. The score is just `verdict.confidence * 100` — it does NOT actually run the 5-dimension rubric prompt the design specified. The `dimension_scores` dict fills all dimensions with the same confidence value.
 
@@ -80,7 +82,7 @@ Option (a) gives real typography differentiation. Option (b) is cheaper but cosm
 
 ---
 
-### MEDIUM — Tuck-flap dead zone when N=3 sections
+### MEDIUM — Tuck-flap dead zone when N=3 sections ✅ `8a4e54e`
 
 **Problem:** When the outline produces 3 content sections + 1 CTA, inner panels fill but tuck flap is gradient + shapes only (no text). Phase-16 screenshots show this as a wide empty panel on the outside sheet right.
 
@@ -103,7 +105,7 @@ Option 3 is the lowest-friction win.
 
 ---
 
-### MEDIUM — Fit optimizer has no inner loop
+### MEDIUM — Fit optimizer has no inner loop ✅ `279641f`
 
 **Problem:** `optimize_fit` in `flyer_generator/brochure/generative/fit.py` does ONE rewrite per section and accepts whatever comes back, even if still off-target. Comment `# Single rewrite per section (no inner loop); verification catches persistent misfit` is intentional for simplicity but leaves real misfits to the verify stage which, per the second HIGH item above, doesn't actually diagnose misfit dimensions.
 
@@ -120,7 +122,7 @@ Option 3 is the lowest-friction win.
 
 ---
 
-### MEDIUM — Output validator / linter absent
+### MEDIUM — Output validator / linter absent ✅ `beb4767`
 
 **Problem:** There's no post-render quality check. Verification runs on the rasterized PNG but only for tone/legibility judgment, not mechanical correctness.
 
@@ -138,7 +140,7 @@ Attach results to `BrochureOutput.verification` as a new `lint_report: dict[str,
 
 ---
 
-### MEDIUM — Hero concept derivation is weak
+### MEDIUM — Hero concept derivation is weak ✅ `898df97`
 
 **Problem:** `_assemble_brochure_input` in `flyer_generator/brochure/generative/pipeline.py` sets `hero_concept = cover_section.body_brief or prompt.prompt[:120]`. The outline's cover section `body_brief` is a 1-sentence direction for a copywriter (e.g. "welcoming yoga studio designed for new moms"), not an image concept. That gets fed to ComfyCloud verbatim — the model doesn't know it's a composition direction, not a visual hint.
 
@@ -150,7 +152,7 @@ Attach results to `BrochureOutput.verification` as a new `lint_report: dict[str,
 
 ---
 
-### LOW — Templates use non-system fonts
+### LOW — Templates use non-system fonts ✅ `4dec5ef` (infrastructure; drop woff2 files into `flyer_generator/assets/fonts/` to enable)
 
 **Problem:** Templates reference `'Playfair Display'`, `'Inter'`, `'Fredoka'`, `'Source Serif Pro'`, `'Avenir Next'` — none of which are guaranteed on the cairosvg renderer's system. Cairo silently falls back to default sans.
 
@@ -162,7 +164,7 @@ Attach results to `BrochureOutput.verification` as a new `lint_report: dict[str,
 
 ---
 
-### LOW — Spot images not scaled intelligently
+### LOW — Spot images not scaled intelligently ✅ `77f63f5`
 
 **Problem:** `_render_spot_image` sets image height to 40% of the panel's safe_rect height regardless of the image's aspect ratio. Cairo crops via `preserveAspectRatio="xMidYMid slice"` which is correct, but the image's interesting subject may be cropped out if the Comfy spot happens to be portrait-oriented.
 
@@ -174,7 +176,7 @@ Attach results to `BrochureOutput.verification` as a new `lint_report: dict[str,
 
 ---
 
-### LOW — Verification only evaluates outside sheet
+### LOW — Verification only evaluates outside sheet ✅ `1fe5a85`
 
 **Problem:** `verify_brochure(outside_png, inside_png, …)` receives both but only passes `outside_png_bytes` into `evaluate_cover`. The inside sheet is never visually judged.
 
@@ -184,7 +186,7 @@ Attach results to `BrochureOutput.verification` as a new `lint_report: dict[str,
 
 ---
 
-### LOW — No CLI output for verification results
+### LOW — No CLI output for verification results ✅ `cc943f9`
 
 **Problem:** The CLI prints `trace_id` and `attempts_used` but does not surface the final verification verdict. Users have to introspect the returned `BrochureOutput` object.
 

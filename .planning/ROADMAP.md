@@ -30,6 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 14: Prompt-Driven Public API + CLI + End-to-End** - `generate_brochure_from_prompt()` async public API, `--prompt` CLI flag, end-to-end integration tests with mocked LLM + Comfy (completed 2026-04-18)
 - [x] **Phase 15: Polish — Shape/Text Collision + Spot-Image Compositing** - constrain decorative shapes to avoid heading zones, composite spot images into inner panels + tuck flap, re-verify end-to-end visual output (completed 2026-04-18)
 - [x] **Phase 16: Quality tuning — section distribution, heading hierarchy, verification teeth** - smarter multi-section panel assignment, accent rules under every heading, cover-title drop-shadow + auto-shrink, verify-loop regen with seed variation (completed 2026-04-18)
+- [x] **Phase 17: Improvements pass (HIGH/MEDIUM/LOW from docs/brochure-improvements.md)** - rubric-driven verification, two-sheet scoring, verdict/lint on BrochureOutput + CLI surfacing, template typography threaded through composer, @font-face data-URI infrastructure, fit optimizer retry loop, tuck-flap tagline for N<4, aspect-aware spot crop, cover_image_concept field, mechanical output linter (completed 2026-04-18)
 
 ## Phase Details
 
