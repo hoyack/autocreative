@@ -157,3 +157,43 @@ def test_every_template_produces_well_formed_svg() -> None:
         # Must parse without raising
         ET.fromstring(outside)
         ET.fromstring(inside)
+
+
+# ---------- Template-driven typography differentiation ----------
+
+
+def test_templates_produce_distinct_heading_font_families() -> None:
+    """Each template's declared heading_font_family must reach the rendered SVG.
+
+    Before this wiring, every template rendered with the same module-constant
+    font. Test asserts that at least 3 distinct font-family declarations appear
+    across the 6 templates (serif / sans / display).
+    """
+    families: set[str] = set()
+    for template_name in ("editorial", "minimalist", "playful", "gallery_strip", "quote_driven", "spotlight"):
+        template = get_template(template_name)
+        outside, _ = _render_with(template=template)
+        # Extract the cover title's font-family — first <text> in outside svg
+        # is the cover title (title font from template).
+        assert template.heading_font_family in outside, (
+            f"{template_name}: declared heading_font_family "
+            f"{template.heading_font_family!r} not found in rendered outside SVG"
+        )
+        families.add(template.heading_font_family)
+
+    # Sanity: templates actually declare at least 3 distinct families
+    assert len(families) >= 3
+
+
+def test_v1_path_still_uses_arial_black_title_font() -> None:
+    """Passing template=None preserves the v1 fallback fonts."""
+    outside, _ = _render_with(template=None)
+    assert "'Arial Black'" in outside
+
+
+def test_template_body_font_reaches_inner_panels() -> None:
+    """Body text on inner panels must use template.body_font_family."""
+    template = get_template("editorial")
+    _, inside = _render_with(template=template)
+    # EDITORIAL's body is serif
+    assert template.body_font_family in inside

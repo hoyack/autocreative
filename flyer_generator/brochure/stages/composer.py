@@ -16,6 +16,7 @@ reuses flyer_generator.stages.rasterizer.Rasterizer unchanged).
 from __future__ import annotations
 
 import base64
+from dataclasses import dataclass
 from xml.sax.saxutils import escape
 
 from flyer_generator.brochure.generative.models import LayoutChoice
@@ -44,18 +45,52 @@ _TITLE_FONT_SIZE = 110
 _SUBTITLE_FONT_SIZE = 48
 
 
-def _fit_title_font_size(title: str) -> int:
+@dataclass(frozen=True)
+class _Typography:
+    """Packaged typography values — template-aware, falls back to module constants."""
+
+    title_font: str
+    body_font: str
+    cover_title_size: int
+    heading_size: int
+    body_size: int
+    body_line_height: int
+    body_max_chars: int
+
+
+def _typography(template: LayoutTemplate | None) -> _Typography:
+    if template is None:
+        return _Typography(
+            title_font=_FONT_TITLE,
+            body_font=_FONT_BODY,
+            cover_title_size=_TITLE_FONT_SIZE,
+            heading_size=_HEADING_FONT_SIZE,
+            body_size=_BODY_FONT_SIZE,
+            body_line_height=_BODY_LINE_HEIGHT,
+            body_max_chars=_BODY_MAX_CHARS_PER_LINE,
+        )
+    return _Typography(
+        title_font=template.heading_font_family,
+        body_font=template.body_font_family,
+        cover_title_size=template.cover_title_font_size,
+        heading_size=template.heading_font_size,
+        body_size=template.body_font_size,
+        body_line_height=template.body_line_height,
+        body_max_chars=template.body_max_chars_per_line,
+    )
+
+
+def _fit_title_font_size(title: str, base_size: int = _TITLE_FONT_SIZE) -> int:
     """Auto-shrink the cover title font when the string is long.
 
-    Base 110px fits ~14 characters across the cover panel safe zone (~950px).
+    Base fits ~14 characters across the cover panel safe zone (~950px).
     Longer titles scale down linearly to a minimum of 62px.
     """
     n = max(1, len(title))
     if n <= 14:
-        return _TITLE_FONT_SIZE
-    # Scale: at 14 chars → 110, at 28 chars → ~62
-    scaled = int(_TITLE_FONT_SIZE * 14 / n)
-    return max(62, min(_TITLE_FONT_SIZE, scaled))
+        return base_size
+    scaled = int(base_size * 14 / n)
+    return max(62, min(base_size, scaled))
 
 # --- Back-panel kind → human-readable heading (fixes v1 "CTA" leak) ---
 
@@ -144,7 +179,12 @@ def _render_hero_image(panel: PanelRect, hero_png_bytes: bytes) -> str:
     )
 
 
-def _render_cover_text(panel: PanelRect, title: str, subtitle: str | None) -> str:
+def _render_cover_text(
+    panel: PanelRect,
+    title: str,
+    subtitle: str | None,
+    typ: _Typography,
+) -> str:
     """Title + optional subtitle overlaid on the cover panel safe area.
 
     Uses a soft drop shadow (via SVG filter) instead of the hard outline stroke
@@ -154,8 +194,8 @@ def _render_cover_text(panel: PanelRect, title: str, subtitle: str | None) -> st
     cx = sx + sw // 2
     title_y = sy + sh // 3  # upper third
     title = title.upper()
-    # Unique filter id per panel so defs don't collide
     filter_id = f"cover-shadow-{panel.sheet}"
+    title_size = _fit_title_font_size(title, base_size=typ.cover_title_size)
     parts = [
         f'<defs><filter id="{filter_id}" x="-10%" y="-30%" width="120%" height="160%">'
         f'<feGaussianBlur in="SourceAlpha" stdDeviation="3"/>'
@@ -163,71 +203,77 @@ def _render_cover_text(panel: PanelRect, title: str, subtitle: str | None) -> st
         f'<feComponentTransfer><feFuncA type="linear" slope="0.75"/></feComponentTransfer>'
         f'<feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>'
         f"</filter></defs>",
-        # Auto-shrink title if too many characters (prevent overflow of center panel).
-        # Base 110px fits ~14 chars; shrink proportionally for longer titles.
         f'<text x="{cx}" y="{title_y}" text-anchor="middle" '
-        f'font-family="{_FONT_TITLE}" '
-        f'font-size="{_fit_title_font_size(title)}" '
+        f'font-family="{typ.title_font}" '
+        f'font-size="{title_size}" '
         f'fill="#FFFFFF" filter="url(#{filter_id})">'
         f"{escape(title)}</text>",
     ]
     if subtitle:
-        sub_y = title_y + _TITLE_FONT_SIZE + 16
+        sub_y = title_y + typ.cover_title_size + 16
         parts.append(
             f'<text x="{cx}" y="{sub_y}" text-anchor="middle" '
-            f'font-family="{_FONT_BODY}" font-size="{_SUBTITLE_FONT_SIZE}" '
+            f'font-family="{typ.body_font}" font-size="{_SUBTITLE_FONT_SIZE}" '
             f'fill="#FFFFFF" filter="url(#{filter_id})">'
             f"{escape(subtitle)}</text>"
         )
     return "".join(parts)
 
 
-def _render_section_text(panel: PanelRect, section: BrochureSection, accent_hex: str) -> str:
+def _render_section_text(
+    panel: PanelRect,
+    section: BrochureSection,
+    accent_hex: str,
+    typ: _Typography,
+) -> str:
     """Heading + accent rule + wrapped body text for an inner panel."""
     sx, sy, sw, _ = panel.safe_rect
-    y = sy + _HEADING_FONT_SIZE
+    y = sy + typ.heading_size
     parts = [
         f'<text x="{sx}" y="{y}" '
-        f'font-family="{_FONT_TITLE}" font-size="{_HEADING_FONT_SIZE}" '
+        f'font-family="{typ.title_font}" font-size="{typ.heading_size}" '
         f'fill="{accent_hex}">{escape(section.heading)}</text>',
-        # Accent rule under heading — thin line the width of the heading text.
         f'<rect x="{sx}" y="{y + 12}" width="{min(sw, 220)}" height="3" fill="{accent_hex}"/>',
     ]
-    y += 24 + 16  # gap after heading + accent rule
+    y += 24 + 16
     for kind, text in _parse_body(section.body):
         if kind == "bullet":
-            lines = _wrap(text, _BODY_MAX_CHARS_PER_LINE - 2)
+            lines = _wrap(text, typ.body_max_chars - 2)
             for i, line in enumerate(lines):
-                y += _BODY_LINE_HEIGHT
+                y += typ.body_line_height
                 prefix = "• " if i == 0 else "  "
                 parts.append(
                     f'<text x="{sx}" y="{y}" '
-                    f'font-family="{_FONT_BODY}" font-size="{_BODY_FONT_SIZE}" '
+                    f'font-family="{typ.body_font}" font-size="{typ.body_size}" '
                     f'fill="#333333">{escape(prefix + line)}</text>'
                 )
         else:
-            lines = _wrap(text, _BODY_MAX_CHARS_PER_LINE)
+            lines = _wrap(text, typ.body_max_chars)
             for line in lines:
-                y += _BODY_LINE_HEIGHT
+                y += typ.body_line_height
                 parts.append(
                     f'<text x="{sx}" y="{y}" '
-                    f'font-family="{_FONT_BODY}" font-size="{_BODY_FONT_SIZE}" '
+                    f'font-family="{typ.body_font}" font-size="{typ.body_size}" '
                     f'fill="#333333">{escape(line)}</text>'
                 )
-            y += 12  # paragraph gap
+            y += 12
     return "".join(parts)
 
 
-def _render_back_panel_text(panel: PanelRect, brochure: BrochureInput) -> str:
+def _render_back_panel_text(
+    panel: PanelRect,
+    brochure: BrochureInput,
+    typ: _Typography,
+) -> str:
     """Back-cover panel content: back_panel if provided, else org + contact block."""
     sx, sy, sw, _sh = panel.safe_rect
     parts: list[str] = []
-    y = sy + _HEADING_FONT_SIZE
+    y = sy + typ.heading_size
     if brochure.back_panel is not None:
         heading_text = _BACK_PANEL_HEADINGS.get(brochure.back_panel.kind, "Details")
         parts.append(
             f'<text x="{sx}" y="{y}" '
-            f'font-family="{_FONT_TITLE}" font-size="{_HEADING_FONT_SIZE}" '
+            f'font-family="{typ.title_font}" font-size="{typ.heading_size}" '
             f'fill="{brochure.color_accent}">'
             f"{escape(heading_text)}</text>"
         )
@@ -235,12 +281,12 @@ def _render_back_panel_text(panel: PanelRect, brochure: BrochureInput) -> str:
             f'<rect x="{sx}" y="{y + 12}" width="{min(sw, 220)}" height="3" '
             f'fill="{brochure.color_accent}"/>'
         )
-        y += _HEADING_FONT_SIZE + 16
-        for line in _wrap(brochure.back_panel.content, _BODY_MAX_CHARS_PER_LINE):
-            y += _BODY_LINE_HEIGHT
+        y += typ.heading_size + 16
+        for line in _wrap(brochure.back_panel.content, typ.body_max_chars):
+            y += typ.body_line_height
             parts.append(
                 f'<text x="{sx}" y="{y}" '
-                f'font-family="{_FONT_BODY}" font-size="{_BODY_FONT_SIZE}" '
+                f'font-family="{typ.body_font}" font-size="{typ.body_size}" '
                 f'fill="#333333">{escape(line)}</text>'
             )
         return "".join(parts)
@@ -248,22 +294,22 @@ def _render_back_panel_text(panel: PanelRect, brochure: BrochureInput) -> str:
     # Fallback: org + contact
     parts.append(
         f'<text x="{sx}" y="{y}" '
-        f'font-family="{_FONT_TITLE}" font-size="{_HEADING_FONT_SIZE}" '
+        f'font-family="{typ.title_font}" font-size="{typ.heading_size}" '
         f'fill="{brochure.color_accent}">{escape(brochure.org)}</text>'
     )
     parts.append(
         f'<rect x="{sx}" y="{y + 12}" width="{min(sw, 220)}" height="3" '
         f'fill="{brochure.color_accent}"/>'
     )
-    y += 16  # accent rule gap
+    y += 16
     if brochure.contact is not None:
         for attr in ("name", "phone", "email", "url", "address"):
             value = getattr(brochure.contact, attr)
             if value:
-                y += _BODY_LINE_HEIGHT
+                y += typ.body_line_height
                 parts.append(
                     f'<text x="{sx}" y="{y}" '
-                    f'font-family="{_FONT_BODY}" font-size="{_BODY_FONT_SIZE}" '
+                    f'font-family="{typ.body_font}" font-size="{typ.body_size}" '
                     f'fill="#333333">{escape(value)}</text>'
                 )
     return "".join(parts)
@@ -376,37 +422,41 @@ def _render_spot_image(panel: PanelRect, png_bytes: bytes) -> str:
 
 
 def _render_section_text_below_image(
-    panel: PanelRect, section: BrochureSection, accent_hex: str, image_h: int
+    panel: PanelRect,
+    section: BrochureSection,
+    accent_hex: str,
+    image_h: int,
+    typ: _Typography,
 ) -> str:
     """Like _render_section_text but starts below a spot image occupying top image_h pixels."""
     sx, sy, sw, _ = panel.safe_rect
     text_top = sy + image_h + 16
-    y = text_top + _HEADING_FONT_SIZE
+    y = text_top + typ.heading_size
     parts = [
         f'<text x="{sx}" y="{y}" '
-        f'font-family="{_FONT_TITLE}" font-size="{_HEADING_FONT_SIZE}" '
+        f'font-family="{typ.title_font}" font-size="{typ.heading_size}" '
         f'fill="{accent_hex}">{escape(section.heading)}</text>',
         f'<rect x="{sx}" y="{y + 12}" width="{min(sw, 220)}" height="3" fill="{accent_hex}"/>',
     ]
     y += 24 + 16
     for kind, text in _parse_body(section.body):
         if kind == "bullet":
-            lines = _wrap(text, _BODY_MAX_CHARS_PER_LINE - 2)
+            lines = _wrap(text, typ.body_max_chars - 2)
             for i, line in enumerate(lines):
-                y += _BODY_LINE_HEIGHT
+                y += typ.body_line_height
                 prefix = "• " if i == 0 else "  "
                 parts.append(
                     f'<text x="{sx}" y="{y}" '
-                    f'font-family="{_FONT_BODY}" font-size="{_BODY_FONT_SIZE}" '
+                    f'font-family="{typ.body_font}" font-size="{typ.body_size}" '
                     f'fill="#333333">{escape(prefix + line)}</text>'
                 )
         else:
-            lines = _wrap(text, _BODY_MAX_CHARS_PER_LINE)
+            lines = _wrap(text, typ.body_max_chars)
             for line in lines:
-                y += _BODY_LINE_HEIGHT
+                y += typ.body_line_height
                 parts.append(
                     f'<text x="{sx}" y="{y}" '
-                    f'font-family="{_FONT_BODY}" font-size="{_BODY_FONT_SIZE}" '
+                    f'font-family="{typ.body_font}" font-size="{typ.body_size}" '
                     f'fill="#333333">{escape(line)}</text>'
                 )
             y += 12
@@ -442,6 +492,7 @@ def compose_brochure_svgs(
 
     shape_density = layout_choice.shape_density if layout_choice is not None else "medium"
     seed_base = hash(brochure.title) & 0xFFFF
+    typ = _typography(template)
 
     # --- OUTSIDE SHEET ---
     outside_parts: list[str] = []
@@ -450,7 +501,7 @@ def compose_brochure_svgs(
         if panel.name == "front_cover":
             outside_parts.append(_render_hero_image(panel, hero_png_bytes))
             outside_parts.append(
-                _render_cover_text(panel, brochure.title, brochure.subtitle)
+                _render_cover_text(panel, brochure.title, brochure.subtitle, typ)
             )
         elif panel.name == "back_cover":
             outside_parts.append(_render_panel_gradient(panel, brochure.color_accent))
@@ -461,7 +512,7 @@ def compose_brochure_svgs(
                         brochure.color_accent, seed_base, shape_density,
                     )
                 )
-            outside_parts.append(_render_back_panel_text(panel, brochure))
+            outside_parts.append(_render_back_panel_text(panel, brochure, typ))
         elif panel.name == "tuck_flap":
             outside_parts.append(_render_panel_gradient(panel, brochure.color_accent))
             # Tuck flap shows the FOURTH section (index 3) when present, so it doesn't
@@ -498,12 +549,12 @@ def compose_brochure_svgs(
                 image_h = int(panel.safe_rect[3] * 0.40)
                 outside_parts.append(
                     _render_section_text_below_image(
-                        panel, compressed, brochure.color_accent, image_h
+                        panel, compressed, brochure.color_accent, image_h, typ
                     )
                 )
             elif compressed is not None:
                 outside_parts.append(
-                    _render_section_text(panel, compressed, brochure.color_accent)
+                    _render_section_text(panel, compressed, brochure.color_accent, typ)
                 )
             # else: tuck flap is gradient + shapes only (no text) — graceful for N<4.
 
@@ -558,12 +609,12 @@ def compose_brochure_svgs(
                 image_h = int(panel.safe_rect[3] * 0.40)
                 inside_parts.append(
                     _render_section_text_below_image(
-                        panel, section, brochure.color_accent, image_h
+                        panel, section, brochure.color_accent, image_h, typ
                     )
                 )
         elif section is not None:
             inside_parts.append(
-                _render_section_text(panel, section, brochure.color_accent)
+                _render_section_text(panel, section, brochure.color_accent, typ)
             )
 
     # Overflow section[4] → bottom of rightmost inner panel as a compact list.
@@ -573,18 +624,18 @@ def compose_brochure_svgs(
         right_panel = layout.inside_panels[-1]
         overflow = brochure.sections[4]
         sx, sy, sw, sh = right_panel.safe_rect
-        overflow_heading_size = max(_HEADING_FONT_SIZE // 2, _BODY_FONT_SIZE + 8)
-        y = sy + sh - (_BODY_LINE_HEIGHT * 4)
+        overflow_heading_size = max(typ.heading_size // 2, typ.body_size + 8)
+        y = sy + sh - (typ.body_line_height * 4)
         inside_parts.append(
             f'<text x="{sx}" y="{y}" '
-            f'font-family="{_FONT_TITLE}" font-size="{overflow_heading_size}" '
+            f'font-family="{typ.title_font}" font-size="{overflow_heading_size}" '
             f'fill="{brochure.color_accent}">{escape(overflow.heading)}</text>'
         )
-        for line in _wrap(overflow.body, _BODY_MAX_CHARS_PER_LINE)[:3]:
-            y += _BODY_LINE_HEIGHT
+        for line in _wrap(overflow.body, typ.body_max_chars)[:3]:
+            y += typ.body_line_height
             inside_parts.append(
                 f'<text x="{sx}" y="{y}" '
-                f'font-family="{_FONT_BODY}" font-size="{_BODY_FONT_SIZE - 6}" '
+                f'font-family="{typ.body_font}" font-size="{typ.body_size - 6}" '
                 f'fill="#555555">{escape(line)}</text>'
             )
 
