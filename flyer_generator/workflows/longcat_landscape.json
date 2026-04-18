@@ -1,0 +1,177 @@
+{
+  "_flyer_meta": {
+    "name": "longcat_landscape",
+    "description": "LongCat Image 20 steps, cfg=4, 1472x832 landscape — brochure cover hero",
+    "latent_dimensions": [1472, 832],
+    "injection_points": {
+      "positive_prompt": "13:4",
+      "negative_prompt": "13:5",
+      "seed": "13:7"
+    }
+  },
+  "9": {
+    "inputs": {
+      "filename_prefix": "LongCat-Image",
+      "images": [
+        "13:8",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "13:1": {
+    "inputs": {
+      "unet_name": "longcat_image_bf16.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "13:2": {
+    "inputs": {
+      "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "type": "longcat_image",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "13:3": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "13:11": {
+    "inputs": {
+      "guidance": 4,
+      "conditioning": [
+        "13:4",
+        0
+      ]
+    },
+    "class_type": "FluxGuidance",
+    "_meta": {
+      "title": "FluxGuidance"
+    }
+  },
+  "13:12": {
+    "inputs": {
+      "guidance": 4,
+      "conditioning": [
+        "13:5",
+        0
+      ]
+    },
+    "class_type": "FluxGuidance",
+    "_meta": {
+      "title": "FluxGuidance"
+    }
+  },
+  "13:10": {
+    "inputs": {
+      "strength": 1,
+      "model": [
+        "13:1",
+        0
+      ]
+    },
+    "class_type": "CFGNorm",
+    "_meta": {
+      "title": "CFGNorm"
+    }
+  },
+  "13:6": {
+    "inputs": {
+      "width": 1472,
+      "height": 832,
+      "batch_size": 1
+    },
+    "class_type": "EmptySD3LatentImage",
+    "_meta": {
+      "title": "EmptySD3LatentImage"
+    }
+  },
+  "13:8": {
+    "inputs": {
+      "samples": [
+        "13:7",
+        0
+      ],
+      "vae": [
+        "13:3",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "13:4": {
+    "inputs": {
+      "text": "",
+      "clip": [
+        "13:2",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Positive Prompt)"
+    }
+  },
+  "13:7": {
+    "inputs": {
+      "seed": 0,
+      "steps": 20,
+      "cfg": 4,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "13:10",
+        0
+      ],
+      "positive": [
+        "13:11",
+        0
+      ],
+      "negative": [
+        "13:12",
+        0
+      ],
+      "latent_image": [
+        "13:6",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "13:5": {
+    "inputs": {
+      "text": "",
+      "clip": [
+        "13:2",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Negative Prompt)"
+    }
+  }
+}
