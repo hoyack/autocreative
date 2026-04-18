@@ -29,7 +29,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 13: Imagery Orchestration + Verification Loop** - multi-image generation (1 hero + 0-3 spot images), 5-dimension rubric verification, weakest-stage regen loop (max 2 cycles) (completed 2026-04-18)
 - [x] **Phase 14: Prompt-Driven Public API + CLI + End-to-End** - `generate_brochure_from_prompt()` async public API, `--prompt` CLI flag, end-to-end integration tests with mocked LLM + Comfy (completed 2026-04-18)
 - [x] **Phase 15: Polish — Shape/Text Collision + Spot-Image Compositing** - constrain decorative shapes to avoid heading zones, composite spot images into inner panels + tuck flap, re-verify end-to-end visual output (completed 2026-04-18)
-- [ ] **Phase 16: Quality tuning — section distribution, heading hierarchy, verification teeth** - smarter multi-section panel assignment, accent rules under every heading, cover-title drop-shadow, verify-loop regen with seed variation
+- [x] **Phase 16: Quality tuning — section distribution, heading hierarchy, verification teeth** - smarter multi-section panel assignment, accent rules under every heading, cover-title drop-shadow + auto-shrink, verify-loop regen with seed variation (completed 2026-04-18)
 
 ## Phase Details
 
