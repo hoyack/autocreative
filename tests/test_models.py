@@ -118,9 +118,12 @@ class TestVisionVerdict:
     def _make_zones(self):
         return LayoutZones(title="TOP_LEFT", details="BOTTOM_CENTER", fee_badge="TOP_RIGHT")
 
-    def test_vision_verdict_approved_requires_zones(self):
-        with pytest.raises(ValidationError):
-            VisionVerdict(approved=True, confidence=0.9, raw_response="test", zones=None)
+    def test_vision_verdict_approved_without_zones_allowed(self):
+        # Zones are flyer-specific. Other domains (e.g. brochure cover) may approve
+        # without zones — the VisionEvaluator enforces zone requirements in flyer mode.
+        v = VisionVerdict(approved=True, confidence=0.9, raw_response="test", zones=None)
+        assert v.approved is True
+        assert v.zones is None
 
     def test_vision_verdict_rejected_no_zones_ok(self):
         v = VisionVerdict(

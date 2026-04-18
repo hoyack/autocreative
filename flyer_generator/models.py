@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from flyer_generator.zones import ZoneCoord, ZoneName
 
@@ -78,7 +78,13 @@ class LayoutZones(BaseModel):
 
 
 class VisionVerdict(BaseModel):
-    """Claude vision evaluation result."""
+    """Vision evaluation result.
+
+    Zones are flyer-specific: the flyer pipeline requires them when approved
+    (enforced by VisionEvaluator in flyer mode). For other domains (e.g.
+    brochure cover evaluation), zones may be None even when approved — the
+    caller is responsible for domain-specific validity.
+    """
 
     approved: bool
     confidence: float = Field(ge=0.0, le=1.0)
@@ -88,13 +94,6 @@ class VisionVerdict(BaseModel):
     text_color: Literal["white", "dark"] = "white"
     mood_tags: list[str] = Field(default_factory=list)
     raw_response: str = Field(max_length=500)
-
-    @model_validator(mode="after")
-    def _zones_required_when_approved(self) -> VisionVerdict:
-        if self.approved and self.zones is None:
-            msg = "zones must be provided when approved=True"
-            raise ValueError(msg)
-        return self
 
 
 class ResolvedLayout(BaseModel):

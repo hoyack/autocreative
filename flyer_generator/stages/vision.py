@@ -65,8 +65,16 @@ class VisionEvaluator:
     - "ollama": Any OpenAI-compatible endpoint (Ollama Cloud, local Ollama, etc.)
     """
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        system_prompt: str | None = None,
+        require_zones: bool = True,
+    ) -> None:
         self._settings = settings
+        self._system_prompt = system_prompt or VISION_SYSTEM_PROMPT
+        self._require_zones = require_zones
         if settings.vision_provider == "ollama":
             self._anthropic_client: AsyncAnthropic | None = None
             self._httpx_client: httpx.AsyncClient | None = httpx.AsyncClient(
@@ -106,10 +114,31 @@ class VisionEvaluator:
             f"Organizer: {event.org}\n"
             f"Style: {event.style_concept}"
         )
+        return await self._evaluate_with_text(background.image_bytes, user_text)
 
-        img_b64 = base64.b64encode(background.image_bytes).decode()
+    async def evaluate_cover(
+        self,
+        image_bytes: bytes,
+        concept: str,
+        style_preset: str = "",
+    ) -> VisionVerdict:
+        """Evaluate a hero image for brochure cover suitability.
 
-        # Dispatch to the configured backend
+        Concept-only (no date/venue/etc.), no zone assignment expected. Requires
+        the evaluator to have been constructed with `require_zones=False` and a
+        brochure-specific `system_prompt`.
+        """
+        user_text = f"Brochure cover concept: {concept}"
+        if style_preset:
+            user_text += f"\nStyle preset: {style_preset}"
+        return await self._evaluate_with_text(image_bytes, user_text)
+
+    async def _evaluate_with_text(
+        self, image_bytes: bytes, user_text: str
+    ) -> VisionVerdict:
+        """Shared vision evaluation path: send image + text, parse, validate, retry once."""
+        img_b64 = base64.b64encode(image_bytes).decode()
+
         if self._settings.vision_provider == "ollama":
             raw_text = await self._call_ollama(img_b64, user_text)
         else:
@@ -118,7 +147,6 @@ class VisionEvaluator:
         try:
             verdict = self._parse_and_validate(raw_text)
         except VisionResponseParseError:
-            # D-20: one retry with follow-up prompt
             logger.warning("vision_parse_retry", raw_preview=raw_text[:200])
             if self._settings.vision_provider == "ollama":
                 raw_text_retry = await self._call_ollama_retry(img_b64, user_text, raw_text)
@@ -149,7 +177,7 @@ class VisionEvaluator:
             response = await self._anthropic_client.messages.create(
                 model=self._settings.vision_model,
                 max_tokens=self._settings.vision_max_tokens,
-                system=VISION_SYSTEM_PROMPT,
+                system=self._system_prompt,
                 messages=[{"role": "user", "content": user_content}],
             )
         except APIError as exc:
@@ -172,7 +200,7 @@ class VisionEvaluator:
             response = await self._anthropic_client.messages.create(
                 model=self._settings.vision_model,
                 max_tokens=self._settings.vision_max_tokens,
-                system=VISION_SYSTEM_PROMPT,
+                system=self._system_prompt,
                 messages=[
                     {"role": "user", "content": user_content},
                     {"role": "assistant", "content": raw_text},
@@ -192,7 +220,7 @@ class VisionEvaluator:
             "model": self._settings.ollama_vision_model,
             "max_tokens": self._settings.vision_max_tokens,
             "messages": [
-                {"role": "system", "content": VISION_SYSTEM_PROMPT},
+                {"role": "system", "content": self._system_prompt},
                 {
                     "role": "user",
                     "content": [
@@ -216,7 +244,7 @@ class VisionEvaluator:
             "model": self._settings.ollama_vision_model,
             "max_tokens": self._settings.vision_max_tokens,
             "messages": [
-                {"role": "system", "content": VISION_SYSTEM_PROMPT},
+                {"role": "system", "content": self._system_prompt},
                 {
                     "role": "user",
                     "content": [
@@ -293,8 +321,8 @@ class VisionEvaluator:
                     f"Low confidence: {data['confidence']}"
                 )
 
-        # Step 5: zone validation (D-22)
-        if data.get("approved"):
+        # Step 5: zone validation (D-22) — flyer-mode only
+        if self._require_zones and data.get("approved"):
             zones = data.get("zones")
             if zones is None:
                 data["approved"] = False
@@ -311,6 +339,9 @@ class VisionEvaluator:
                     data.setdefault("rejection_reasons", []).append(
                         f"Invalid zone names: {', '.join(invalid_zones)}"
                     )
+        elif not self._require_zones:
+            # Brochure / non-zone mode: drop zones entirely to avoid spurious validation
+            data.pop("zones", None)
 
         # Step 6: Pydantic validation
         try:
