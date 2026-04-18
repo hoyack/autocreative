@@ -190,21 +190,20 @@ def _render_placeholder_cover(
     """Cover treatment when no hero image is available.
 
     Renders:
-      - Accent-tinted gradient across the full panel (same as other panels)
-      - A dominant accent bar near the top for visual anchor
-      - Title rendered in dark/accent colour (NOT white) so it's visible against
-        the pale gradient — white-on-white was the silent failure from the
-        shapes_only + placeholder hero path
-      - Subtitle in a muted colour below the title
+      - Accent-tinted gradient across the full panel
+      - A dominant accent bar above the (vertically-centered) title
+      - Title rendered in dark/accent colour (NOT white) so it's visible
+      - A subtle footer accent bar near the bottom of the panel so the empty
+        lower half doesn't read as dead space
     """
     sx, sy, sw, sh = panel.safe_rect
     x, y, w, h = panel.bleed_rect
     cx = sx + sw // 2
-    title_y = sy + sh // 3
+    # Title vertically-centered in the safe rect so visual weight is balanced.
+    title_y = sy + sh // 2
     title_display = title.upper()
     title_size = _fit_title_font_size(title_display, base_size=typ.cover_title_size)
 
-    # Use the same panel-gradient id pattern so multiple panels don't collide.
     grad_id = f"grad-{panel.sheet}-{panel.name}-cover"
     parts = [
         f'<defs><linearGradient id="{grad_id}" x1="0" y1="0" x2="0" y2="1">'
@@ -214,12 +213,14 @@ def _render_placeholder_cover(
         f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="url(#{grad_id})"/>',
         # Anchor bar above the title
         f'<rect x="{cx - 120}" y="{title_y - title_size - 40}" width="240" height="8" fill="{accent_hex}"/>',
-        # Title (accent colour, no drop shadow — high-contrast against pale gradient)
+        # Title (accent colour, high-contrast against pale gradient)
         f'<text x="{cx}" y="{title_y}" text-anchor="middle" '
         f'font-family="{typ.title_font}" '
         f'font-size="{title_size}" '
         f'fill="{accent_hex}">'
         f"{escape(title_display)}</text>",
+        # Footer accent bar to anchor the lower panel half (breaks up empty space).
+        f'<rect x="{cx - 60}" y="{sy + sh - 80}" width="120" height="4" fill="{accent_hex}" opacity="0.6"/>',
     ]
     if subtitle:
         sub_y = title_y + title_size + 16
@@ -646,15 +647,25 @@ def compose_brochure_svgs(
                         brochure.color_accent, typ,
                     )
                 )
-                if template is not None:
-                    outside_parts.append(
-                        _resolve_shapes_for_panel(
-                            panel,
-                            template.shape_mix.get("front_cover", ())
-                            or template.shape_mix.get("cover", ()),
-                            brochure.color_accent, seed_base + 2, shape_density,
-                        )
+                # Fall back to decorative default shapes when the template
+                # declares none on the cover panel (most templates do).
+                cover_shapes = (
+                    template.shape_mix.get("front_cover", ())
+                    or template.shape_mix.get("cover", ())
+                    if template is not None
+                    else ()
+                )
+                if not cover_shapes:
+                    cover_shapes = (
+                        "accent_bar(placement=top, thickness=8)",
+                        "corner_wedge(corner=bottom-right, size=160)",
                     )
+                outside_parts.append(
+                    _resolve_shapes_for_panel(
+                        panel, cover_shapes,
+                        brochure.color_accent, seed_base + 2, shape_density,
+                    )
+                )
             else:
                 outside_parts.append(_render_hero_image(panel, hero_png_bytes))
                 outside_parts.append(
