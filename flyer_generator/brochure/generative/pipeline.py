@@ -173,6 +173,7 @@ async def generate_brochure_from_prompt(
     verify_threshold: int = 70,
     max_verify_iterations: int = 2,
     text_client: TextClient | None = None,
+    workflow_name: str = "turbo_landscape",
 ) -> BrochureOutput:
     """Prompt-driven end-to-end brochure generation.
 
@@ -227,6 +228,7 @@ async def generate_brochure_from_prompt(
             outline=outline,
             layout_choice=layout_choice,
             settings=settings,
+            workflow_name=workflow_name,
         )
         log.info("brochure_imagery_ready",
                  has_hero=imagery.hero_png_bytes is not None,

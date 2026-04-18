@@ -83,6 +83,10 @@ def main(
     list_presets: Annotated[bool, typer.Option("--list-presets", help="List available presets")] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Print prompt + panel plan without generating")] = False,
     max_attempts: Annotated[Optional[int], typer.Option("--max-attempts", help="Max hero regen attempts")] = None,
+    workflow: Annotated[
+        str,
+        typer.Option("--workflow", help="ComfyUI workflow name (e.g. turbo_landscape, flux2_landscape, qwen_landscape, ernie_landscape, ernie_turbo_landscape, longcat_landscape)"),
+    ] = "turbo_landscape",
 ) -> None:
     """Generate a tri-fold landscape brochure (outside + inside PNGs + print PDF)."""
     if list_presets:
@@ -119,6 +123,7 @@ def main(
                     color_accent=accent if accent != "#F59E0B" else None,
                     target_length=target_length,  # type: ignore[arg-type]
                     verify_threshold=verify_threshold,
+                    workflow_name=workflow,
                 )
             )
         except FlyerGeneratorError as exc:
