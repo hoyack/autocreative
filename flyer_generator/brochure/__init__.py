@@ -10,8 +10,13 @@ from flyer_generator.brochure.models import (
     BrochureOutput,
     BrochureSection,
     ContactBlock,
+    PanelName,
+    PanelRect,
+    ResolvedBrochureLayout,
+    SheetName,
     validate_hex_color,
 )
+from flyer_generator.brochure.stages.layout import compute_panel_layout
 
 __all__ = [
     "BrochureBackPanel",
@@ -19,5 +24,10 @@ __all__ = [
     "BrochureOutput",
     "BrochureSection",
     "ContactBlock",
+    "PanelName",
+    "PanelRect",
+    "ResolvedBrochureLayout",
+    "SheetName",
+    "compute_panel_layout",
     "validate_hex_color",
 ]

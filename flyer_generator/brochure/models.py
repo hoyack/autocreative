@@ -15,6 +15,16 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from flyer_generator.models import VisionVerdict
 
+PanelName = Literal[
+    "back_cover",
+    "front_cover",
+    "tuck_flap",
+    "inner_left",
+    "inner_center",
+    "inner_right",
+]
+SheetName = Literal["outside", "inside"]
+
 _HEX_COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 
@@ -103,3 +113,38 @@ class BrochureOutput(BaseModel):
         (directory / "brochure_front.png").write_bytes(self.front_png_bytes)
         (directory / "brochure_back.png").write_bytes(self.back_png_bytes)
         (directory / "brochure_print.pdf").write_bytes(self.pdf_bytes)
+
+
+class PanelRect(BaseModel):
+    """Geometry for a single tri-fold panel on the bleed canvas.
+
+    All coordinates are integer pixels in bleed-canvas space (origin top-left).
+    trim_rect is the visible printed area; safe_rect is the text-safe inset;
+    bleed_rect extends outward to the canvas edge on sheet-edge sides.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: PanelName
+    index: int = Field(ge=1, le=6)
+    sheet: SheetName
+    bleed_rect: tuple[int, int, int, int]  # (x, y, w, h)
+    trim_rect: tuple[int, int, int, int]
+    safe_rect: tuple[int, int, int, int]
+
+
+class ResolvedBrochureLayout(BaseModel):
+    """Full panel-level geometry for a tri-fold brochure.
+
+    Contains three panels per sheet (outside + inside), fold-line x-coordinates
+    for each sheet, and eight crop-mark anchor points (four per sheet) positioned
+    in the bleed area just outside each trim corner.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    outside_panels: list[PanelRect] = Field(min_length=3, max_length=3)
+    inside_panels: list[PanelRect] = Field(min_length=3, max_length=3)
+    fold_lines_outside: list[int] = Field(min_length=2, max_length=2)
+    fold_lines_inside: list[int] = Field(min_length=2, max_length=2)
+    crop_marks: list[tuple[int, int]] = Field(min_length=8, max_length=8)
