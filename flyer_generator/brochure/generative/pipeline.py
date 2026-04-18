@@ -190,6 +190,7 @@ async def generate_brochure_from_prompt(
         layout_choice=layout_choice,
         template=template,
         hero_bytes=hero_bytes,
+        spot_images=imagery.spot_images,
         settings=settings,
         verify_threshold=verify_threshold,
         max_verify_iterations=max_verify_iterations,
@@ -216,6 +217,7 @@ async def _render_and_verify(
     layout_choice,
     template,
     hero_bytes,
+    spot_images,
     settings,
     verify_threshold,
     max_verify_iterations,
@@ -235,6 +237,7 @@ async def _render_and_verify(
             hero_bytes,
             layout_choice=layout_choice,
             template=template,
+            spot_images=spot_images,
             render_guides=False,
         )
         front_png = rasterizer.rasterize(outside_svg)

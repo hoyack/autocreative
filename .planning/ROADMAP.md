@@ -28,6 +28,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 12: Vector Shape Library + Composer v2** - 6 parameterized SVG shapes (circle_offpage, rotated_block, accent_bar, dot_grid, pullquote_frame, corner_wedge), composer rewrite honoring LayoutChoice; fixes v1 fold-line print bug + back-panel kind leak (completed 2026-04-18)
 - [x] **Phase 13: Imagery Orchestration + Verification Loop** - multi-image generation (1 hero + 0-3 spot images), 5-dimension rubric verification, weakest-stage regen loop (max 2 cycles) (completed 2026-04-18)
 - [x] **Phase 14: Prompt-Driven Public API + CLI + End-to-End** - `generate_brochure_from_prompt()` async public API, `--prompt` CLI flag, end-to-end integration tests with mocked LLM + Comfy (completed 2026-04-18)
+- [ ] **Phase 15: Polish — Shape/Text Collision + Spot-Image Compositing** - constrain decorative shapes to avoid heading zones, composite spot images into inner panels, re-verify end-to-end visual output
 
 ## Phase Details
 

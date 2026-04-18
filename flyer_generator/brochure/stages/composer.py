@@ -317,12 +317,69 @@ def _resolve_shapes_for_panel(
     return "".join(parts)
 
 
+def _render_spot_image(panel: PanelRect, png_bytes: bytes) -> str:
+    """Embed a spot image in the top 40% of the panel's safe zone.
+
+    Returns the <image> fragment. Caller is responsible for narrowing the text
+    region so body doesn't overlap the image.
+    """
+    if not png_bytes:
+        return ""
+    b64 = base64.b64encode(png_bytes).decode()
+    sx, sy, sw, sh = panel.safe_rect
+    img_h = int(sh * 0.40)
+    return (
+        f'<image x="{sx}" y="{sy}" width="{sw}" height="{img_h}" '
+        f'preserveAspectRatio="xMidYMid slice" '
+        f'href="data:image/png;base64,{b64}"/>'
+    )
+
+
+def _render_section_text_below_image(
+    panel: PanelRect, section: BrochureSection, accent_hex: str, image_h: int
+) -> str:
+    """Like _render_section_text but starts below a spot image occupying top image_h pixels."""
+    sx, sy, sw, _ = panel.safe_rect
+    # Shift all text down by image_h + padding.
+    text_top = sy + image_h + 16
+    y = text_top + _HEADING_FONT_SIZE
+    parts = [
+        f'<text x="{sx}" y="{y}" '
+        f'font-family="{_FONT_TITLE}" font-size="{_HEADING_FONT_SIZE}" '
+        f'fill="{accent_hex}">{escape(section.heading)}</text>'
+    ]
+    y += 24
+    for kind, text in _parse_body(section.body):
+        if kind == "bullet":
+            lines = _wrap(text, _BODY_MAX_CHARS_PER_LINE - 2)
+            for i, line in enumerate(lines):
+                y += _BODY_LINE_HEIGHT
+                prefix = "• " if i == 0 else "  "
+                parts.append(
+                    f'<text x="{sx}" y="{y}" '
+                    f'font-family="{_FONT_BODY}" font-size="{_BODY_FONT_SIZE}" '
+                    f'fill="#333333">{escape(prefix + line)}</text>'
+                )
+        else:
+            lines = _wrap(text, _BODY_MAX_CHARS_PER_LINE)
+            for line in lines:
+                y += _BODY_LINE_HEIGHT
+                parts.append(
+                    f'<text x="{sx}" y="{y}" '
+                    f'font-family="{_FONT_BODY}" font-size="{_BODY_FONT_SIZE}" '
+                    f'fill="#333333">{escape(line)}</text>'
+                )
+            y += 12
+    return "".join(parts)
+
+
 def compose_brochure_svgs(
     brochure: BrochureInput,
     layout: ResolvedBrochureLayout,
     hero_png_bytes: bytes,
     layout_choice: LayoutChoice | None = None,
     template: LayoutTemplate | None = None,
+    spot_images: dict[str, bytes] | None = None,
     *,
     render_guides: bool = False,
 ) -> tuple[str, str]:
@@ -376,6 +433,7 @@ def compose_brochure_svgs(
                 body=compressed_body,
                 icon_hint=first_section.icon_hint,
             )
+            tuck_spot = spot_images.get(first_section.heading) if spot_images else None
             if template is not None:
                 outside_parts.append(
                     _resolve_shapes_for_panel(
@@ -384,9 +442,18 @@ def compose_brochure_svgs(
                         section_heading=compressed.heading,
                     )
                 )
-            outside_parts.append(
-                _render_section_text(panel, compressed, brochure.color_accent)
-            )
+            if tuck_spot is not None:
+                outside_parts.append(_render_spot_image(panel, tuck_spot))
+                image_h = int(panel.safe_rect[3] * 0.40)
+                outside_parts.append(
+                    _render_section_text_below_image(
+                        panel, compressed, brochure.color_accent, image_h
+                    )
+                )
+            else:
+                outside_parts.append(
+                    _render_section_text(panel, compressed, brochure.color_accent)
+                )
 
     outside_svg = _sheet_svg(
         canvas_w=canvas_w,
@@ -409,6 +476,12 @@ def compose_brochure_svgs(
 
     for idx, (panel, section) in enumerate(zip(layout.inside_panels, inside_sections)):
         inside_parts.append(_render_panel_gradient(panel, brochure.color_accent))
+
+        # Spot image lookup by heading match.
+        spot_bytes = None
+        if spot_images and section is not None and section.heading in spot_images:
+            spot_bytes = spot_images[section.heading]
+
         if template is not None:
             inside_parts.append(
                 _resolve_shapes_for_panel(
@@ -417,7 +490,18 @@ def compose_brochure_svgs(
                     section_heading=section.heading if section else None,
                 )
             )
-        if section is not None:
+
+        if spot_bytes is not None:
+            # Render image top, text below (using image_h = 40% of safe_rect height).
+            inside_parts.append(_render_spot_image(panel, spot_bytes))
+            if section is not None:
+                image_h = int(panel.safe_rect[3] * 0.40)
+                inside_parts.append(
+                    _render_section_text_below_image(
+                        panel, section, brochure.color_accent, image_h
+                    )
+                )
+        elif section is not None:
             inside_parts.append(
                 _render_section_text(panel, section, brochure.color_accent)
             )

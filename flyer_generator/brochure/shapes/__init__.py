@@ -43,17 +43,21 @@ def circle_offpage(
     _, _, w, h = panel_rect.bleed_rect
     bx, by, _, _ = panel_rect.bleed_rect
 
-    # Center depends on offset direction; ~40% of circle protrudes past the edge.
-    protrude = int(size * 0.4)
+    # Center depends on offset direction. Protrude more when only the horizontal
+    # edge is crossed (the circle is a natural "peek" in from the side without
+    # clashing with text). Protrude less on top/bottom so the visible cap stays
+    # small and doesn't land in the heading zone.
+    protrude_side = int(size * 0.40)  # when hitting left/right only
+    protrude_vert = int(size * 0.25)  # when hitting top/bottom
     cx, cy = bx + w // 2, by + h // 2
     if "left" in offset_direction:
-        cx = bx - protrude + size // 2
+        cx = bx - protrude_side + size // 2
     if "right" in offset_direction:
-        cx = bx + w + protrude - size // 2
+        cx = bx + w + protrude_side - size // 2
     if "top" in offset_direction:
-        cy = by - protrude + size // 2
+        cy = by - protrude_vert + size // 2
     if "bottom" in offset_direction:
-        cy = by + h + protrude - size // 2
+        cy = by + h + protrude_vert - size // 2
 
     # Clip to the panel bleed rect so partial circle reads clean.
     clip_id = f"clip-{panel_rect.sheet}-{panel_rect.name}-circle-{seed}"
@@ -85,13 +89,21 @@ def rotated_block(
     fill: str = "accent",
     text: str | None = None,
 ) -> str:
-    """Rectangle rotated by `angle` degrees, anchored top-left of the safe zone."""
-    sx, sy, _, _ = panel_rect.safe_rect
-    # Small deterministic position jitter within the top-left of safe zone.
+    """Rectangle rotated by `angle` degrees.
+
+    For thin accent bars (height <= 20) anchors near the top of the safe zone just above the heading.
+    For bigger decorative blocks (height > 20) anchors in the bottom third of the safe zone so it doesn't overlap headings or body text.
+    """
+    sx, sy, sw, sh = panel_rect.safe_rect
     jx = _det_int(panel_rect.name, seed, "rot-x", 30)
-    jy = _det_int(panel_rect.name, seed, "rot-y", 30)
+    if height <= 20:
+        # Thin accent line — sits just above the heading.
+        y = sy - 16
+    else:
+        # Larger block — anchor in the bottom third, away from heading + body.
+        jy = _det_int(panel_rect.name, seed, "rot-y", 40)
+        y = sy + int(sh * 0.66) + jy
     x = sx + jx
-    y = sy + jy
     fill_color = accent_hex if fill == "accent" else fill
     group_open = (
         f'<g transform="rotate({angle} {x + width // 2} {y + height // 2})">'
