@@ -50,28 +50,6 @@ UNIVERSAL_NEGATIVE: str = (
     "cluttered composition, busy background, overlapping subjects"
 )
 
-# ComfyCloud workflow template constants (from n8n workflow)
-COMFY_WORKFLOW_TEMPLATE: dict = {
-    "model_files": {
-        "unet": "z_image_turbo_bf16.safetensors",
-        "clip": "qwen_3_4b.safetensors",
-        "vae": "ae.safetensors",
-    },
-    "sampler_config": {
-        "steps": 8,
-        "cfg": 1,
-        "sampler_name": "res_multistep",
-        "scheduler": "simple",
-        "denoise": 1,
-    },
-    "latent_dimensions": {
-        "width": 832,
-        "height": 1472,
-    },
-    "model_sampling_shift": 3,
-}
-
-
 def build_default_registry() -> PresetRegistry:
     """Create a PresetRegistry populated with the 6 built-in presets."""
     registry = PresetRegistry()

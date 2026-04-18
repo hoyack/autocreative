@@ -7,7 +7,9 @@ import json
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
+import respx
 from anthropic import APIError
 from PIL import Image
 
@@ -34,6 +36,7 @@ from tests.fixtures.vision_responses import (
 @pytest.fixture
 def settings() -> Settings:
     return Settings(
+        vision_provider="anthropic",
         anthropic_api_key="test-key",
         vision_model="claude-sonnet-4-5",
         vision_max_tokens=1024,
@@ -356,3 +359,166 @@ class TestEvaluate:
 
             assert verdict.approved is False
             assert len(verdict.rejection_reasons) == 2
+
+
+# ---------------------------------------------------------------------------
+# Ollama backend tests
+# ---------------------------------------------------------------------------
+
+OLLAMA_BASE = "https://test-ollama.example.com"
+
+
+@pytest.fixture
+def ollama_settings() -> Settings:
+    return Settings(
+        vision_provider="ollama",
+        ollama_api_key="test-ollama-key",
+        ollama_base_url=OLLAMA_BASE,
+        ollama_vision_model="llama3.2-vision",
+        vision_max_tokens=1024,
+        vision_timeout_seconds=30,
+        vision_confidence_threshold=0.6,
+    )
+
+
+def _ollama_chat_response(content: str) -> dict:
+    """Build an OpenAI-compatible /v1/chat/completions response."""
+    return {
+        "id": "chatcmpl-test",
+        "object": "chat.completion",
+        "choices": [{"index": 0, "message": {"role": "assistant", "content": content}}],
+    }
+
+
+class TestOllamaEvaluate:
+    @pytest.mark.asyncio
+    async def test_ollama_evaluate_correct_payload(
+        self,
+        ollama_settings: Settings,
+        mock_background: GeneratedBackground,
+        mock_event: EventInput,
+    ) -> None:
+        with respx.mock(base_url=OLLAMA_BASE) as mock_api:
+            route = mock_api.post("/v1/chat/completions").mock(
+                return_value=httpx.Response(
+                    200, json=_ollama_chat_response(json.dumps(APPROVED_RESPONSE))
+                )
+            )
+
+            evaluator = VisionEvaluator(ollama_settings)
+            await evaluator.evaluate(mock_background, mock_event)
+
+            assert route.called
+            req_body = json.loads(route.calls[0].request.content)
+            assert req_body["model"] == "llama3.2-vision"
+            assert req_body["messages"][0]["role"] == "system"
+            assert req_body["messages"][0]["content"] == VISION_SYSTEM_PROMPT
+            user_msg = req_body["messages"][1]
+            assert user_msg["role"] == "user"
+            assert user_msg["content"][0]["type"] == "image_url"
+            assert user_msg["content"][1]["type"] == "text"
+
+    @pytest.mark.asyncio
+    async def test_ollama_evaluate_success(
+        self,
+        ollama_settings: Settings,
+        mock_background: GeneratedBackground,
+        mock_event: EventInput,
+    ) -> None:
+        with respx.mock(base_url=OLLAMA_BASE) as mock_api:
+            mock_api.post("/v1/chat/completions").mock(
+                return_value=httpx.Response(
+                    200, json=_ollama_chat_response(json.dumps(APPROVED_RESPONSE))
+                )
+            )
+
+            evaluator = VisionEvaluator(ollama_settings)
+            verdict = await evaluator.evaluate(mock_background, mock_event)
+
+            assert isinstance(verdict, VisionVerdict)
+            assert verdict.approved is True
+            assert verdict.confidence == 0.85
+
+    @pytest.mark.asyncio
+    async def test_ollama_evaluate_retry_on_parse_failure(
+        self,
+        ollama_settings: Settings,
+        mock_background: GeneratedBackground,
+        mock_event: EventInput,
+    ) -> None:
+        with respx.mock(base_url=OLLAMA_BASE) as mock_api:
+            route = mock_api.post("/v1/chat/completions").mock(
+                side_effect=[
+                    httpx.Response(
+                        200,
+                        json=_ollama_chat_response("Not JSON at all, sorry!"),
+                    ),
+                    httpx.Response(
+                        200,
+                        json=_ollama_chat_response(json.dumps(APPROVED_RESPONSE)),
+                    ),
+                ]
+            )
+
+            evaluator = VisionEvaluator(ollama_settings)
+            verdict = await evaluator.evaluate(mock_background, mock_event)
+
+            assert isinstance(verdict, VisionVerdict)
+            assert verdict.approved is True
+            assert route.call_count == 2
+            # Verify retry includes conversation history
+            retry_body = json.loads(route.calls[1].request.content)
+            assert len(retry_body["messages"]) == 4  # system + user + assistant + retry user
+            assert retry_body["messages"][-1]["content"] == "Return valid JSON only, no prose."
+
+    @pytest.mark.asyncio
+    async def test_ollama_evaluate_raises_on_http_error(
+        self,
+        ollama_settings: Settings,
+        mock_background: GeneratedBackground,
+        mock_event: EventInput,
+    ) -> None:
+        with respx.mock(base_url=OLLAMA_BASE) as mock_api:
+            mock_api.post("/v1/chat/completions").mock(
+                return_value=httpx.Response(500, text="Internal Server Error")
+            )
+
+            evaluator = VisionEvaluator(ollama_settings)
+            with pytest.raises(VisionAPIError, match="Ollama API error 500"):
+                await evaluator.evaluate(mock_background, mock_event)
+
+    @pytest.mark.asyncio
+    async def test_ollama_evaluate_auth_header(
+        self,
+        ollama_settings: Settings,
+        mock_background: GeneratedBackground,
+        mock_event: EventInput,
+    ) -> None:
+        with respx.mock(base_url=OLLAMA_BASE) as mock_api:
+            route = mock_api.post("/v1/chat/completions").mock(
+                return_value=httpx.Response(
+                    200, json=_ollama_chat_response(json.dumps(APPROVED_RESPONSE))
+                )
+            )
+
+            evaluator = VisionEvaluator(ollama_settings)
+            await evaluator.evaluate(mock_background, mock_event)
+
+            auth_header = route.calls[0].request.headers.get("authorization")
+            assert auth_header == "Bearer test-ollama-key"
+
+    @pytest.mark.asyncio
+    async def test_ollama_evaluate_unexpected_response_format(
+        self,
+        ollama_settings: Settings,
+        mock_background: GeneratedBackground,
+        mock_event: EventInput,
+    ) -> None:
+        with respx.mock(base_url=OLLAMA_BASE) as mock_api:
+            mock_api.post("/v1/chat/completions").mock(
+                return_value=httpx.Response(200, json={"unexpected": "format"})
+            )
+
+            evaluator = VisionEvaluator(ollama_settings)
+            with pytest.raises(VisionAPIError, match="Unexpected Ollama response"):
+                await evaluator.evaluate(mock_background, mock_event)

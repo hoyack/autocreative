@@ -21,10 +21,22 @@ class Settings(BaseSettings):
     comfycloud_api_key: SecretStr = SecretStr("")
     comfycloud_base_url: str = "https://cloud.comfy.org"
 
-    # Vision model
+    # Vision provider selector
+    vision_provider: Literal["anthropic", "ollama"] = "anthropic"
+
+    # Vision model (Anthropic)
     vision_model: str = "claude-sonnet-4-5"
     vision_max_tokens: int = 1024
     vision_timeout_seconds: int = 60
+
+    # Ollama / OpenAI-compatible provider
+    ollama_api_key: SecretStr = SecretStr("")
+    ollama_base_url: str = "https://ollama.com"
+    ollama_vision_model: str = "llama3.2-vision"
+    ollama_text_model: str = "llama3.2"  # future use — not wired to any stage
+
+    # ComfyUI workflow (name or path to .json)
+    workflow: str = "turbo_portrait"
 
     # Regen policy
     max_bg_attempts: int = 3

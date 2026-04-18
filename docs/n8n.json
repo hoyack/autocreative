@@ -1,0 +1,405 @@
+{
+  "name": "Flyer Generator V2 — Vision-Driven Layout + PNG Output",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-01",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-1920, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "event_title", "name": "event_title", "value": "Neighborhood Clean-Up Day", "type": "string" },
+            { "id": "event_date", "name": "event_date", "value": "Saturday, May 2, 2026", "type": "string" },
+            { "id": "event_time", "name": "event_time", "value": "9:00 AM – 12:00 PM", "type": "string" },
+            { "id": "event_location_name", "name": "event_location_name", "value": "Riverside Park Pavilion", "type": "string" },
+            { "id": "event_location_address", "name": "event_location_address", "value": "123 Park Rd, San Antonio, TX 78205", "type": "string" },
+            { "id": "event_fees", "name": "event_fees", "value": "FREE", "type": "string" },
+            { "id": "event_org", "name": "event_org", "value": "Friends of Riverside Park", "type": "string" },
+            { "id": "event_url", "name": "event_url", "value": "", "type": "string" },
+            { "id": "style_concept", "name": "style_concept", "value": "community outdoor event, park setting, sunny morning, volunteers with trash bags, warm friendly atmosphere", "type": "string" },
+            { "id": "color_accent", "name": "color_accent", "value": "#F59E0B", "type": "string" },
+            { "id": "style_preset", "name": "style_preset", "value": "photorealistic", "type": "string" },
+            { "id": "comfy_api_key", "name": "comfy_api_key", "value": "comfyui-b4a2ec49772809a4860bf7dd597c7c8deec9a339cd0b195dd86a5f112982d319", "type": "string" },
+            { "id": "anthropic_api_key", "name": "anthropic_api_key", "value": "YOUR_ANTHROPIC_API_KEY_HERE", "type": "string" },
+            { "id": "max_bg_attempts", "name": "max_bg_attempts", "value": 3, "type": "number" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "params-01",
+      "name": "Event Parameters",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-1712, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Initialize attempt counter and refinement hints\nconst staticData = $getWorkflowStaticData('global');\nstaticData.bgAttempts = 0;\nstaticData.refinementHints = '';\nstaticData.rejectionReasons = [];\nreturn $input.all();"
+      },
+      "id": "init-attempts-01",
+      "name": "Init Attempt State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1488, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const p = $('Event Parameters').first().json;\nconst staticData = $getWorkflowStaticData('global');\nstaticData.bgAttempts = (staticData.bgAttempts || 0) + 1;\n\n// ── Style presets ──\nconst STYLES = {\n  photorealistic: {\n    pos: [\n      'A cinematic photograph: {concept}.',\n      'Shot on 35mm film, shallow depth of field, golden hour lighting.',\n      'Professional color grading, warm tones, inviting atmosphere.'\n    ],\n    neg: 'cartoon, illustration, painting, anime, 3d render, cgi, drawing, sketch'\n  },\n  anime: {\n    pos: [\n      'A vibrant anime illustration: {concept}.',\n      'Studio Ghibli inspired, cel-shaded, rich saturated palette.',\n      'Soft ambient lighting, detailed background art, dreamy atmosphere.'\n    ],\n    neg: 'photorealistic, photograph, 3d render, cgi, western cartoon, low detail'\n  },\n  western_cartoon: {\n    pos: [\n      'A stylized cartoon illustration: {concept}.',\n      'Bold outlines, flat color fills, playful exaggerated proportions.',\n      'Bright cheerful palette, clean vector-style rendering.'\n    ],\n    neg: 'photorealistic, photograph, anime, 3d render, dark, gritty'\n  },\n  scifi: {\n    pos: [\n      'A futuristic sci-fi scene: {concept}.',\n      'Neon accents, holographic elements, sleek metallic surfaces.',\n      'Dramatic volumetric lighting, cyberpunk atmosphere, high-tech environment.'\n    ],\n    neg: 'cartoon, hand-drawn, vintage, rustic, low-tech, blurry'\n  },\n  watercolor: {\n    pos: [\n      'A delicate watercolor painting: {concept}.',\n      'Soft washes of color, visible paper texture, gentle bleeding edges.',\n      'Impressionistic detail, pastel and muted tones, artistic brushwork.'\n    ],\n    neg: 'photorealistic, photograph, sharp lines, 3d render, digital art, cartoon'\n  },\n  retro_poster: {\n    pos: [\n      'A vintage retro poster illustration: {concept}.',\n      'Mid-century modern aesthetic, limited color palette, screen-print texture.',\n      'Bold geometric shapes, grain overlay, nostalgic warm tones.'\n    ],\n    neg: 'photorealistic, photograph, 3d render, anime, hyper-detailed'\n  }\n};\n\nconst styleKey = (p.style_preset || 'photorealistic').toLowerCase().replace(/[\\s-]/g, '_');\nconst style = STYLES[styleKey] || STYLES.photorealistic;\n\n// Flyer directives — keeps clean zones for text overlay\nconst flyerDirectives = [\n  'Smooth clean bokeh areas in the upper third and lower third of the frame.',\n  'Main subject centered in middle third of composition.',\n  'No text, no writing, no letters, no signs, no symbols.',\n  'Pure background art with no graphic design elements.',\n  'Tall portrait composition 9:16.'\n];\n\n// Inject refinement hints from prior rejection (if any)\nconst refinementLine = staticData.refinementHints\n  ? `Additional direction: ${staticData.refinementHints}`\n  : '';\n\nconst bgPrompt = [\n  ...style.pos.map(line => line.replace('{concept}', p.style_concept)),\n  ...flyerDirectives,\n  refinementLine\n].filter(Boolean).join(' ');\n\nconst negPrompt = [\n  'text, writing, letters, words, numbers, watermark, logo, signs, symbols,',\n  'UI, overlay, graphic design, borders, captions, labels,',\n  style.neg + ',',\n  'blurry, low quality, deformed, disfigured, noisy, grainy,',\n  'cluttered composition, busy background, overlapping subjects'\n].join(' ');\n\n// Use 832x1472 (9:16, model-friendly multiples of 64) then upscale in SVG/PNG step\n// This reduces artifacts vs native 1080x1920 for SD3/Flux-family latents\nconst latentWidth = 832;\nconst latentHeight = 1472;\n\nconst workflow = {\n  \"9\": {\n    inputs: { filename_prefix: \"flyer-bg\", images: [\"57:8\", 0] },\n    class_type: \"SaveImage\", _meta: { title: \"Save Image\" }\n  },\n  \"57:30\": {\n    inputs: { clip_name: \"qwen_3_4b.safetensors\", type: \"lumina2\", device: \"default\" },\n    class_type: \"CLIPLoader\", _meta: { title: \"Load CLIP\" }\n  },\n  \"57:29\": {\n    inputs: { vae_name: \"ae.safetensors\" },\n    class_type: \"VAELoader\", _meta: { title: \"Load VAE\" }\n  },\n  \"57:34\": {\n    inputs: { text: negPrompt, clip: [\"57:30\", 0] },\n    class_type: \"CLIPTextEncode\", _meta: { title: \"Negative Prompt\" }\n  },\n  \"57:8\": {\n    inputs: { samples: [\"57:3\", 0], vae: [\"57:29\", 0] },\n    class_type: \"VAEDecode\", _meta: { title: \"VAE Decode\" }\n  },\n  \"57:28\": {\n    inputs: { unet_name: \"z_image_turbo_bf16.safetensors\", weight_dtype: \"default\" },\n    class_type: \"UNETLoader\", _meta: { title: \"Load Diffusion Model\" }\n  },\n  \"57:27\": {\n    inputs: { text: bgPrompt, clip: [\"57:30\", 0] },\n    class_type: \"CLIPTextEncode\", _meta: { title: \"Positive Prompt\" }\n  },\n  \"57:13\": {\n    inputs: { width: latentWidth, height: latentHeight, batch_size: 1 },\n    class_type: \"EmptySD3LatentImage\", _meta: { title: \"EmptySD3LatentImage\" }\n  },\n  \"57:11\": {\n    inputs: { shift: 3, model: [\"57:28\", 0] },\n    class_type: \"ModelSamplingAuraFlow\", _meta: { title: \"ModelSamplingAuraFlow\" }\n  },\n  \"57:3\": {\n    inputs: {\n      seed: Math.floor(Math.random() * 2147483647),\n      steps: 8, cfg: 1,\n      sampler_name: \"res_multistep\", scheduler: \"simple\", denoise: 1,\n      model: [\"57:11\", 0], positive: [\"57:27\", 0],\n      negative: [\"57:34\", 0], latent_image: [\"57:13\", 0]\n    },\n    class_type: \"KSampler\", _meta: { title: \"KSampler\" }\n  }\n};\n\nreturn [{\n  json: {\n    workflow,\n    bgPrompt,\n    negPrompt,\n    styleKey,\n    attempt: staticData.bgAttempts,\n    refinementUsed: staticData.refinementHints || '(none)',\n    rejectionHistory: staticData.rejectionReasons || []\n  }\n}];"
+      },
+      "id": "build-prompt-01",
+      "name": "Build Background Prompt & Workflow",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1264, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://cloud.comfy.org/api/prompt",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-API-Key", "value": "={{ $('Event Parameters').item.json.comfy_api_key }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ prompt: $json.workflow }) }}",
+        "options": {}
+      },
+      "id": "submit-comfy-01",
+      "name": "Submit Background to ComfyCloud",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-1040, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nstaticData.pollCount = 0;\nstaticData.pollStartTime = Date.now();\nreturn $input.all();"
+      },
+      "id": "init-poll-01",
+      "name": "Init Poll State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-816, 400]
+    },
+    {
+      "parameters": { "amount": 3 },
+      "id": "wait-initial-01",
+      "name": "Wait 3s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [-592, 400],
+      "webhookId": "flyer-v2-wait-initial"
+    },
+    {
+      "parameters": {
+        "url": "=https://cloud.comfy.org/api/job/{{ $('Submit Background to ComfyCloud').item.json.prompt_id }}/status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-API-Key", "value": "={{ $('Event Parameters').item.json.comfy_api_key }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "poll-status-01",
+      "name": "Poll Job Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-368, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "done-cond",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "success",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "completed-01",
+      "name": "Completed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-144, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "fail1",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "failed",
+              "operator": { "type": "string", "operation": "equals" }
+            },
+            {
+              "id": "fail2",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "cancelled",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "failed-01",
+      "name": "Failed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [80, 560]
+    },
+    {
+      "parameters": {
+        "errorMessage": "=ComfyCloud job failed: {{ $('Poll Job Status').item.json.status }}"
+      },
+      "id": "stop-fail-01",
+      "name": "Stop – Job Error",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [304, 464]
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nstaticData.pollCount = (staticData.pollCount || 0) + 1;\nconst elapsed = Math.round((Date.now() - (staticData.pollStartTime || Date.now())) / 1000);\n\nif (staticData.pollCount > 20) {\n  throw new Error(\n    `ComfyCloud job timed out after ${staticData.pollCount} polls (${elapsed}s). ` +\n    `Last status: ${$input.first().json.status || 'unknown'}`\n  );\n}\n\nreturn [{ json: { pollCount: staticData.pollCount, elapsedSeconds: elapsed, status: $input.first().json.status || 'unknown' } }];"
+      },
+      "id": "retry-guard-01",
+      "name": "Retry Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [304, 656]
+    },
+    {
+      "parameters": { "amount": 4 },
+      "id": "wait-retry-01",
+      "name": "Wait 4s (Retry)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [528, 656],
+      "webhookId": "flyer-v2-wait-retry"
+    },
+    {
+      "parameters": {
+        "url": "=https://cloud.comfy.org/api/history_v2/{{ $('Submit Background to ComfyCloud').item.json.prompt_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-API-Key", "value": "={{ $('Event Parameters').item.json.comfy_api_key }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-history-01",
+      "name": "Get Job History",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [80, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "const history = $input.first().json;\nconst images = [];\n\nfor (const [jobId, jobData] of Object.entries(history)) {\n  const outputs = jobData.outputs || {};\n  for (const [nodeId, nodeOutput] of Object.entries(outputs)) {\n    if (nodeOutput && nodeOutput.images) {\n      for (const img of nodeOutput.images) {\n        images.push({\n          filename: img.filename,\n          subfolder: img.subfolder || '',\n          type: img.type || 'output',\n          download_url: `https://cloud.comfy.org/api/view?filename=${encodeURIComponent(img.filename)}&subfolder=${encodeURIComponent(img.subfolder || '')}&type=${img.type || 'output'}`\n        });\n      }\n    }\n  }\n}\n\nif (images.length === 0) {\n  throw new Error('No images found in job history: ' + JSON.stringify(history).substring(0, 500));\n}\n\n// Return first image only (we generate one per job)\nreturn [{ json: images[0] }];"
+      },
+      "id": "extract-url-01",
+      "name": "Extract Image URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [304, 240]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.download_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-API-Key", "value": "={{ $('Event Parameters').item.json.comfy_api_key }}" }
+          ]
+        },
+        "options": {
+          "redirect": { "redirect": { "maxRedirects": 3 } },
+          "response": { "response": { "responseFormat": "file" } }
+        }
+      },
+      "id": "download-bg-01",
+      "name": "Download Background",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [528, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Upscale background from 832x1472 to 1080x1920 using sharp\n// This gives us a working canvas at the final output resolution\nlet sharp;\ntry {\n  sharp = require('sharp');\n} catch (e) {\n  throw new Error('sharp module not available in this n8n instance. Install with: npm install sharp (or enable NODE_FUNCTION_ALLOW_EXTERNAL=sharp)');\n}\n\nconst buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\n\nconst upscaled = await sharp(buffer)\n  .resize(1080, 1920, { fit: 'cover', position: 'center' })\n  .png({ quality: 95 })\n  .toBuffer();\n\nconst meta = await sharp(upscaled).metadata();\n\nreturn [{\n  json: {\n    width: meta.width,\n    height: meta.height,\n    format: meta.format,\n    size_kb: Math.round(upscaled.length / 1024)\n  },\n  binary: {\n    data: {\n      data: upscaled.toString('base64'),\n      mimeType: 'image/png',\n      fileName: 'background_1080x1920.png',\n      fileExtension: 'png'\n    }\n  }\n}];"
+      },
+      "id": "upscale-bg-01",
+      "name": "Upscale Background to 1080x1920",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [752, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build vision prompt + payload for Claude\n// Single call: appropriateness check + layout zone assignment\nconst event = $('Event Parameters').first().json;\nconst buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\nconst base64Image = buffer.toString('base64');\n\nconst systemPrompt = `You are a professional graphic designer evaluating AI-generated background images for event flyers. Your job has two parts:\n\n1. APPROPRIATENESS: Determine if the image is suitable for the given event. Consider subject match, mood/tone, visual quality (not blurry/deformed), and absence of unwanted elements (text, watermarks, people with distorted features).\n\n2. LAYOUT: If approved, identify the optimal placement zones for flyer text elements. The canvas is 1080 wide x 1920 tall (9:16 portrait). Classify zones using a 3x3 grid:\n   - Rows: TOP (0-640px), MIDDLE (640-1280px), BOTTOM (1280-1920px)\n   - Cols: LEFT (0-360px), CENTER (360-720px), RIGHT (720-1080px)\n\nFor each text element, pick the ZONE with the cleanest visual area (smooth, low-detail, good contrast for white text).\n\nText elements to place:\n- TITLE (largest, 3-4 lines max): the event name\n- DETAILS (date, time, venue): supporting info block\n- FEE_BADGE (small pill): price/cost indicator\n- ORG_CREDIT (tiny): presenter line at very bottom\n\nReturn ONLY valid JSON. No prose, no markdown fences. Schema:\n{\n  \"approved\": true|false,\n  \"confidence\": 0.0-1.0,\n  \"rejection_reasons\": [] | [\"specific issue 1\", ...],\n  \"refinement_hint\": \"\" | \"guidance for regeneration, e.g. 'more sky area at top, less visual clutter'\",\n  \"zones\": {\n    \"title\": \"TOP_CENTER\" | \"TOP_LEFT\" | \"TOP_RIGHT\" | \"MIDDLE_CENTER\" | ...,\n    \"details\": \"BOTTOM_CENTER\" | ...,\n    \"fee_badge\": \"TOP_RIGHT\" | \"BOTTOM_LEFT\" | ...,\n    \"org_credit\": \"BOTTOM_CENTER\"\n  },\n  \"text_color\": \"white\" | \"dark\",\n  \"mood_tags\": [\"warm\", \"energetic\", ...]\n}\n\nIf approved is false, zones can be omitted. Confidence below 0.6 should trigger rejection.`;\n\nconst userText = `Event: \"${event.event_title}\"\nDescription concept: ${event.style_concept}\nDate: ${event.event_date}\nVenue: ${event.event_location_name}\n\nEvaluate the attached image for this event and return the layout JSON.`;\n\nconst payload = {\n  model: 'claude-sonnet-4-5',\n  max_tokens: 1024,\n  system: systemPrompt,\n  messages: [\n    {\n      role: 'user',\n      content: [\n        {\n          type: 'image',\n          source: {\n            type: 'base64',\n            media_type: 'image/png',\n            data: base64Image\n          }\n        },\n        {\n          type: 'text',\n          text: userText\n        }\n      ]\n    }\n  ]\n};\n\nreturn [{\n  json: { payload },\n  binary: $input.first().binary\n}];"
+      },
+      "id": "build-vision-01",
+      "name": "Build Vision Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [976, 240]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "x-api-key", "value": "={{ $('Event Parameters').item.json.anthropic_api_key }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "call-vision-01",
+      "name": "Call Claude Vision",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse vision response — tolerant of markdown fences and stray prose\nconst resp = $input.first().json;\n\nif (!resp.content || !Array.isArray(resp.content)) {\n  throw new Error('Malformed Claude response: ' + JSON.stringify(resp).substring(0, 500));\n}\n\nconst rawText = resp.content\n  .filter(b => b.type === 'text')\n  .map(b => b.text)\n  .join('\\n')\n  .trim();\n\n// Strip markdown fences if present\nlet jsonStr = rawText.replace(/```json\\s*/gi, '').replace(/```\\s*$/g, '').trim();\n\n// Try to extract the first {...} block if there's surrounding prose\nconst firstBrace = jsonStr.indexOf('{');\nconst lastBrace = jsonStr.lastIndexOf('}');\nif (firstBrace >= 0 && lastBrace > firstBrace) {\n  jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);\n}\n\nlet parsed;\ntry {\n  parsed = JSON.parse(jsonStr);\n} catch (e) {\n  throw new Error(`Failed to parse vision JSON. Raw: ${rawText.substring(0, 400)}`);\n}\n\n// Sanity-check required fields\nif (typeof parsed.approved !== 'boolean') {\n  throw new Error('Missing \"approved\" boolean in vision response');\n}\n\n// Validate zones if approved\nconst validZones = new Set([\n  'TOP_LEFT', 'TOP_CENTER', 'TOP_RIGHT',\n  'MIDDLE_LEFT', 'MIDDLE_CENTER', 'MIDDLE_RIGHT',\n  'BOTTOM_LEFT', 'BOTTOM_CENTER', 'BOTTOM_RIGHT'\n]);\n\nif (parsed.approved) {\n  const zones = parsed.zones || {};\n  // Defaults if vision omitted any\n  parsed.zones = {\n    title: validZones.has(zones.title) ? zones.title : 'TOP_CENTER',\n    details: validZones.has(zones.details) ? zones.details : 'BOTTOM_CENTER',\n    fee_badge: validZones.has(zones.fee_badge) ? zones.fee_badge : 'MIDDLE_CENTER',\n    org_credit: validZones.has(zones.org_credit) ? zones.org_credit : 'BOTTOM_CENTER'\n  };\n  parsed.text_color = (parsed.text_color === 'dark') ? 'dark' : 'white';\n}\n\n// Confidence gate\nif (parsed.approved && typeof parsed.confidence === 'number' && parsed.confidence < 0.6) {\n  parsed.approved = false;\n  parsed.rejection_reasons = parsed.rejection_reasons || [];\n  parsed.rejection_reasons.push(`Low confidence: ${parsed.confidence}`);\n}\n\n// Store rejection hint in static data for next regen\nconst staticData = $getWorkflowStaticData('global');\nif (!parsed.approved) {\n  staticData.refinementHints = parsed.refinement_hint || '';\n  staticData.rejectionReasons = parsed.rejection_reasons || ['unspecified'];\n}\n\nreturn [{\n  json: {\n    approved: parsed.approved,\n    confidence: parsed.confidence || null,\n    rejection_reasons: parsed.rejection_reasons || [],\n    refinement_hint: parsed.refinement_hint || '',\n    zones: parsed.zones || {},\n    text_color: parsed.text_color || 'white',\n    mood_tags: parsed.mood_tags || [],\n    attempt: staticData.bgAttempts,\n    raw_response: rawText.substring(0, 500)\n  },\n  binary: $input.first().binary\n}];"
+      },
+      "id": "parse-vision-01",
+      "name": "Parse Vision Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1424, 240]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            {
+              "id": "approved-cond",
+              "leftValue": "={{ $json.approved }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "approved-01",
+      "name": "Vision Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1648, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Check if we've exhausted background regeneration attempts\nconst params = $('Event Parameters').first().json;\nconst staticData = $getWorkflowStaticData('global');\nconst maxAttempts = params.max_bg_attempts || 3;\n\nif (staticData.bgAttempts >= maxAttempts) {\n  throw new Error(\n    `Vision rejected ${staticData.bgAttempts} generated backgrounds. ` +\n    `Last reasons: ${(staticData.rejectionReasons || []).join('; ')}. ` +\n    `Consider adjusting style_concept or style_preset.`\n  );\n}\n\nreturn [{\n  json: {\n    attempt: staticData.bgAttempts,\n    remaining: maxAttempts - staticData.bgAttempts,\n    reasons: staticData.rejectionReasons,\n    refinement: staticData.refinementHints\n  }\n}];"
+      },
+      "id": "attempt-check-01",
+      "name": "Attempt Budget Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1648, 464]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Convert zone labels to pixel coordinates on the 1080x1920 canvas\n// Returns text block positions with anchors (x, y, text-anchor)\nconst visionData = $input.first().json;\n\nconst ZONE_CENTERS = {\n  // Each zone: {x, y, anchor, maxWidth}\n  TOP_LEFT:      { x: 180,  y: 320,  anchor: 'start'  },\n  TOP_CENTER:    { x: 540,  y: 320,  anchor: 'middle' },\n  TOP_RIGHT:     { x: 900,  y: 320,  anchor: 'end'    },\n  MIDDLE_LEFT:   { x: 180,  y: 960,  anchor: 'start'  },\n  MIDDLE_CENTER: { x: 540,  y: 960,  anchor: 'middle' },\n  MIDDLE_RIGHT:  { x: 900,  y: 960,  anchor: 'end'    },\n  BOTTOM_LEFT:   { x: 180,  y: 1600, anchor: 'start'  },\n  BOTTOM_CENTER: { x: 540,  y: 1600, anchor: 'middle' },\n  BOTTOM_RIGHT:  { x: 900,  y: 1600, anchor: 'end'    }\n};\n\nconst zones = visionData.zones;\nconst layout = {\n  title:      ZONE_CENTERS[zones.title]      || ZONE_CENTERS.TOP_CENTER,\n  details:    ZONE_CENTERS[zones.details]    || ZONE_CENTERS.BOTTOM_CENTER,\n  fee_badge:  ZONE_CENTERS[zones.fee_badge]  || ZONE_CENTERS.MIDDLE_CENTER,\n  org_credit: ZONE_CENTERS[zones.org_credit] || ZONE_CENTERS.BOTTOM_CENTER\n};\n\nreturn [{\n  json: {\n    ...visionData,\n    layout,\n    zones_resolved: {\n      title: zones.title,\n      details: zones.details,\n      fee_badge: zones.fee_badge,\n      org_credit: zones.org_credit\n    }\n  },\n  binary: $input.first().binary\n}];"
+      },
+      "id": "zone-to-pixel-01",
+      "name": "Zones to Pixel Coords",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1872, 144]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compose SVG using vision-derived layout\nconst event = $('Event Parameters').first().json;\nconst visionData = $input.first().json;\nconst layout = visionData.layout;\nconst textColor = visionData.text_color === 'dark' ? '#1a1a1a' : '#ffffff';\nconst strokeColor = visionData.text_color === 'dark' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.5)';\nconst subtleTextColor = visionData.text_color === 'dark' ? 'rgba(26,26,26,0.75)' : 'rgba(255,255,255,0.85)';\nconst accentColor = event.color_accent || '#F59E0B';\n\n// ── Access background PNG ──\nconst bgBuffer = await this.helpers.getBinaryDataBuffer(0, 'data');\nconst bgBase64 = bgBuffer.toString('base64');\nconst bgHref = `data:image/png;base64,${bgBase64}`;\n\nconst title = (event.event_title || 'EVENT').toUpperCase();\nconst date = event.event_date || '';\nconst time = event.event_time || '';\nconst venueName = event.event_location_name || '';\nconst venueAddr = event.event_location_address || '';\nconst fees = event.event_fees || '';\nconst org = event.event_org || '';\nconst url = event.event_url || '';\n\n// ── Title sizing ──\nconst titleLen = title.length;\nlet fontSize, maxCharsPerLine;\nif (titleLen <= 14) { fontSize = 82; maxCharsPerLine = 14; }\nelse if (titleLen <= 20) { fontSize = 72; maxCharsPerLine = 20; }\nelse if (titleLen <= 30) { fontSize = 62; maxCharsPerLine = 18; }\nelse { fontSize = 52; maxCharsPerLine = 22; }\n\nfunction wrapText(text, maxChars) {\n  const words = text.split(' ');\n  if (words.length <= 2) return [text];\n  const lines = [];\n  let current = '';\n  for (const word of words) {\n    if (current.length + word.length + 1 > maxChars && current.length > 0) {\n      lines.push(current); current = word;\n    } else {\n      current = current ? current + ' ' + word : word;\n    }\n  }\n  if (current) lines.push(current);\n  if (lines.length > 1) {\n    const last = lines[lines.length - 1];\n    const prev = lines[lines.length - 2];\n    if (last.length < prev.length * 0.4) {\n      lines.pop();\n      lines[lines.length - 1] = prev + ' ' + last;\n    }\n  }\n  return lines;\n}\n\nconst titleLines = wrapText(title, maxCharsPerLine);\nconst lineHeight = fontSize * 1.25;\n\n// Position title block — center on layout.title.y, stack lines\nconst titleTotalHeight = titleLines.length * lineHeight;\nconst titleStartY = layout.title.y - (titleTotalHeight / 2) + fontSize * 0.8;\n\nconst titleSVG = titleLines.map((line, i) =>\n  `<text x=\"${layout.title.x}\" y=\"${titleStartY + i * lineHeight}\" text-anchor=\"${layout.title.anchor}\" ` +\n  `font-family=\"'Arial Black', 'Helvetica Neue', Arial, sans-serif\" ` +\n  `font-size=\"${fontSize}\" font-weight=\"900\" fill=\"${textColor}\" letter-spacing=\"2\" ` +\n  `paint-order=\"stroke\" stroke=\"${strokeColor}\" stroke-width=\"3\">${line}</text>`\n).join('\\n  ');\n\n// Accent line under title\nconst titleBlockBottom = titleStartY + (titleLines.length - 1) * lineHeight + 20;\nconst accentLineX = layout.title.anchor === 'middle'\n  ? layout.title.x - 100\n  : (layout.title.anchor === 'start' ? layout.title.x : layout.title.x - 200);\nconst accentLine = `<rect x=\"${accentLineX}\" y=\"${titleBlockBottom}\" width=\"200\" height=\"4\" rx=\"2\" fill=\"${accentColor}\" opacity=\"0.9\"/>`;\n\n// ── Details block ──\nconst dx = layout.details.x;\nconst dy = layout.details.y;\nconst dAnchor = layout.details.anchor;\n\nconst detailsSVG = `\n  <text x=\"${dx}\" y=\"${dy - 40}\" text-anchor=\"${dAnchor}\" font-family=\"'Arial Black', Arial, sans-serif\" font-size=\"40\" font-weight=\"bold\" fill=\"${textColor}\" letter-spacing=\"1\">${date}</text>\n  <text x=\"${dx}\" y=\"${dy + 15}\" text-anchor=\"${dAnchor}\" font-family=\"Arial, Helvetica, sans-serif\" font-size=\"34\" fill=\"${subtleTextColor}\">${time}</text>\n  <rect x=\"${dx - (dAnchor === 'middle' ? 70 : 0) - (dAnchor === 'end' ? 140 : 0)}\" y=\"${dy + 42}\" width=\"140\" height=\"2\" rx=\"1\" fill=\"${textColor}\" opacity=\"0.3\"/>\n  <text x=\"${dx}\" y=\"${dy + 90}\" text-anchor=\"${dAnchor}\" font-family=\"Arial, Helvetica, sans-serif\" font-size=\"30\" font-weight=\"bold\" fill=\"${textColor}\" opacity=\"0.95\">${venueName}</text>\n  <text x=\"${dx}\" y=\"${dy + 130}\" text-anchor=\"${dAnchor}\" font-family=\"Arial, Helvetica, sans-serif\" font-size=\"24\" fill=\"${subtleTextColor}\">${venueAddr}</text>\n  ${url ? `<text x=\"${dx}\" y=\"${dy + 210}\" text-anchor=\"${dAnchor}\" font-family=\"Arial, Helvetica, sans-serif\" font-size=\"22\" fill=\"${subtleTextColor}\">${url}</text>` : ''}`;\n\n// ── Fee badge ──\nconst feeBadgeWidth = Math.min(Math.max(fees.length * 22 + 60, 140), 400);\nconst feeFontSize = fees.length > 15 ? 22 : 30;\nconst fx = layout.fee_badge.x;\nconst fy = layout.fee_badge.y;\nconst fAnchor = layout.fee_badge.anchor;\nlet feeBadgeX;\nif (fAnchor === 'middle') feeBadgeX = fx - feeBadgeWidth / 2;\nelse if (fAnchor === 'start') feeBadgeX = fx;\nelse feeBadgeX = fx - feeBadgeWidth;\n\nconst feeBadge = fees ? `\n  <rect x=\"${feeBadgeX}\" y=\"${fy - 28}\" width=\"${feeBadgeWidth}\" height=\"56\" rx=\"28\" fill=\"${accentColor}\"/>\n  <text x=\"${feeBadgeX + feeBadgeWidth/2}\" y=\"${fy + 8}\" text-anchor=\"middle\" font-family=\"Arial, Helvetica, sans-serif\" font-size=\"${feeFontSize}\" font-weight=\"bold\" fill=\"#1a1a1a\">${fees}</text>` : '';\n\n// ── Org credit (always pinned near bottom regardless of zone) ──\nconst orgCredit = `<text x=\"540\" y=\"1840\" text-anchor=\"middle\" font-family=\"Arial, Helvetica, sans-serif\" font-size=\"20\" fill=\"${textColor}\" opacity=\"0.55\">Presented by ${org}</text>`;\n\n// ── Scrim gradients over text zones for readability ──\n// Build scrim rects based on which zones are used\nconst scrimZones = new Set([visionData.zones_resolved.title.split('_')[0], visionData.zones_resolved.details.split('_')[0]]);\nlet scrims = '';\nif (scrimZones.has('TOP')) {\n  scrims += `<rect x=\"0\" y=\"0\" width=\"1080\" height=\"700\" fill=\"url(#topFade)\"/>`;\n}\nif (scrimZones.has('BOTTOM')) {\n  scrims += `<rect x=\"0\" y=\"1220\" width=\"1080\" height=\"700\" fill=\"url(#bottomFade)\"/>`;\n}\nif (scrimZones.has('MIDDLE')) {\n  scrims += `<rect x=\"0\" y=\"600\" width=\"1080\" height=\"720\" fill=\"url(#middleFade)\"/>`;\n}\n\nconst fadeColor = visionData.text_color === 'dark' ? '255,255,255' : '0,0,0';\n\nconst svg = `<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\"\n     width=\"1080\" height=\"1920\" viewBox=\"0 0 1080 1920\">\n  <defs>\n    <linearGradient id=\"topFade\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\">\n      <stop offset=\"0%\" stop-color=\"rgb(${fadeColor})\" stop-opacity=\"0.75\"/>\n      <stop offset=\"100%\" stop-color=\"rgb(${fadeColor})\" stop-opacity=\"0\"/>\n    </linearGradient>\n    <linearGradient id=\"bottomFade\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\">\n      <stop offset=\"0%\" stop-color=\"rgb(${fadeColor})\" stop-opacity=\"0\"/>\n      <stop offset=\"100%\" stop-color=\"rgb(${fadeColor})\" stop-opacity=\"0.85\"/>\n    </linearGradient>\n    <radialGradient id=\"middleFade\" cx=\"0.5\" cy=\"0.5\" r=\"0.6\">\n      <stop offset=\"0%\" stop-color=\"rgb(${fadeColor})\" stop-opacity=\"0.6\"/>\n      <stop offset=\"100%\" stop-color=\"rgb(${fadeColor})\" stop-opacity=\"0\"/>\n    </radialGradient>\n  </defs>\n\n  <image href=\"${bgHref}\" width=\"1080\" height=\"1920\" preserveAspectRatio=\"xMidYMid slice\"/>\n\n  ${scrims}\n\n  ${titleSVG}\n  ${accentLine}\n\n  ${detailsSVG}\n\n  ${feeBadge}\n\n  ${orgCredit}\n\n  <rect x=\"0\" y=\"1908\" width=\"1080\" height=\"12\" fill=\"${accentColor}\" opacity=\"0.8\"/>\n</svg>`;\n\nreturn [{\n  json: { svg_length: svg.length, layout_used: visionData.zones_resolved },\n  binary: {\n    poster_svg: {\n      data: Buffer.from(svg, 'utf-8').toString('base64'),\n      mimeType: 'image/svg+xml',\n      fileName: 'poster.svg',\n      fileExtension: 'svg'\n    }\n  }\n}];"
+      },
+      "id": "compose-svg-01",
+      "name": "Compose Poster SVG",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2096, 144]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Rasterize SVG → PNG using sharp\nlet sharp;\ntry {\n  sharp = require('sharp');\n} catch (e) {\n  throw new Error('sharp module not available. Set NODE_FUNCTION_ALLOW_EXTERNAL=sharp or install in n8n container.');\n}\n\nconst event = $('Event Parameters').first().json;\nconst svgBuffer = await this.helpers.getBinaryDataBuffer(0, 'poster_svg');\n\nconst pngBuffer = await sharp(svgBuffer, { density: 150 })\n  .resize(1080, 1920, { fit: 'contain' })\n  .png({ quality: 95, compressionLevel: 8 })\n  .toBuffer();\n\nconst safeName = (event.event_title || 'flyer').toLowerCase().replace(/[^a-z0-9]+/g, '_');\nconst filename = `flyer_${safeName}.png`;\n\nreturn [{\n  json: {\n    event_title: event.event_title,\n    filename,\n    size_kb: Math.round(pngBuffer.length / 1024),\n    dimensions: '1080x1920'\n  },\n  binary: {\n    poster: {\n      data: pngBuffer.toString('base64'),\n      mimeType: 'image/png',\n      fileName: filename,\n      fileExtension: 'png'\n    }\n  }\n}];"
+      },
+      "id": "rasterize-01",
+      "name": "Rasterize SVG to PNG",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2320, 144]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": { "main": [[{ "node": "Event Parameters", "type": "main", "index": 0 }]] },
+    "Event Parameters": { "main": [[{ "node": "Init Attempt State", "type": "main", "index": 0 }]] },
+    "Init Attempt State": { "main": [[{ "node": "Build Background Prompt & Workflow", "type": "main", "index": 0 }]] },
+    "Build Background Prompt & Workflow": { "main": [[{ "node": "Submit Background to ComfyCloud", "type": "main", "index": 0 }]] },
+    "Submit Background to ComfyCloud": { "main": [[{ "node": "Init Poll State", "type": "main", "index": 0 }]] },
+    "Init Poll State": { "main": [[{ "node": "Wait 3s", "type": "main", "index": 0 }]] },
+    "Wait 3s": { "main": [[{ "node": "Poll Job Status", "type": "main", "index": 0 }]] },
+    "Poll Job Status": { "main": [[{ "node": "Completed?", "type": "main", "index": 0 }]] },
+    "Completed?": {
+      "main": [
+        [{ "node": "Get Job History", "type": "main", "index": 0 }],
+        [{ "node": "Failed?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Failed?": {
+      "main": [
+        [{ "node": "Stop – Job Error", "type": "main", "index": 0 }],
+        [{ "node": "Retry Guard", "type": "main", "index": 0 }]
+      ]
+    },
+    "Retry Guard": { "main": [[{ "node": "Wait 4s (Retry)", "type": "main", "index": 0 }]] },
+    "Wait 4s (Retry)": { "main": [[{ "node": "Poll Job Status", "type": "main", "index": 0 }]] },
+    "Get Job History": { "main": [[{ "node": "Extract Image URL", "type": "main", "index": 0 }]] },
+    "Extract Image URL": { "main": [[{ "node": "Download Background", "type": "main", "index": 0 }]] },
+    "Download Background": { "main": [[{ "node": "Upscale Background to 1080x1920", "type": "main", "index": 0 }]] },
+    "Upscale Background to 1080x1920": { "main": [[{ "node": "Build Vision Payload", "type": "main", "index": 0 }]] },
+    "Build Vision Payload": { "main": [[{ "node": "Call Claude Vision", "type": "main", "index": 0 }]] },
+    "Call Claude Vision": { "main": [[{ "node": "Parse Vision Response", "type": "main", "index": 0 }]] },
+    "Parse Vision Response": { "main": [[{ "node": "Vision Approved?", "type": "main", "index": 0 }]] },
+    "Vision Approved?": {
+      "main": [
+        [{ "node": "Zones to Pixel Coords", "type": "main", "index": 0 }],
+        [{ "node": "Attempt Budget Check", "type": "main", "index": 0 }]
+      ]
+    },
+    "Attempt Budget Check": { "main": [[{ "node": "Build Background Prompt & Workflow", "type": "main", "index": 0 }]] },
+    "Zones to Pixel Coords": { "main": [[{ "node": "Compose Poster SVG", "type": "main", "index": 0 }]] },
+    "Compose Poster SVG": { "main": [[{ "node": "Rasterize SVG to PNG", "type": "main", "index": 0 }]] }
+  },
+  "pinData": {},
+  "settings": { "executionOrder": "v1" },
+  "meta": { "instanceId": "flyer-v2-vision-driven" }
+}

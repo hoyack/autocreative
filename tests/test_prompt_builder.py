@@ -7,18 +7,23 @@ import pytest
 from flyer_generator.errors import UnknownPresetError
 from flyer_generator.models import EventInput
 from flyer_generator.presets import (
-    COMFY_WORKFLOW_TEMPLATE,
     FLYER_DIRECTIVES,
     UNIVERSAL_NEGATIVE,
     build_default_registry,
 )
 from flyer_generator.stages.prompt_builder import ComfyWorkflow, StylePromptBuilder
+from flyer_generator.workflow_loader import load_workflow
 from tests.fixtures.sample_events import SAMPLE_EVENT
 
 
 @pytest.fixture()
-def builder() -> StylePromptBuilder:
-    return StylePromptBuilder(presets=build_default_registry())
+def wf_config():
+    return load_workflow("turbo_portrait")
+
+
+@pytest.fixture()
+def builder(wf_config) -> StylePromptBuilder:
+    return StylePromptBuilder(presets=build_default_registry(), workflow_config=wf_config)
 
 
 class TestBuildReturnsComfyWorkflow:
@@ -30,6 +35,10 @@ class TestBuildReturnsComfyWorkflow:
         result = builder.build(SAMPLE_EVENT, attempt=1)
         assert result.positive_prompt
         assert result.negative_prompt
+
+    def test_has_latent_dimensions(self, builder: StylePromptBuilder) -> None:
+        result = builder.build(SAMPLE_EVENT, attempt=1)
+        assert result.latent_dimensions == (832, 1472)
 
 
 class TestPositivePrompt:
@@ -55,7 +64,6 @@ class TestPositivePrompt:
     def test_contains_preset_fragments(self, builder: StylePromptBuilder) -> None:
         """Verify preset-specific text appears (with concept substituted)."""
         result = builder.build(SAMPLE_EVENT, attempt=1)
-        # photorealistic preset starts with "A cinematic photograph: {concept}."
         expected = f"A cinematic photograph: {SAMPLE_EVENT.style_concept}."
         assert expected in result.positive_prompt
 
@@ -85,23 +93,39 @@ class TestSeed:
 
 
 class TestWorkflowDict:
-    def test_is_deep_copy(self, builder: StylePromptBuilder) -> None:
-        """Modifying the returned workflow must not affect the global template."""
+    def test_is_deep_copy(self, builder: StylePromptBuilder, wf_config) -> None:
+        """Modifying the returned workflow must not affect the loaded config."""
         result = builder.build(SAMPLE_EVENT, attempt=1)
-        result.workflow["sampler_config"]["steps"] = 999
-        assert COMFY_WORKFLOW_TEMPLATE["sampler_config"]["steps"] == 8
+        seed_node = wf_config.injection_points["seed"]
+        original_steps = wf_config.workflow[seed_node]["inputs"]["steps"]
+        result.workflow[seed_node]["inputs"]["steps"] = 999
+        # Original config unchanged
+        assert wf_config.workflow[seed_node]["inputs"]["steps"] == original_steps
 
-    def test_has_injected_values(self, builder: StylePromptBuilder) -> None:
+    def test_has_injected_values(self, builder: StylePromptBuilder, wf_config) -> None:
         result = builder.build(SAMPLE_EVENT, attempt=1)
-        assert result.workflow["positive_prompt"] == result.positive_prompt
-        assert result.workflow["negative_prompt"] == result.negative_prompt
-        assert result.workflow["seed"] == result.seed
+        ip = wf_config.injection_points
+        assert result.workflow[ip["positive_prompt"]]["inputs"]["text"] == result.positive_prompt
+        assert result.workflow[ip["negative_prompt"]]["inputs"]["text"] == result.negative_prompt
+        assert result.workflow[ip["seed"]]["inputs"]["seed"] == result.seed
 
-    def test_preserves_template_keys(self, builder: StylePromptBuilder) -> None:
+    def test_preserves_template_keys(self, builder: StylePromptBuilder, wf_config) -> None:
         result = builder.build(SAMPLE_EVENT, attempt=1)
-        assert "model_files" in result.workflow
-        assert "sampler_config" in result.workflow
-        assert "latent_dimensions" in result.workflow
+        for node_id in wf_config.injection_points.values():
+            assert node_id in result.workflow
+
+
+class TestStandardSquareWorkflow:
+    """Verify the second workflow (different node IDs, dimensions) works."""
+
+    def test_standard_square_builds(self) -> None:
+        wf = load_workflow("standard_square")
+        builder = StylePromptBuilder(build_default_registry(), workflow_config=wf)
+        result = builder.build(SAMPLE_EVENT, attempt=1)
+        assert result.latent_dimensions == (1024, 1024)
+        ip = wf.injection_points
+        assert result.workflow[ip["positive_prompt"]]["inputs"]["text"] == result.positive_prompt
+        assert result.workflow[ip["seed"]]["inputs"]["seed"] == result.seed
 
 
 class TestUnknownPreset:

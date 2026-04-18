@@ -14,6 +14,16 @@ from flyer_generator.zones import ZoneCoord, ZoneName
 _HEX_COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 
+class WorkflowConfig(BaseModel):
+    """Metadata + node graph for a ComfyUI workflow."""
+
+    name: str
+    description: str = ""
+    latent_dimensions: tuple[int, int]
+    injection_points: dict[str, str]  # role -> node_id
+    workflow: dict  # raw ComfyUI node graph (meta stripped)
+
+
 class EventInput(BaseModel):
     """Structured event data — the pipeline's primary input."""
 

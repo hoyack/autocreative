@@ -50,6 +50,7 @@ def main(
     list_presets: Annotated[bool, typer.Option("--list-presets", help="List available presets")] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Print prompt without generating")] = False,
     max_attempts: Annotated[Optional[int], typer.Option("--max-attempts", help="Max background generation attempts")] = None,
+    workflow: Annotated[Optional[str], typer.Option("--workflow", help="Workflow name or path to .json")] = None,
 ) -> None:
     """Generate an AI-powered event flyer from structured event data."""
     # D-09: --list-presets
@@ -108,8 +109,12 @@ def main(
 
     # D-10: --dry-run
     if dry_run:
+        from flyer_generator.workflow_loader import load_workflow as _load_wf
+
         registry = build_default_registry()
-        builder = StylePromptBuilder(registry)
+        wf_name = workflow if workflow is not None else Settings().workflow
+        wf_config = _load_wf(wf_name)
+        builder = StylePromptBuilder(registry, workflow_config=wf_config)
         workflow = builder.build(event, attempt=1)
         typer.echo("=== Positive Prompt ===")
         typer.echo(workflow.positive_prompt)
@@ -124,6 +129,10 @@ def main(
     # D-11: --max-attempts override
     if max_attempts is not None:
         settings.max_bg_attempts = max_attempts
+
+    # --workflow override
+    if workflow is not None:
+        settings.workflow = workflow
 
     configure_logging(settings.log_format, settings.log_level)
 

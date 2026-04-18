@@ -1,4 +1,4 @@
-"""Vision evaluation stage — sends backgrounds to Claude for approval and zone placement."""
+"""Vision evaluation stage — sends backgrounds to an LLM for approval and zone placement."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import json
 import re
 from typing import get_args
 
+import httpx
 import structlog
 from anthropic import APIError, AsyncAnthropic
 from pydantic import ValidationError
@@ -57,14 +58,32 @@ _VALID_ZONE_NAMES = set(get_args(ZoneName))
 
 
 class VisionEvaluator:
-    """Sends generated backgrounds to Claude vision for approval and zone placement."""
+    """Sends generated backgrounds to a vision LLM for approval and zone placement.
+
+    Supports two backends via settings.vision_provider:
+    - "anthropic" (default): Anthropic Claude via the official SDK
+    - "ollama": Any OpenAI-compatible endpoint (Ollama Cloud, local Ollama, etc.)
+    """
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
-        self._client = AsyncAnthropic(
-            api_key=settings.anthropic_api_key.get_secret_value(),
-            timeout=settings.vision_timeout_seconds,
-        )
+        if settings.vision_provider == "ollama":
+            self._anthropic_client: AsyncAnthropic | None = None
+            self._httpx_client: httpx.AsyncClient | None = httpx.AsyncClient(
+                base_url=settings.ollama_base_url.rstrip("/"),
+                timeout=settings.vision_timeout_seconds,
+                follow_redirects=True,
+                headers={
+                    "Authorization": f"Bearer {settings.ollama_api_key.get_secret_value()}",
+                    "Content-Type": "application/json",
+                },
+            )
+        else:
+            self._anthropic_client = AsyncAnthropic(
+                api_key=settings.anthropic_api_key.get_secret_value(),
+                timeout=settings.vision_timeout_seconds,
+            )
+            self._httpx_client = None
 
     async def evaluate(
         self,
@@ -73,8 +92,9 @@ class VisionEvaluator:
     ) -> VisionVerdict:
         """Evaluate a background image for flyer suitability.
 
-        Sends the image + event context to Claude vision, parses the response,
-        applies confidence gating and zone validation. Retries once on parse failure.
+        Sends the image + event context to the configured vision LLM, parses the
+        response, applies confidence gating and zone validation. Retries once on
+        parse failure.
         """
         user_text = (
             f"Event: {event.title}\n"
@@ -87,53 +107,23 @@ class VisionEvaluator:
             f"Style: {event.style_concept}"
         )
 
-        # D-18: encode at point of use, don't store
         img_b64 = base64.b64encode(background.image_bytes).decode()
 
-        user_content: list[dict[str, object]] = [
-            {
-                "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": "image/png",
-                    "data": img_b64,
-                },
-            },
-            {"type": "text", "text": user_text},
-        ]
-
-        try:
-            response = await self._client.messages.create(
-                model=self._settings.vision_model,
-                max_tokens=self._settings.vision_max_tokens,
-                system=VISION_SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": user_content}],
-            )
-        except APIError as exc:
-            raise VisionAPIError(str(exc)) from exc
-
-        raw_text = response.content[0].text
+        # Dispatch to the configured backend
+        if self._settings.vision_provider == "ollama":
+            raw_text = await self._call_ollama(img_b64, user_text)
+        else:
+            raw_text = await self._call_anthropic(img_b64, user_text)
 
         try:
             verdict = self._parse_and_validate(raw_text)
         except VisionResponseParseError:
             # D-20: one retry with follow-up prompt
             logger.warning("vision_parse_retry", raw_preview=raw_text[:200])
-            try:
-                retry_response = await self._client.messages.create(
-                    model=self._settings.vision_model,
-                    max_tokens=self._settings.vision_max_tokens,
-                    system=VISION_SYSTEM_PROMPT,
-                    messages=[
-                        {"role": "user", "content": user_content},
-                        {"role": "assistant", "content": raw_text},
-                        {"role": "user", "content": "Return valid JSON only, no prose."},
-                    ],
-                )
-            except APIError as exc:
-                raise VisionAPIError(str(exc)) from exc
-
-            raw_text_retry = retry_response.content[0].text
+            if self._settings.vision_provider == "ollama":
+                raw_text_retry = await self._call_ollama_retry(img_b64, user_text, raw_text)
+            else:
+                raw_text_retry = await self._call_anthropic_retry(img_b64, user_text, raw_text)
             verdict = self._parse_and_validate(raw_text_retry)
 
         logger.info(
@@ -142,6 +132,130 @@ class VisionEvaluator:
             confidence=verdict.confidence,
         )
         return verdict
+
+    # ── Anthropic backend ──
+
+    async def _call_anthropic(self, img_b64: str, user_text: str) -> str:
+        """Call Anthropic Claude vision API."""
+        assert self._anthropic_client is not None
+        user_content: list[dict[str, object]] = [
+            {
+                "type": "image",
+                "source": {"type": "base64", "media_type": "image/png", "data": img_b64},
+            },
+            {"type": "text", "text": user_text},
+        ]
+        try:
+            response = await self._anthropic_client.messages.create(
+                model=self._settings.vision_model,
+                max_tokens=self._settings.vision_max_tokens,
+                system=VISION_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_content}],
+            )
+        except APIError as exc:
+            raise VisionAPIError(str(exc)) from exc
+        return response.content[0].text
+
+    async def _call_anthropic_retry(
+        self, img_b64: str, user_text: str, raw_text: str
+    ) -> str:
+        """Retry Anthropic call with conversation history."""
+        assert self._anthropic_client is not None
+        user_content: list[dict[str, object]] = [
+            {
+                "type": "image",
+                "source": {"type": "base64", "media_type": "image/png", "data": img_b64},
+            },
+            {"type": "text", "text": user_text},
+        ]
+        try:
+            response = await self._anthropic_client.messages.create(
+                model=self._settings.vision_model,
+                max_tokens=self._settings.vision_max_tokens,
+                system=VISION_SYSTEM_PROMPT,
+                messages=[
+                    {"role": "user", "content": user_content},
+                    {"role": "assistant", "content": raw_text},
+                    {"role": "user", "content": "Return valid JSON only, no prose."},
+                ],
+            )
+        except APIError as exc:
+            raise VisionAPIError(str(exc)) from exc
+        return response.content[0].text
+
+    # ── Ollama / OpenAI-compatible backend ──
+
+    async def _call_ollama(self, img_b64: str, user_text: str) -> str:
+        """Call Ollama-compatible vision API via OpenAI /v1/chat/completions."""
+        assert self._httpx_client is not None
+        payload = {
+            "model": self._settings.ollama_vision_model,
+            "max_tokens": self._settings.vision_max_tokens,
+            "messages": [
+                {"role": "system", "content": VISION_SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/png;base64,{img_b64}"},
+                        },
+                        {"type": "text", "text": user_text},
+                    ],
+                },
+            ],
+        }
+        return await self._post_ollama(payload)
+
+    async def _call_ollama_retry(
+        self, img_b64: str, user_text: str, raw_text: str
+    ) -> str:
+        """Retry Ollama call with conversation history."""
+        assert self._httpx_client is not None
+        payload = {
+            "model": self._settings.ollama_vision_model,
+            "max_tokens": self._settings.vision_max_tokens,
+            "messages": [
+                {"role": "system", "content": VISION_SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/png;base64,{img_b64}"},
+                        },
+                        {"type": "text", "text": user_text},
+                    ],
+                },
+                {"role": "assistant", "content": raw_text},
+                {"role": "user", "content": "Return valid JSON only, no prose."},
+            ],
+        }
+        return await self._post_ollama(payload)
+
+    async def _post_ollama(self, payload: dict) -> str:
+        """Send a request to the Ollama OpenAI-compatible endpoint."""
+        assert self._httpx_client is not None
+        try:
+            resp = await self._httpx_client.post("/v1/chat/completions", json=payload)
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise VisionAPIError(
+                f"Ollama API error {exc.response.status_code}: "
+                f"{exc.response.text[:200]}"
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise VisionAPIError(str(exc)) from exc
+
+        try:
+            data = resp.json()
+            return data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, json.JSONDecodeError) as exc:
+            raise VisionAPIError(
+                f"Unexpected Ollama response format: {resp.text[:200]}"
+            ) from exc
+
+    # ── Shared parsing ──
 
     def _parse_and_validate(self, raw_text: str) -> VisionVerdict:
         """Parse raw LLM text into a validated VisionVerdict.

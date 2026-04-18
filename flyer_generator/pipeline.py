@@ -20,6 +20,7 @@ from flyer_generator.stages.preprocessor import ImagePreprocessor
 from flyer_generator.stages.prompt_builder import StylePromptBuilder
 from flyer_generator.stages.rasterizer import Rasterizer
 from flyer_generator.stages.vision import VisionEvaluator
+from flyer_generator.workflow_loader import load_workflow
 
 
 class FlyerGenerator:
@@ -44,10 +45,11 @@ class FlyerGenerator:
 
         self._owns_http = False
         if http_client is None:
-            http_client = httpx.AsyncClient()
+            http_client = httpx.AsyncClient(follow_redirects=True)
             self._owns_http = True
 
-        self._prompt_builder = StylePromptBuilder(presets)
+        wf_config = load_workflow(settings.workflow)
+        self._prompt_builder = StylePromptBuilder(presets, workflow_config=wf_config)
         self._comfy_client = ComfyClient(settings, http_client)
         self._preprocessor = ImagePreprocessor()
         self._vision = VisionEvaluator(settings)

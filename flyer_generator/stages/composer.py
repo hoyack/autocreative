@@ -21,19 +21,49 @@ from flyer_generator.models import (
 from flyer_generator.zones import ZoneCoord
 
 
-def _title_params(title: str) -> tuple[int, int]:
+# Safe margins: text must stay within this horizontal band (px from each edge)
+_CANVAS_WIDTH = 1080
+_MARGIN_PX = 60  # 60px margin on each side = text fits in 960px
+
+
+def _title_params(title: str, anchor: str = "middle", anchor_x: int = 540) -> tuple[int, int]:
     """Return (font_size, max_chars_per_line) for the UPPERCASED title.
 
     D-06: measure AFTER .upper().
+    Enforces margin safety: computes the actual available width from the
+    anchor position to the nearest edge, then limits max_chars to fit.
     """
     length = len(title)
     if length <= 14:
-        return 82, 14
-    if length <= 20:
-        return 72, 20
-    if length <= 30:
-        return 62, 18
-    return 52, 22
+        font_size, max_chars = 82, 14
+    elif length <= 20:
+        font_size, max_chars = 72, 20
+    elif length <= 30:
+        font_size, max_chars = 62, 18
+    else:
+        font_size, max_chars = 52, 22
+
+    # Compute available width based on anchor position.
+    # "start" text extends rightward from anchor_x to right margin.
+    # "end" text extends leftward from anchor_x to left margin.
+    # "middle" text extends both ways from anchor_x.
+    if anchor == "start":
+        available_width = (_CANVAS_WIDTH - _MARGIN_PX) - max(anchor_x, _MARGIN_PX)
+    elif anchor == "end":
+        available_width = min(anchor_x, _CANVAS_WIDTH - _MARGIN_PX) - _MARGIN_PX
+    else:  # middle
+        half_to_edge = min(anchor_x - _MARGIN_PX, (_CANVAS_WIDTH - _MARGIN_PX) - anchor_x)
+        available_width = half_to_edge * 2
+
+    # Approx 0.75 * font_size per uppercase char (Arial Black is very wide,
+    # plus letter-spacing: 2 adds ~2px per char)
+    char_width_est = font_size * 0.75
+    max_safe_chars = int(available_width / char_width_est)
+
+    if max_chars > max_safe_chars:
+        max_chars = max(max_safe_chars, 8)  # floor at 8 to avoid degenerate wrapping
+
+    return font_size, max_chars
 
 
 def _wrap_text(text: str, max_chars: int) -> list[str]:
@@ -82,6 +112,21 @@ def _get_scrim_zones(title_zone: str, details_zone: str) -> set[str]:
     rows.add(title_zone.split("_")[0])
     rows.add(details_zone.split("_")[0])
     return rows
+
+
+def _select_layout_variant(title_row: str, details_row: str, title_col: str) -> str:
+    """Select a visual layout variant based on zone placement pattern.
+
+    Returns one of: "centered", "editorial", "sidebar", "minimal".
+    Different zone combos naturally produce different visual treatments.
+    """
+    if title_row == "TOP" and details_row == "BOTTOM" and title_col == "CENTER":
+        return "centered"  # classic poster: title top-center, details bottom
+    if title_col == "LEFT":
+        return "sidebar"  # left-aligned title gets vertical accent bar
+    if title_row == details_row:
+        return "minimal"  # same row = tight layout, keep decorations small
+    return "editorial"  # everything else gets the full-width editorial line
 
 
 def _gradient_defs(fade_color: str) -> str:
@@ -185,13 +230,19 @@ class PosterComposer:
         b64_bg = base64.b64encode(background.image_bytes).decode("ascii")
 
         # ----- d. Build title block -----
-        font_size, max_chars = _title_params(title_upper)
+        t_anchor = layout.title.anchor
+        font_size, max_chars = _title_params(title_upper, t_anchor, layout.title.x)
         lines = _wrap_text(title_upper, max_chars)
         line_height = font_size * 1.25
         total_height = len(lines) * line_height
         start_y = layout.title.y - (total_height / 2) + font_size * 0.8
+
+        # Clamp title x to respect safe margins
         tx = layout.title.x
-        t_anchor = layout.title.anchor
+        if t_anchor == "start":
+            tx = max(tx, _MARGIN_PX)
+        elif t_anchor == "end":
+            tx = min(tx, _CANVAS_WIDTH - _MARGIN_PX)
 
         title_font = "'Arial Black', 'Helvetica Neue', Arial, sans-serif"
         title_elements: list[str] = []
@@ -206,33 +257,90 @@ class PosterComposer:
                 f"{line}</text>"
             )
 
-        # ----- e. Build accent line -----
-        accent_line_y = start_y + (len(lines) - 1) * line_height + 20
-        if t_anchor == "middle":
-            accent_line_x = tx - 100
-        elif t_anchor == "start":
-            accent_line_x = tx
-        else:  # end
-            accent_line_x = tx - 200
+        # ----- e. Build accent decoration -----
+        # Select layout variant based on zone placement pattern
+        title_row = verdict.zones.title.split("_")[0]
+        details_row = verdict.zones.details.split("_")[0]
+        title_col = verdict.zones.title.split("_")[1]
+        layout_variant = _select_layout_variant(title_row, details_row, title_col)
 
-        accent_line = (
-            f'<rect x="{accent_line_x}" y="{accent_line_y:.1f}" '
-            f'width="200" height="4" rx="2" '
-            f'fill="{accent_color}" opacity="0.9"/>'
-        )
+        accent_line_y = start_y + (len(lines) - 1) * line_height + 20
+
+        if layout_variant == "centered":
+            # Classic centered line under title
+            accent_line_x = tx - 100 if t_anchor == "middle" else (tx if t_anchor == "start" else tx - 200)
+            accent_line = (
+                f'<rect x="{accent_line_x}" y="{accent_line_y:.1f}" '
+                f'width="200" height="4" rx="2" '
+                f'fill="{accent_color}" opacity="0.9"/>'
+            )
+        elif layout_variant == "editorial":
+            # Thin full-width line with accent dot
+            accent_line = (
+                f'<line x1="{_MARGIN_PX}" y1="{accent_line_y:.1f}" '
+                f'x2="{_CANVAS_WIDTH - _MARGIN_PX}" y2="{accent_line_y:.1f}" '
+                f'stroke="{accent_color}" stroke-width="1.5" opacity="0.6"/>'
+                f'<circle cx="{tx}" cy="{accent_line_y:.1f}" r="4" '
+                f'fill="{accent_color}" opacity="0.9"/>'
+            )
+        elif layout_variant == "sidebar":
+            # Vertical accent bar to the left of title
+            bar_x = tx - 20 if t_anchor == "start" else (tx - max(len(lines[0]) * font_size * 0.65 / 2, 100) - 20)
+            accent_line = (
+                f'<rect x="{max(bar_x, _MARGIN_PX - 20):.0f}" '
+                f'y="{start_y - font_size * 0.3:.1f}" '
+                f'width="4" height="{total_height + 10:.1f}" rx="2" '
+                f'fill="{accent_color}" opacity="0.9"/>'
+            )
+        else:  # "minimal"
+            # Small dash under title, understated
+            dash_w = 80
+            accent_line_x = tx - dash_w / 2 if t_anchor == "middle" else (tx if t_anchor == "start" else tx - dash_w)
+            accent_line = (
+                f'<rect x="{accent_line_x:.0f}" y="{accent_line_y:.1f}" '
+                f'width="{dash_w}" height="3" rx="1.5" '
+                f'fill="{accent_color}" opacity="0.7"/>'
+            )
 
         # ----- f. Build details block -----
         dx = layout.details.x
         dy = layout.details.y
         d_anchor = layout.details.anchor
 
-        # Separator X based on anchor
+        # Separator style varies with layout variant
         if d_anchor == "middle":
             sep_x = dx - 70
         elif d_anchor == "end":
             sep_x = dx - 140
         else:
             sep_x = dx
+
+        # Clamp details x to safe margins
+        if d_anchor == "start":
+            dx = max(dx, _MARGIN_PX)
+            sep_x = dx
+        elif d_anchor == "end":
+            dx = min(dx, _CANVAS_WIDTH - _MARGIN_PX)
+            sep_x = dx - 140
+
+        if layout_variant == "editorial":
+            separator = (
+                f'<line x1="{sep_x}" y1="{dy + 42}" '
+                f'x2="{sep_x + 140}" y2="{dy + 42}" '
+                f'stroke="{accent_color}" stroke-width="1.5" opacity="0.5"/>'
+            )
+        elif layout_variant == "sidebar":
+            separator = (
+                f'<rect x="{dx - 4 if d_anchor == "start" else sep_x}" y="{dy + 35}" '
+                f'width="3" height="100" rx="1.5" '
+                f'fill="{accent_color}" opacity="0.4"/>'
+            )
+        else:
+            separator = (
+                f'<rect x="{sep_x}" y="{dy + 42}" '
+                f'width="140" height="2" rx="1" '
+                f'fill="{text_color}" opacity="0.3"/>'
+            )
 
         details_elements: list[str] = [
             # date
@@ -245,9 +353,7 @@ class PosterComposer:
             f'font-family="Arial, sans-serif" font-size="34" '
             f'fill="{subtle_color}">{time_esc}</text>',
             # separator
-            f'<rect x="{sep_x}" y="{dy + 42}" '
-            f'width="140" height="2" rx="1" '
-            f'fill="{text_color}" opacity="0.3"/>',
+            separator,
             # venue
             f'<text x="{dx}" y="{dy + 90}" text-anchor="{d_anchor}" '
             f'font-family="Arial, sans-serif" font-size="30" '
@@ -279,6 +385,12 @@ class PosterComposer:
             fy = layout.fee_badge.y
             f_anchor = layout.fee_badge.anchor
 
+            # Collision avoidance: if badge and title share same zone row,
+            # push badge below the title block + accent line
+            title_bottom = start_y + (len(lines) - 1) * line_height + font_size
+            if abs(fy - layout.title.y) < 50:
+                fy = title_bottom + 40
+
             if f_anchor == "middle":
                 badge_x = fx - badge_width / 2
             elif f_anchor == "start":
@@ -287,6 +399,7 @@ class PosterComposer:
                 badge_x = fx - badge_width
 
             badge_y = fy - 28
+            badge_center_x = badge_x + badge_width / 2
 
             fee_elements.append(
                 f'<rect x="{badge_x:.0f}" y="{badge_y}" '
@@ -295,7 +408,7 @@ class PosterComposer:
                 f'fill="{accent_color}"/>'
             )
             fee_elements.append(
-                f'<text x="{fx}" y="{fy + 8}" text-anchor="middle" '
+                f'<text x="{badge_center_x:.0f}" y="{fy + 8}" text-anchor="middle" '
                 f'font-family="Arial, sans-serif" font-size="{fee_font_size}" '
                 f'font-weight="bold" fill="#1a1a1a">{fees_esc}</text>'
             )

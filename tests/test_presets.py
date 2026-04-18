@@ -4,13 +4,13 @@ import pytest
 
 from flyer_generator.errors import UnknownPresetError
 from flyer_generator.presets import (
-    COMFY_WORKFLOW_TEMPLATE,
     FLYER_DIRECTIVES,
     UNIVERSAL_NEGATIVE,
     PresetRegistry,
     StylePreset,
     build_default_registry,
 )
+from flyer_generator.workflow_loader import list_workflows, load_workflow
 
 
 class TestPresetRegistry:
@@ -68,7 +68,35 @@ class TestConstants:
         assert isinstance(UNIVERSAL_NEGATIVE, str)
         assert len(UNIVERSAL_NEGATIVE) > 0
 
-    def test_comfy_workflow_template_latent_dims(self):
-        dims = COMFY_WORKFLOW_TEMPLATE["latent_dimensions"]
-        assert dims["width"] == 832
-        assert dims["height"] == 1472
+
+class TestWorkflowLoader:
+    def test_list_workflows(self):
+        names = list_workflows()
+        assert "turbo_portrait" in names
+        assert "standard_square" in names
+
+    def test_load_turbo_portrait(self):
+        wf = load_workflow("turbo_portrait")
+        assert wf.name == "turbo_portrait"
+        assert wf.latent_dimensions == (832, 1472)
+        assert "positive_prompt" in wf.injection_points
+        assert "negative_prompt" in wf.injection_points
+        assert "seed" in wf.injection_points
+        # Injection points reference real nodes
+        for node_id in wf.injection_points.values():
+            assert node_id in wf.workflow
+
+    def test_load_standard_square(self):
+        wf = load_workflow("standard_square")
+        assert wf.name == "standard_square"
+        assert wf.latent_dimensions == (1024, 1024)
+        for node_id in wf.injection_points.values():
+            assert node_id in wf.workflow
+
+    def test_load_missing_workflow_raises(self):
+        with pytest.raises(FileNotFoundError, match="not found"):
+            load_workflow("nonexistent_workflow")
+
+    def test_meta_stripped_from_workflow(self):
+        wf = load_workflow("turbo_portrait")
+        assert "_flyer_meta" not in wf.workflow
