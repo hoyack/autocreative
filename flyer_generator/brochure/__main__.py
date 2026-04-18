@@ -63,6 +63,20 @@ def main(
         Optional[Path],
         typer.Option("--brochure-json", help="Load full BrochureInput from JSON file"),
     ] = None,
+    prompt: Annotated[
+        Optional[str],
+        typer.Option("--prompt", help="v2 prompt-driven: natural-language description; runs outline+text+layout+imagery+verify stages"),
+    ] = None,
+    audience: Annotated[
+        Optional[str],
+        typer.Option("--audience", help="v2 only: audience/tone hint (e.g. 'young professionals, playful')"),
+    ] = None,
+    target_length: Annotated[
+        str, typer.Option("--target-length", help="v2 only: short | medium | long")
+    ] = "medium",
+    verify_threshold: Annotated[
+        int, typer.Option("--verify-threshold", help="v2 only: rubric score threshold (0 = skip verification)")
+    ] = 70,
     output: Annotated[
         Path, typer.Option(help="Output directory for front/back PNGs + PDF")
     ] = Path("./output/brochures"),
@@ -78,7 +92,45 @@ def main(
             typer.echo(f"{name}: {p.description}")
         raise typer.Exit(0)
 
-    # --- Build BrochureInput ---
+    # --- v2 prompt-driven path (mutually exclusive with --brochure-json / explicit fields) ---
+    if prompt is not None:
+        if brochure_json is not None or title is not None or sections_json is not None:
+            typer.echo(
+                "Error: --prompt cannot be combined with --brochure-json or --title/--sections-json.",
+                err=True,
+            )
+            raise typer.Exit(1)
+        from flyer_generator.brochure.generative.pipeline import (
+            generate_brochure_from_prompt,
+        )
+
+        settings = Settings()
+        if max_attempts is not None:
+            settings.max_bg_attempts = max_attempts
+        configure_logging(settings.log_format, settings.log_level)
+
+        try:
+            result = asyncio.run(
+                generate_brochure_from_prompt(
+                    prompt=prompt,
+                    settings=settings,
+                    style_preset=preset,
+                    audience=audience,
+                    color_accent=accent if accent != "#F59E0B" else None,
+                    target_length=target_length,  # type: ignore[arg-type]
+                    verify_threshold=verify_threshold,
+                )
+            )
+        except FlyerGeneratorError as exc:
+            typer.echo(f"Brochure generation failed: {exc}", err=True)
+            raise typer.Exit(1) from exc
+
+        result.save(output)
+        typer.echo(f"Wrote brochure_front.png, brochure_back.png, brochure_print.pdf to {output}")
+        typer.echo(f"trace_id: {result.trace_id}")
+        raise typer.Exit(0)
+
+    # --- Build BrochureInput (v1 path) ---
     if brochure_json is not None:
         brochure = _load_brochure_from_json(brochure_json)
     else:

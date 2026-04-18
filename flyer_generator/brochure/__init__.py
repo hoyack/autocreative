@@ -16,6 +16,9 @@ from flyer_generator.brochure.models import (
     SheetName,
     validate_hex_color,
 )
+from flyer_generator.brochure.generative.pipeline import (
+    generate_brochure_from_prompt,
+)
 from flyer_generator.brochure.pipeline import BrochureGenerator, generate_brochure
 from flyer_generator.brochure.stages.layout import compute_panel_layout
 
@@ -32,5 +35,6 @@ __all__ = [
     "SheetName",
     "compute_panel_layout",
     "generate_brochure",
+    "generate_brochure_from_prompt",
     "validate_hex_color",
 ]
