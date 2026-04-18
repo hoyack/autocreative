@@ -93,7 +93,7 @@ class VisionVerdict(BaseModel):
     zones: LayoutZones | None = None
     text_color: Literal["white", "dark"] = "white"
     mood_tags: list[str] = Field(default_factory=list)
-    raw_response: str = Field(max_length=500)
+    raw_response: str = Field(max_length=4000)
 
 
 class ResolvedLayout(BaseModel):

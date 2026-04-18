@@ -117,6 +117,82 @@ async def test_verify_brochure_rejected_flags_text_stage() -> None:
 
 
 @pytest.mark.asyncio
+async def test_verify_brochure_uses_rubric_json_when_present() -> None:
+    """When raw_response contains a rubric JSON, parsed dims override uniform confidence."""
+    rubric = json.dumps(
+        {
+            "dimension_scores": {
+                "content_fit": 92,
+                "visual_balance": 60,
+                "text_legibility": 88,
+                "layout_coherence": 75,
+                "print_readiness": 70,
+            },
+            "critique": "visual balance is off on the tuck flap",
+            "weakest_stage": "layout",
+        }
+    )
+    verdict_in = VisionVerdict(
+        approved=True,
+        confidence=0.5,  # would give uniform 50 — proves rubric wins
+        zones=None,
+        rejection_reasons=[],
+        refinement_hint="",
+        text_color="white",
+        mood_tags=[],
+        raw_response=rubric,
+    )
+    evaluator = AsyncMock()
+    evaluator.evaluate_cover = AsyncMock(return_value=verdict_in)
+
+    verdict = await verify_brochure(
+        outside_png_bytes=b"png",
+        inside_png_bytes=b"png",
+        original_prompt="a brochure",
+        outline=_outline(),
+        settings=_settings(),
+        vision_evaluator=evaluator,
+    )
+    # (92+60+88+75+70)/5 = 77
+    assert verdict.score == 77
+    assert verdict.dimension_scores["content_fit"] == 92
+    assert verdict.dimension_scores["visual_balance"] == 60
+    # Dimensions must be heterogeneous — that's the whole point
+    assert len(set(verdict.dimension_scores.values())) > 1
+    assert verdict.weakest_stage == "layout"
+    assert "visual balance" in verdict.critique
+
+
+@pytest.mark.asyncio
+async def test_verify_brochure_falls_back_when_rubric_malformed() -> None:
+    """Malformed raw_response → fall back to confidence-based uniform dims."""
+    verdict_in = VisionVerdict(
+        approved=True,
+        confidence=0.8,
+        zones=None,
+        rejection_reasons=[],
+        refinement_hint="looks good",
+        text_color="white",
+        mood_tags=[],
+        raw_response="not json at all",
+    )
+    evaluator = AsyncMock()
+    evaluator.evaluate_cover = AsyncMock(return_value=verdict_in)
+
+    verdict = await verify_brochure(
+        outside_png_bytes=b"png",
+        inside_png_bytes=b"png",
+        original_prompt="p",
+        outline=_outline(),
+        settings=_settings(),
+        vision_evaluator=evaluator,
+    )
+    assert verdict.score == 80
+    # Uniform dims — fallback path signature
+    assert len(set(verdict.dimension_scores.values())) == 1
+
+
+@pytest.mark.asyncio
 async def test_verify_brochure_iteration_field_set() -> None:
     evaluator = AsyncMock()
     evaluator.evaluate_cover = AsyncMock(return_value=_visiver(approved=True, confidence=0.9))

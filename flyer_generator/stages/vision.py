@@ -345,7 +345,7 @@ class VisionEvaluator:
 
         # Step 6: Pydantic validation
         try:
-            return VisionVerdict(**data, raw_response=raw_text[:500])
+            return VisionVerdict(**data, raw_response=raw_text[:4000])
         except ValidationError as exc:
             raise VisionResponseParseError(
                 f"VisionVerdict validation failed: {exc}"

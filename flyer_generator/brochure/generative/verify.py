@@ -5,7 +5,6 @@ Scores the composed brochure on a 5-dimension rubric using a vision LLM. Returns
 
 from __future__ import annotations
 
-import base64
 import json
 from typing import Literal
 
@@ -23,6 +22,61 @@ brochure. Score it on a 5-dimension rubric. Output JSON only — no prose, no ma
 
 
 _DIMENSIONS = ("content_fit", "visual_balance", "text_legibility", "layout_coherence", "print_readiness")
+
+
+class BrochureVerificationError(Exception):
+    """Raised when verification fails to produce a valid verdict."""
+
+
+def _extract_rubric_json(raw: str) -> dict | None:
+    """Pull the first JSON object out of a raw LLM response and return it if it has rubric shape.
+
+    Returns None if parse fails, no object found, or object lacks `dimension_scores`.
+    """
+    if not raw:
+        return None
+    first = raw.find("{")
+    last = raw.rfind("}")
+    if first < 0 or last <= first:
+        return None
+    try:
+        data = json.loads(raw[first : last + 1])
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict) or "dimension_scores" not in data:
+        return None
+    dims = data.get("dimension_scores")
+    if not isinstance(dims, dict) or not dims:
+        return None
+    return data
+
+
+def _verdict_from_rubric(data: dict, *, iteration: int, critique_prefix: str = "") -> VerificationVerdict:
+    """Build a VerificationVerdict from a parsed rubric dict."""
+    dims_raw = data["dimension_scores"]
+    dims: dict[str, int] = {}
+    for key, value in dims_raw.items():
+        try:
+            dims[key] = int(value)
+        except (TypeError, ValueError):
+            continue
+    if not dims:
+        raise BrochureVerificationError("Rubric dimension_scores contained no numeric values")
+    score = int(sum(dims.values()) / len(dims))
+    critique = str(data.get("critique", ""))
+    if critique_prefix:
+        critique = f"{critique_prefix}{critique}" if critique else critique_prefix
+    weakest_raw = data.get("weakest_stage")
+    weakest: Literal["outline", "text", "layout", "imagery", "compose"] | None = None
+    if weakest_raw in ("outline", "text", "layout", "imagery", "compose"):
+        weakest = weakest_raw  # type: ignore[assignment]
+    return VerificationVerdict(
+        score=score,
+        dimension_scores=dims,
+        critique=critique,
+        weakest_stage=weakest,
+        iteration=iteration,
+    )
 
 
 def _outline_summary(outline: BrochureOutline) -> str:
@@ -66,10 +120,6 @@ Map the weakest dimension to a stage:
 - If all dimensions >= 70: set weakest_stage to null."""
 
 
-class BrochureVerificationError(Exception):
-    """Raised when verification fails to produce a valid verdict."""
-
-
 async def verify_brochure(
     outside_png_bytes: bytes,
     inside_png_bytes: bytes,
@@ -93,8 +143,6 @@ async def verify_brochure(
 
     user_text = _build_user_prompt(original_prompt, outline)
 
-    # We only score the outside sheet visually for now; the inside is summarized textually
-    # via the outline. A future enhancement could batch both images into one call.
     try:
         verdict = await vision_evaluator.evaluate_cover(
             image_bytes=outside_png_bytes,
@@ -103,16 +151,16 @@ async def verify_brochure(
     except (VisionAPIError, VisionResponseParseError) as exc:
         raise BrochureVerificationError(f"Verification vision call failed: {exc}") from exc
 
-    # VisionVerdict carries approved/confidence; we repurpose raw_response to find our rubric JSON.
-    # Our VERIFY_SYSTEM_PROMPT asked the LLM to return the rubric JSON, but the VisionEvaluator
-    # parses it into a VisionVerdict (rejection_reasons etc.). To keep things simple we'll do
-    # a second, text-only rubric call that reads the raw_response we already have via vision.
-    # For the MVP we derive scores heuristically from confidence + approved flag.
+    # Preferred path: rubric JSON came back in raw_response. Parse and use it directly.
+    rubric = _extract_rubric_json(verdict.raw_response)
+    if rubric is not None:
+        return _verdict_from_rubric(rubric, iteration=iteration)
+
+    # Fallback path: rubric JSON absent/malformed → derive uniform dims from confidence.
     score = int(verdict.confidence * 100)
     dimension_scores = {dim: score for dim in _DIMENSIONS}
     weakest: Literal["outline", "text", "layout", "imagery", "compose"] | None = None
     if score < 70:
-        # Pick a deterministic weakest: 'compose' when confidence low w/ approved True, else 'text'.
         weakest = "compose" if verdict.approved else "text"
 
     return VerificationVerdict(
