@@ -104,8 +104,11 @@ _BACK_PANEL_HEADINGS: dict[str, str] = {
 
 _FOLD_LINE_COLOR = "#FF00FF"  # magenta, visible guide color; on a non-printing layer
 _CROP_MARK_COLOR = "#000000"
-_CROP_MARK_LENGTH = 36
-_CROP_MARK_STROKE = 3
+# Sized so crop marks read clearly at the 3376×2626 print canvas — the
+# previous 36/3 looked like hairlines in rasterised output and vision
+# models consistently flagged them missing.
+_CROP_MARK_LENGTH = 72
+_CROP_MARK_STROKE = 6
 
 
 def _wrap(text: str, max_chars: int) -> list[str]:
