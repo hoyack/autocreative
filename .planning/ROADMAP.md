@@ -23,6 +23,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 7: Brochure Composition** - Two-sheet SVG composer (outside + inside), rasterizer integration producing two 3376x2626 PNGs (bleed canvas; trim 3300x2550) (completed 2026-04-18)
 - [x] **Phase 8: Brochure PDF Assembly** - reportlab-based 2-page print-ready PDF with bleed canvas and crop marks (completed 2026-04-18)
 - [x] **Phase 9: Brochure CLI & Public API** - `python -m flyer_generator.brochure` subcommand, generate_brochure public API, BrochureGenerator orchestrator, end-to-end integration tests (completed 2026-04-18)
+- [ ] **Phase 10: Generative LLM Clients + Outline + Text Stages** - OllamaTextClient/AnthropicTextClient, BrochurePrompt/BrochureOutline models, outline + per-section text generation stages
+- [ ] **Phase 11: Layout Selection + Template Library + Fit Optimization** - 6 named layout templates (editorial, minimalist, playful, gallery_strip, quote_driven, spotlight), LLM layout selection, text-fit rewrite loop
+- [ ] **Phase 12: Vector Shape Library + Composer v2** - 6 parameterized SVG shapes (circle_offpage, rotated_block, accent_bar, dot_grid, pullquote_frame, corner_wedge), composer rewrite honoring LayoutChoice; fixes v1 fold-line print bug + back-panel kind leak
+- [ ] **Phase 13: Imagery Orchestration + Verification Loop** - multi-image generation (1 hero + 0-3 spot images), 5-dimension rubric verification, weakest-stage regen loop (max 2 cycles)
+- [ ] **Phase 14: Prompt-Driven Public API + CLI + End-to-End** - `generate_brochure_from_prompt()` async public API, `--prompt` CLI flag, end-to-end integration tests with mocked LLM + Comfy
 
 ## Phase Details
 
