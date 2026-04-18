@@ -18,11 +18,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Image Pipeline** - AI background generation via ComfyCloud and vision evaluation via Claude (completed 2026-04-17)
 - [x] **Phase 3: Composition** - Layout resolution, SVG composition with text overlays, and PNG rasterization (completed 2026-04-17)
 - [x] **Phase 4: Orchestration & CLI** - Pipeline wiring with retry loop, CLI entrypoint, and public API surface (completed 2026-04-17)
-- [ ] **Phase 5: Brochure Models & Panel Geometry** - BrochureInput / BrochureSection / BrochureOutput Pydantic models and panel geometry layout module
-- [ ] **Phase 6: Brochure Workflow & Prompt Builder** - turbo_landscape ComfyCloud workflow, brochure cover prompt builder, vision hook for cover evaluation
-- [ ] **Phase 7: Brochure Composition** - Two-sheet SVG composer (outside + inside), rasterizer integration producing two 3300x2550 PNGs
-- [ ] **Phase 8: Brochure PDF Assembly** - reportlab-based 2-page print-ready PDF with bleed canvas and crop marks
-- [ ] **Phase 9: Brochure CLI & Public API** - `brochure` subcommand, generate_brochure public API, end-to-end smoke test
+- [x] **Phase 5: Brochure Models & Panel Geometry** - BrochureInput / BrochureSection / BrochureOutput Pydantic models and panel geometry layout module (completed 2026-04-18)
+- [x] **Phase 6: Brochure Workflow & Prompt Builder** - turbo_landscape ComfyCloud workflow, brochure cover prompt builder, vision hook for cover evaluation (completed 2026-04-18)
+- [x] **Phase 7: Brochure Composition** - Two-sheet SVG composer (outside + inside), rasterizer integration producing two 3376x2626 PNGs (bleed canvas; trim 3300x2550) (completed 2026-04-18)
+- [x] **Phase 8: Brochure PDF Assembly** - reportlab-based 2-page print-ready PDF with bleed canvas and crop marks (completed 2026-04-18)
+- [x] **Phase 9: Brochure CLI & Public API** - `python -m flyer_generator.brochure` subcommand, generate_brochure public API, BrochureGenerator orchestrator, end-to-end integration tests (completed 2026-04-18)
 
 ## Phase Details
 
