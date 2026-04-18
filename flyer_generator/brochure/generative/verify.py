@@ -100,8 +100,10 @@ Score each dimension 0-100:
 4. layout_coherence — does the template suit the content tone?
 5. print_readiness — crop marks present? No fold-line bleed? Bleed coverage OK?
 
-Return JSON with this exact shape:
+Return JSON with this exact shape (all keys required):
 {{
+  "approved": true|false,
+  "confidence": 0.0-1.0,
   "dimension_scores": {{
     "content_fit": 0-100, "visual_balance": 0-100,
     "text_legibility": 0-100, "layout_coherence": 0-100,
@@ -110,6 +112,10 @@ Return JSON with this exact shape:
   "critique": "2-3 sentences explaining the lowest-scoring dimension",
   "weakest_stage": "outline" | "text" | "layout" | "imagery" | "compose" | null
 }}
+
+Derive approved + confidence from the dimension scores:
+- approved = (all dimensions >= 70)
+- confidence = (mean of dimension_scores) / 100  (0.0-1.0)
 
 Map the weakest dimension to a stage:
 - content_fit low → "text" or "outline"

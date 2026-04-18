@@ -42,7 +42,8 @@ Return JSON with this exact shape:
     ...
   ],
   "tone": "short phrase describing overall tone",
-  "cta_intent": "one sentence describing the back-panel call to action",
+  "cta_intent": "the ACTUAL short call-to-action headline text, max 60 chars (e.g. 'Book your free consultation today')",
+  "org_name": "short organization or brand name, max 40 chars (e.g. 'Westward Legal' or 'Brightside Camp')",
   "suggested_preset": "photorealistic|anime|western_cartoon|scifi|watercolor|retro_poster",
   "suggested_accent": "#RRGGBB"
 }}
@@ -54,6 +55,8 @@ Rules:
 - If user specified style_preset or color_accent above, echo them in suggested_preset / suggested_accent.
 - suggested_accent must be a 6-digit hex color like #2E8B57.
 - body_brief should be a one-sentence direction for a copywriter, NOT the final body text.
+- cta_intent MUST be the final rendered CTA text, NOT a description. Write it exactly as it should appear on the brochure. No "Encourage the reader to..." — say what the reader should do.
+- org_name is the brand / organization name as it should appear on the tuck flap. Invent one if the prompt doesn't specify.
 - cover_image_concept is REQUIRED on the cover section and must describe a concrete VISUAL scene to render (e.g. "sunlit yoga studio with potted plants and a folded mat"). Keep it to one sentence with concrete nouns + adjectives. Set it to null on non-cover sections."""
 
 

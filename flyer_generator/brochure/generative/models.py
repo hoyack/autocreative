@@ -69,6 +69,14 @@ class BrochureOutline(BaseModel):
     cta_intent: str
     suggested_preset: str
     suggested_accent: str
+    org_name: str | None = Field(
+        default=None,
+        description=(
+            "Short organization / brand name suitable for a tuck-flap tagline "
+            "(e.g. 'Westward Legal' or 'Brightside Camp'). Falls back to "
+            "deriving from the cover title when None."
+        ),
+    )
 
     @field_validator("suggested_accent")
     @classmethod

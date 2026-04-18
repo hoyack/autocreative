@@ -272,6 +272,20 @@ def _render_cover_text(
     return "".join(parts)
 
 
+def _fit_heading_font_size(heading: str, panel_safe_width: int, base_size: int) -> int:
+    """Shrink heading size until estimated width fits the panel's safe width.
+
+    Uses ~0.55 * size per character as a width estimate (common for modern
+    sans/serif fonts). Floor is 60% of the base to avoid unreadable text.
+    """
+    n = max(1, len(heading))
+    floor = max(int(base_size * 0.6), 24)
+    size = base_size
+    while size > floor and 0.55 * size * n > panel_safe_width:
+        size -= 2
+    return size
+
+
 def _render_section_text(
     panel: PanelRect,
     section: BrochureSection,
@@ -280,10 +294,11 @@ def _render_section_text(
 ) -> str:
     """Heading + accent rule + wrapped body text for an inner panel."""
     sx, sy, sw, _ = panel.safe_rect
-    y = sy + typ.heading_size
+    heading_size = _fit_heading_font_size(section.heading, sw, typ.heading_size)
+    y = sy + heading_size
     parts = [
         f'<text x="{sx}" y="{y}" '
-        f'font-family="{typ.title_font}" font-size="{typ.heading_size}" '
+        f'font-family="{typ.title_font}" font-size="{heading_size}" '
         f'fill="{accent_hex}">{escape(section.heading)}</text>',
         f'<rect x="{sx}" y="{y + 12}" width="{min(sw, 220)}" height="3" fill="{accent_hex}"/>',
     ]
@@ -373,40 +388,37 @@ def _render_tuck_flap_tagline(
     accent_hex: str,
     typ: _Typography,
 ) -> str:
-    """Org name + compressed tagline for the tuck flap when no section text fits.
+    """Org name only (no tagline body) for panels that have no assigned section.
 
-    Used when the brochure has fewer than 4 content sections and the tuck flap
-    would otherwise ship as gradient + shapes only. Keeps every outside-panel
-    filled so a closed brochure has content on every visible face.
+    Used when the brochure has fewer than 4 content sections (tuck flap) or
+    when inner_center would otherwise ship empty (N=2 case). Renders a single
+    centred strap with an accent rule. No wrapped body line — previous
+    iterations accidentally duplicated the org name as a multi-line tagline
+    which overflowed narrow panels with long input strings.
     """
     sx, sy, sw, sh = panel.safe_rect
     if not org_name:
         return ""
-    org = org_name.strip()
-    # Tagline fills the center of the panel, org name sits above it as a cap.
+    # Hard cap on how much text we'll try to render — tuck flap is ~4cm wide.
+    org = org_name.strip()[:32]
+    if not org:
+        return ""
+    cx = sx + sw // 2
     center_y = sy + sh // 2
-    # Small org strap line — ~60% of heading size, all caps, subdued.
     strap_size = max(typ.body_size + 4, typ.heading_size // 2)
-    parts = [
-        f'<text x="{sx + sw // 2}" y="{center_y - strap_size}" text-anchor="middle" '
+    # Detect if the org text is too wide for the panel's safe width. Assume
+    # ~0.55 * font_size per char; if estimated width exceeds safe width, shrink.
+    est_width = 0.55 * strap_size * len(org)
+    if est_width > sw - 40:
+        # Cap at a size that actually fits
+        strap_size = max(int((sw - 40) / (0.55 * len(org))), typ.body_size)
+    return "".join([
+        f'<text x="{cx}" y="{center_y}" text-anchor="middle" '
         f'font-family="{typ.title_font}" font-size="{strap_size}" '
-        f'fill="{accent_hex}">{escape(org[:40].upper())}</text>',
-        # Accent rule
-        f'<rect x="{sx + sw // 2 - 40}" y="{center_y - strap_size // 2 - 2}" '
+        f'fill="{accent_hex}">{escape(org.upper())}</text>',
+        f'<rect x="{cx - 40}" y="{center_y + strap_size // 3}" '
         f'width="80" height="3" fill="{accent_hex}"/>',
-    ]
-    # Word-wrap the tagline below the rule using template body width.
-    tagline_size = typ.body_size
-    tagline_lh = typ.body_line_height
-    tagline_y = center_y + tagline_lh
-    for line in _wrap(org, typ.body_max_chars + 4)[:3]:
-        parts.append(
-            f'<text x="{sx + sw // 2}" y="{tagline_y}" text-anchor="middle" '
-            f'font-family="{typ.body_font}" font-size="{tagline_size}" '
-            f'fill="#333333">{escape(line)}</text>'
-        )
-        tagline_y += tagline_lh
-    return "".join(parts)
+    ])
 
 
 def _render_fold_lines(fold_x_coords: list[int], canvas_h: int) -> str:
@@ -552,11 +564,12 @@ def _render_section_text_below_image(
 ) -> str:
     """Like _render_section_text but starts below a spot image occupying top image_h pixels."""
     sx, sy, sw, _ = panel.safe_rect
+    heading_size = _fit_heading_font_size(section.heading, sw, typ.heading_size)
     text_top = sy + image_h + 16
-    y = text_top + typ.heading_size
+    y = text_top + heading_size
     parts = [
         f'<text x="{sx}" y="{y}" '
-        f'font-family="{typ.title_font}" font-size="{typ.heading_size}" '
+        f'font-family="{typ.title_font}" font-size="{heading_size}" '
         f'fill="{accent_hex}">{escape(section.heading)}</text>',
         f'<rect x="{sx}" y="{y + 12}" width="{min(sw, 220)}" height="3" fill="{accent_hex}"/>',
     ]

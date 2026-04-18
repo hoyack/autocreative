@@ -41,11 +41,14 @@ def _char_target(template: LayoutTemplate, length: TargetLength) -> int:
     'short' target is word-count-driven (a short blurb should be a blurb regardless of panel size).
     'medium' and 'long' are capacity-driven (fill the template's intended share of the panel)
     so we don't ship v1's sparse-panel look on templates with generous capacity.
+
+    Tuned after live-API runs showed ~50% capacity reads as a wall of text on
+    inner panels. 'medium' now targets ~30% of capacity; 'long' ~60%.
     """
     capacity = estimate_body_capacity(template)
     if length == "short":
         return _target_words_for("short") * 5  # ~125 chars
-    capacity_fraction = {"medium": 0.5, "long": 0.85}[length]
+    capacity_fraction = {"medium": 0.30, "long": 0.60}[length]
     return int(capacity * capacity_fraction)
 
 

@@ -143,13 +143,20 @@ def _assemble_brochure_input(
                 content=cta_text.body,
             )
 
+    # Prefer the outline's dedicated org_name over the leaky cta_intent fallback.
+    # Old behaviour rendered copywriter directions ("Encourage the reader to
+    # book a free initial consultation") on the tuck flap. When org_name is
+    # missing, derive a short brand from the cover title.
+    derived_org = (outline.org_name or title).strip()[:80]
+    org = derived_org if derived_org else "Our Team"
+
     return BrochureInput(
         title=title,
         subtitle=None,
         hero_concept=hero_concept,
         style_preset=outline.suggested_preset,
         color_accent=outline.suggested_accent,
-        org=outline.cta_intent[:120],
+        org=org,
         sections=sections,
         back_panel=back_panel,
     )

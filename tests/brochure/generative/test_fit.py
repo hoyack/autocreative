@@ -55,7 +55,7 @@ def test_needs_rewrite_flags_underflow_for_medium() -> None:
 def test_needs_rewrite_passes_when_in_range() -> None:
     # Pick a body size near mid-capacity for medium
     cap = estimate_body_capacity(EDITORIAL)
-    midrange = "x" * (cap // 2)
+    midrange = "x" * (int(cap * 0.3))
     needs, _ = needs_rewrite(midrange, EDITORIAL, "medium")
     assert needs is False
 
@@ -72,7 +72,7 @@ def _mock_text_client(sequential_replies: list[str]) -> AsyncMock:
 @pytest.mark.asyncio
 async def test_optimize_fit_leaves_fitting_sections_unchanged() -> None:
     cap = estimate_body_capacity(EDITORIAL)
-    body = "x" * (cap // 2)  # mid-range, no rewrite needed
+    body = "x" * (int(cap * 0.3))  # mid-range, no rewrite needed
     client = AsyncMock()
     client.complete = AsyncMock()  # should not be called
 
@@ -136,7 +136,7 @@ async def test_optimize_fit_stops_early_when_fit_is_achieved() -> None:
     """If the first rewrite lands in-range, no second call is made."""
     # Produce a body that is mid-range for EDITORIAL (in-range → no more rewrites)
     cap = estimate_body_capacity(EDITORIAL)
-    in_range_body = "y" * (cap // 2)
+    in_range_body = "y" * (int(cap * 0.3))
     client = _mock_text_client([in_range_body, "should-not-be-called"])
     section = SectionText(heading="H", body="x" * 5000, image_hint=None)
     result = await optimize_fit(
