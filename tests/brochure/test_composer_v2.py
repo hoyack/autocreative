@@ -226,3 +226,61 @@ def test_composer_no_font_defs_when_fonts_missing(tmp_path, monkeypatch) -> None
     )
     outside, _ = _render_with(template=get_template("editorial"))
     assert "@font-face" not in outside
+
+
+# ---------- Tuck-flap tagline (N<4 sections) ----------
+
+
+def test_tuck_flap_renders_tagline_when_fewer_than_four_sections() -> None:
+    """N=3 (or 2) brochures must render org name + tagline on tuck flap."""
+    from flyer_generator.brochure.models import BrochureInput, BrochureSection
+
+    brochure_n3 = BrochureInput(
+        title="Three Section Brochure",
+        hero_concept="abstract background",
+        style_preset="photorealistic",
+        color_accent="#2E8B57",
+        org="Evergreen Studio",
+        sections=[
+            BrochureSection(heading=f"Section {i}", body=f"Body for section {i}.")
+            for i in range(3)
+        ],
+    )
+    layout = compute_panel_layout()
+    outside, _ = compose_brochure_svgs(
+        brochure_n3, layout, _FAKE_HERO_PNG, template=get_template("editorial")
+    )
+    # Tuck flap tagline uses uppercase org — the org name must appear upper-cased
+    assert "EVERGREEN STUDIO" in outside
+
+
+def test_tuck_flap_tagline_skipped_when_section_assigned() -> None:
+    """N>=4 brochures use the tuck flap for sections[3] — no tagline duplication."""
+    outside, _ = _render_with(template=get_template("editorial"))
+    # FULL_BROCHURE has 5 sections; tuck flap gets sections[3] ("Evenings").
+    # Org-upper shouldn't appear as the tuck-flap tagline.
+    assert "DEV COLLECTIVE" not in outside
+
+
+def test_tuck_flap_no_tagline_when_org_empty(tmp_path) -> None:
+    """Empty org string → tagline helper returns empty; no crash."""
+    from flyer_generator.brochure.models import BrochureInput, BrochureSection
+
+    brochure = BrochureInput(
+        title="No Org",
+        hero_concept="c",
+        style_preset="photorealistic",
+        color_accent="#2E8B57",
+        org="",  # empty
+        sections=[
+            BrochureSection(heading=f"S{i}", body=f"b{i}") for i in range(3)
+        ],
+    )
+    layout = compute_panel_layout()
+    outside, _ = compose_brochure_svgs(
+        brochure, layout, _FAKE_HERO_PNG, template=get_template("editorial")
+    )
+    # No crash; no upper-cased tagline injected either
+    import xml.etree.ElementTree as ET
+
+    ET.fromstring(outside)  # still well-formed

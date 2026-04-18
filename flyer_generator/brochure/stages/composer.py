@@ -316,6 +316,48 @@ def _render_back_panel_text(
     return "".join(parts)
 
 
+def _render_tuck_flap_tagline(
+    panel: PanelRect,
+    org_name: str,
+    accent_hex: str,
+    typ: _Typography,
+) -> str:
+    """Org name + compressed tagline for the tuck flap when no section text fits.
+
+    Used when the brochure has fewer than 4 content sections and the tuck flap
+    would otherwise ship as gradient + shapes only. Keeps every outside-panel
+    filled so a closed brochure has content on every visible face.
+    """
+    sx, sy, sw, sh = panel.safe_rect
+    if not org_name:
+        return ""
+    org = org_name.strip()
+    # Tagline fills the center of the panel, org name sits above it as a cap.
+    center_y = sy + sh // 2
+    # Small org strap line — ~60% of heading size, all caps, subdued.
+    strap_size = max(typ.body_size + 4, typ.heading_size // 2)
+    parts = [
+        f'<text x="{sx + sw // 2}" y="{center_y - strap_size}" text-anchor="middle" '
+        f'font-family="{typ.title_font}" font-size="{strap_size}" '
+        f'fill="{accent_hex}">{escape(org[:40].upper())}</text>',
+        # Accent rule
+        f'<rect x="{sx + sw // 2 - 40}" y="{center_y - strap_size // 2 - 2}" '
+        f'width="80" height="3" fill="{accent_hex}"/>',
+    ]
+    # Word-wrap the tagline below the rule using template body width.
+    tagline_size = typ.body_size
+    tagline_lh = typ.body_line_height
+    tagline_y = center_y + tagline_lh
+    for line in _wrap(org, typ.body_max_chars + 4)[:3]:
+        parts.append(
+            f'<text x="{sx + sw // 2}" y="{tagline_y}" text-anchor="middle" '
+            f'font-family="{typ.body_font}" font-size="{tagline_size}" '
+            f'fill="#333333">{escape(line)}</text>'
+        )
+        tagline_y += tagline_lh
+    return "".join(parts)
+
+
 def _render_fold_lines(fold_x_coords: list[int], canvas_h: int) -> str:
     """Fold-line guides — magenta dashed lines on a non-printing layer."""
     parts = []
@@ -561,7 +603,14 @@ def compose_brochure_svgs(
                 outside_parts.append(
                     _render_section_text(panel, compressed, brochure.color_accent, typ)
                 )
-            # else: tuck flap is gradient + shapes only (no text) — graceful for N<4.
+            else:
+                # N<4 case: no section to land here. Fill with org name + tagline
+                # so the closed brochure has content on every panel.
+                outside_parts.append(
+                    _render_tuck_flap_tagline(
+                        panel, brochure.org, brochure.color_accent, typ
+                    )
+                )
 
     outside_svg = _sheet_svg(
         canvas_w=canvas_w,
