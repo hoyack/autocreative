@@ -128,6 +128,11 @@ def main(
         result.save(output)
         typer.echo(f"Wrote brochure_front.png, brochure_back.png, brochure_print.pdf to {output}")
         typer.echo(f"trace_id: {result.trace_id}")
+        if result.verification is not None:
+            v = result.verification
+            passed = verify_threshold > 0 and v.score >= verify_threshold
+            status = "passed" if passed else f"below threshold={verify_threshold}, weakest={v.weakest_stage or 'none'} — accepted"
+            typer.echo(f"Verification: score={v.score} ({status})")
         raise typer.Exit(0)
 
     # --- Build BrochureInput (v1 path) ---

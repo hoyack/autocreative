@@ -9,11 +9,14 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal, TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from flyer_generator.models import VisionVerdict
+
+if TYPE_CHECKING:
+    from flyer_generator.brochure.generative.models import VerificationVerdict
 
 PanelName = Literal[
     "back_cover",
@@ -105,6 +108,8 @@ class BrochureOutput(BaseModel):
     dimensions: tuple[int, int] = (3300, 2550)
     attempts_used: int = 0
     hero_vision_verdict: VisionVerdict | None = None
+    verification: "VerificationVerdict | None" = None
+    lint_report: dict[str, Any] | None = None
     trace_id: str = ""
 
     def save(self, directory: Path) -> None:
@@ -148,3 +153,13 @@ class ResolvedBrochureLayout(BaseModel):
     fold_lines_outside: list[int] = Field(min_length=2, max_length=2)
     fold_lines_inside: list[int] = Field(min_length=2, max_length=2)
     crop_marks: list[tuple[int, int]] = Field(min_length=8, max_length=8)
+
+
+# Deferred resolution of the `VerificationVerdict` forward-reference on
+# BrochureOutput. Imported here (module end) to avoid a circular import at
+# top-of-file — `generative.models` pulls `validate_hex_color` from this module.
+from flyer_generator.brochure.generative.models import (  # noqa: E402
+    VerificationVerdict as _VerificationVerdict,
+)
+
+BrochureOutput.model_rebuild(_types_namespace={"VerificationVerdict": _VerificationVerdict})

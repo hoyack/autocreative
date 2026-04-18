@@ -150,6 +150,9 @@ async def test_generate_from_prompt_end_to_end(monkeypatch: pytest.MonkeyPatch) 
     assert result.pdf_bytes.startswith(b"%PDF-")
     assert result.dimensions == (BLEED_CANVAS_WIDTH, BLEED_CANVAS_HEIGHT)
     assert result.trace_id  # non-empty
+    # verify_threshold was 70 → verification must be attached to the output
+    assert result.verification is not None
+    assert 0 <= result.verification.score <= 100
 
 
 @pytest.mark.asyncio

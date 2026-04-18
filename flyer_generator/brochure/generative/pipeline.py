@@ -238,6 +238,7 @@ async def generate_brochure_from_prompt(
         dimensions=(BLEED_CANVAS_WIDTH, BLEED_CANVAS_HEIGHT),
         attempts_used=imagery.hero_attempts_used,
         hero_vision_verdict=imagery.hero_vision_verdict,
+        verification=verdict,
         trace_id=trace_id,
     )
 
