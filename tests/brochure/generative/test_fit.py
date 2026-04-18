@@ -87,7 +87,9 @@ async def test_optimize_fit_rewrites_overflowing_sections() -> None:
     client = _mock_text_client(["tightened body"])
     overflow = SectionText(heading="Too long", body="x" * 5000, image_hint=None)
 
-    result = await optimize_fit([overflow], EDITORIAL, client, target_length="medium")
+    result = await optimize_fit(
+        [overflow], EDITORIAL, client, target_length="medium", max_rewrites=1
+    )
     assert result[0].body == "tightened body"
     assert result[0].heading == "Too long"  # heading preserved
     assert client.complete.await_count == 1
@@ -97,7 +99,9 @@ async def test_optimize_fit_rewrites_overflowing_sections() -> None:
 async def test_optimize_fit_preserves_image_hint() -> None:
     client = _mock_text_client(["revised"])
     section = SectionText(heading="H", body="x" * 5000, image_hint="a map")
-    result = await optimize_fit([section], EDITORIAL, client, target_length="medium")
+    result = await optimize_fit(
+        [section], EDITORIAL, client, target_length="medium", max_rewrites=1
+    )
     assert result[0].image_hint == "a map"
 
 
@@ -107,15 +111,49 @@ async def test_optimize_fit_runs_rewrites_in_parallel() -> None:
     sections = [
         SectionText(heading=f"H{i}", body="x" * 5000, image_hint=None) for i in range(3)
     ]
-    result = await optimize_fit(sections, EDITORIAL, client, target_length="medium")
+    result = await optimize_fit(
+        sections, EDITORIAL, client, target_length="medium", max_rewrites=1
+    )
     assert [s.body for s in result] == ["a", "b", "c"]
 
 
 @pytest.mark.asyncio
-async def test_optimize_fit_single_rewrite_per_section() -> None:
-    """Rewrite is called at most once per section (no inner loop)."""
-    client = _mock_text_client(["still_wrong"])  # rewrite output still huge
+async def test_optimize_fit_respects_max_rewrites_cap() -> None:
+    """Rewrite loop stops at max_rewrites even if body still off-target."""
+    # Each reply is still short (triggers underflow recheck)
+    client = _mock_text_client(["short1", "short2", "short3"])
     section = SectionText(heading="H", body="x" * 5000, image_hint=None)
-    result = await optimize_fit([section], EDITORIAL, client, target_length="medium")
-    assert result[0].body == "still_wrong"  # accepted even if still off
-    assert client.complete.await_count == 1  # exactly one call
+    result = await optimize_fit(
+        [section], EDITORIAL, client, target_length="medium", max_rewrites=2
+    )
+    # Last reply wins; accepted even if still off
+    assert result[0].body == "short2"
+    assert client.complete.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_optimize_fit_stops_early_when_fit_is_achieved() -> None:
+    """If the first rewrite lands in-range, no second call is made."""
+    # Produce a body that is mid-range for EDITORIAL (in-range → no more rewrites)
+    cap = estimate_body_capacity(EDITORIAL)
+    in_range_body = "y" * (cap // 2)
+    client = _mock_text_client([in_range_body, "should-not-be-called"])
+    section = SectionText(heading="H", body="x" * 5000, image_hint=None)
+    result = await optimize_fit(
+        [section], EDITORIAL, client, target_length="medium", max_rewrites=3
+    )
+    assert result[0].body == in_range_body
+    # Only the first rewrite ran; loop exited once body fit.
+    assert client.complete.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_optimize_fit_max_rewrites_one_preserves_legacy_behavior() -> None:
+    """max_rewrites=1 is equivalent to the old single-shot behavior."""
+    client = _mock_text_client(["still_wrong"])
+    section = SectionText(heading="H", body="x" * 5000, image_hint=None)
+    result = await optimize_fit(
+        [section], EDITORIAL, client, target_length="medium", max_rewrites=1
+    )
+    assert result[0].body == "still_wrong"
+    assert client.complete.await_count == 1

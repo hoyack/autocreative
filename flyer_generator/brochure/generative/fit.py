@@ -92,18 +92,29 @@ async def optimize_fit(
     template: LayoutTemplate,
     text_client: TextClient,
     target_length: TargetLength = "medium",
+    *,
+    max_rewrites: int = 2,
 ) -> list[SectionText]:
     """Rewrite sections whose bodies overflow/underflow the template's capacity.
 
-    Runs at most one rewrite per section; sections already in range pass through
-    unchanged. Rewrites in parallel via asyncio.gather.
+    Runs up to `max_rewrites` rewrites per section. Each rewrite tightens the
+    target by 10% so the LLM converges when its first pass was too timid.
+    Sections already in range pass through unchanged. Rewrites run in parallel
+    across sections via asyncio.gather.
     """
 
     async def _maybe_rewrite(t: SectionText) -> SectionText:
-        needs, target = needs_rewrite(t.body, template, target_length)
-        if not needs:
+        body = t.body
+        for attempt in range(max_rewrites):
+            needs, target = needs_rewrite(body, template, target_length)
+            if not needs:
+                break
+            # Tighten 10% per retry — subsequent passes squeeze the target.
+            tightened = int(target * (0.9 ** attempt))
+            tightened = max(1, tightened)
+            body = await _rewrite(body, tightened, t.heading, text_client)
+        if body is t.body:
             return t
-        new_body = await _rewrite(t.body, target, t.heading, text_client)
-        return SectionText(heading=t.heading, body=new_body, image_hint=t.image_hint)
+        return SectionText(heading=t.heading, body=body, image_hint=t.image_hint)
 
     return list(await asyncio.gather(*(_maybe_rewrite(t) for t in texts)))
