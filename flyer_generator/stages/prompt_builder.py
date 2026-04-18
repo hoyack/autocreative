@@ -76,7 +76,8 @@ class StylePromptBuilder:
         workflow = copy.deepcopy(wf.workflow)
         ip = wf.injection_points
         workflow[ip["positive_prompt"]]["inputs"]["text"] = positive_prompt
-        workflow[ip["negative_prompt"]]["inputs"]["text"] = negative_prompt
+        if "negative_prompt" in ip:
+            workflow[ip["negative_prompt"]]["inputs"]["text"] = negative_prompt
         workflow[ip["seed"]]["inputs"]["seed"] = seed
 
         return ComfyWorkflow(

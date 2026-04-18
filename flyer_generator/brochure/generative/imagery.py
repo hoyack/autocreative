@@ -68,7 +68,8 @@ def _build_spot_workflow(
     workflow = copy.deepcopy(wf_config.workflow)
     ip = wf_config.injection_points
     workflow[ip["positive_prompt"]]["inputs"]["text"] = positive
-    workflow[ip["negative_prompt"]]["inputs"]["text"] = negative
+    if "negative_prompt" in ip:
+        workflow[ip["negative_prompt"]]["inputs"]["text"] = negative
     workflow[ip["seed"]]["inputs"]["seed"] = seed
 
     return ComfyWorkflow(
