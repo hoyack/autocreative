@@ -284,3 +284,107 @@ def test_tuck_flap_no_tagline_when_org_empty(tmp_path) -> None:
     import xml.etree.ElementTree as ET
 
     ET.fromstring(outside)  # still well-formed
+
+
+# ---------- Aspect-aware spot image cropping ----------
+
+
+def _png_of_size(w: int, h: int) -> bytes:
+    """Helper: return a tiny valid PNG of the given dimensions."""
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (w, h), (128, 128, 128)).save(buf, "PNG")
+    return buf.getvalue()
+
+
+def test_spot_image_landscape_uses_center_crop() -> None:
+    from flyer_generator.brochure.models import (
+        BrochureInput,
+        BrochureSection,
+    )
+
+    landscape = _png_of_size(400, 200)
+    brochure = BrochureInput(
+        title="Landscape Test",
+        hero_concept="c",
+        style_preset="photorealistic",
+        color_accent="#2E8B57",
+        org="Org",
+        sections=[
+            BrochureSection(heading="Keynotes", body="body text"),
+            BrochureSection(heading="Workshops", body="body text"),
+        ],
+    )
+    layout = compute_panel_layout()
+    _, inside = compose_brochure_svgs(
+        brochure,
+        layout,
+        _FAKE_HERO_PNG,
+        template=get_template("editorial"),
+        spot_images={"Keynotes": landscape},
+    )
+    # Landscape image → xMidYMid slice (center)
+    assert 'preserveAspectRatio="xMidYMid slice"' in inside
+
+
+def test_spot_image_portrait_uses_top_crop() -> None:
+    from flyer_generator.brochure.models import (
+        BrochureInput,
+        BrochureSection,
+    )
+
+    portrait = _png_of_size(200, 400)  # h/w = 2.0 → portrait
+    brochure = BrochureInput(
+        title="Portrait Test",
+        hero_concept="c",
+        style_preset="photorealistic",
+        color_accent="#2E8B57",
+        org="Org",
+        sections=[
+            BrochureSection(heading="Tall One", body="body text"),
+            BrochureSection(heading="Other", body="body text"),
+        ],
+    )
+    layout = compute_panel_layout()
+    _, inside = compose_brochure_svgs(
+        brochure,
+        layout,
+        _FAKE_HERO_PNG,
+        template=get_template("editorial"),
+        spot_images={"Tall One": portrait},
+    )
+    # Portrait → xMidYMin slice (top-aligned crop)
+    assert 'preserveAspectRatio="xMidYMin slice"' in inside
+
+
+def test_spot_image_unparseable_bytes_fall_back_to_center_crop() -> None:
+    """Garbage bytes must not crash — default center crop."""
+    from flyer_generator.brochure.models import (
+        BrochureInput,
+        BrochureSection,
+    )
+
+    brochure = BrochureInput(
+        title="Garbage",
+        hero_concept="c",
+        style_preset="photorealistic",
+        color_accent="#2E8B57",
+        org="Org",
+        sections=[
+            BrochureSection(heading="S0", body="b"),
+            BrochureSection(heading="S1", body="b"),
+        ],
+    )
+    layout = compute_panel_layout()
+    _, inside = compose_brochure_svgs(
+        brochure,
+        layout,
+        _FAKE_HERO_PNG,
+        template=get_template("editorial"),
+        spot_images={"S0": b"not-an-image"},
+    )
+    # Default fallback preserves center crop
+    assert 'preserveAspectRatio="xMidYMid slice"' in inside

@@ -449,6 +449,30 @@ def _resolve_shapes_for_panel(
     return "".join(parts)
 
 
+def _spot_preserve_aspect_ratio(png_bytes: bytes) -> str:
+    """Pick a crop anchor for a spot image based on its aspect ratio.
+
+    Portrait-oriented images (h/w > 1.2) use ``xMidYMin slice`` so the top
+    of the image (usually the subject) is kept when cropped to the panel's
+    landscape slot. Landscape and near-square stay with center crop.
+    """
+    try:
+        import io
+
+        from PIL import Image
+
+        with Image.open(io.BytesIO(png_bytes)) as im:
+            w, h = im.size
+        if w == 0:
+            return "xMidYMid slice"
+        if h / w > 1.2:
+            return "xMidYMin slice"
+        return "xMidYMid slice"
+    except Exception:
+        # If we can't parse the image (non-PNG, truncated bytes), keep center crop.
+        return "xMidYMid slice"
+
+
 def _render_spot_image(panel: PanelRect, png_bytes: bytes) -> str:
     """Embed a spot image in the top 40% of the panel's safe zone.
 
@@ -460,9 +484,10 @@ def _render_spot_image(panel: PanelRect, png_bytes: bytes) -> str:
     b64 = base64.b64encode(png_bytes).decode()
     sx, sy, sw, sh = panel.safe_rect
     img_h = int(sh * 0.40)
+    par = _spot_preserve_aspect_ratio(png_bytes)
     return (
         f'<image x="{sx}" y="{sy}" width="{sw}" height="{img_h}" '
-        f'preserveAspectRatio="xMidYMid slice" '
+        f'preserveAspectRatio="{par}" '
         f'href="data:image/png;base64,{b64}"/>'
     )
 
