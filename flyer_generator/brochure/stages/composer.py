@@ -43,6 +43,20 @@ _BODY_MAX_CHARS_PER_LINE = 28
 _TITLE_FONT_SIZE = 110
 _SUBTITLE_FONT_SIZE = 48
 
+
+def _fit_title_font_size(title: str) -> int:
+    """Auto-shrink the cover title font when the string is long.
+
+    Base 110px fits ~14 characters across the cover panel safe zone (~950px).
+    Longer titles scale down linearly to a minimum of 62px.
+    """
+    n = max(1, len(title))
+    if n <= 14:
+        return _TITLE_FONT_SIZE
+    # Scale: at 14 chars → 110, at 28 chars → ~62
+    scaled = int(_TITLE_FONT_SIZE * 14 / n)
+    return max(62, min(_TITLE_FONT_SIZE, scaled))
+
 # --- Back-panel kind → human-readable heading (fixes v1 "CTA" leak) ---
 
 _BACK_PANEL_HEADINGS: dict[str, str] = {
@@ -131,38 +145,55 @@ def _render_hero_image(panel: PanelRect, hero_png_bytes: bytes) -> str:
 
 
 def _render_cover_text(panel: PanelRect, title: str, subtitle: str | None) -> str:
-    """Title + optional subtitle overlaid on the cover panel safe area."""
+    """Title + optional subtitle overlaid on the cover panel safe area.
+
+    Uses a soft drop shadow (via SVG filter) instead of the hard outline stroke
+    so type reads naturally against any hero image.
+    """
     sx, sy, sw, sh = panel.safe_rect
     cx = sx + sw // 2
     title_y = sy + sh // 3  # upper third
     title = title.upper()
+    # Unique filter id per panel so defs don't collide
+    filter_id = f"cover-shadow-{panel.sheet}"
     parts = [
+        f'<defs><filter id="{filter_id}" x="-10%" y="-30%" width="120%" height="160%">'
+        f'<feGaussianBlur in="SourceAlpha" stdDeviation="3"/>'
+        f'<feOffset dx="0" dy="4"/>'
+        f'<feComponentTransfer><feFuncA type="linear" slope="0.75"/></feComponentTransfer>'
+        f'<feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>'
+        f"</filter></defs>",
+        # Auto-shrink title if too many characters (prevent overflow of center panel).
+        # Base 110px fits ~14 chars; shrink proportionally for longer titles.
         f'<text x="{cx}" y="{title_y}" text-anchor="middle" '
-        f'font-family="{_FONT_TITLE}" font-size="{_TITLE_FONT_SIZE}" '
-        f'fill="#FFFFFF" stroke="#000000" stroke-width="3" paint-order="stroke">'
-        f"{escape(title)}</text>"
+        f'font-family="{_FONT_TITLE}" '
+        f'font-size="{_fit_title_font_size(title)}" '
+        f'fill="#FFFFFF" filter="url(#{filter_id})">'
+        f"{escape(title)}</text>",
     ]
     if subtitle:
         sub_y = title_y + _TITLE_FONT_SIZE + 16
         parts.append(
             f'<text x="{cx}" y="{sub_y}" text-anchor="middle" '
             f'font-family="{_FONT_BODY}" font-size="{_SUBTITLE_FONT_SIZE}" '
-            f'fill="#FFFFFF" stroke="#000000" stroke-width="2" paint-order="stroke">'
+            f'fill="#FFFFFF" filter="url(#{filter_id})">'
             f"{escape(subtitle)}</text>"
         )
     return "".join(parts)
 
 
 def _render_section_text(panel: PanelRect, section: BrochureSection, accent_hex: str) -> str:
-    """Heading + wrapped body text for an inner panel."""
+    """Heading + accent rule + wrapped body text for an inner panel."""
     sx, sy, sw, _ = panel.safe_rect
     y = sy + _HEADING_FONT_SIZE
     parts = [
         f'<text x="{sx}" y="{y}" '
         f'font-family="{_FONT_TITLE}" font-size="{_HEADING_FONT_SIZE}" '
-        f'fill="{accent_hex}">{escape(section.heading)}</text>'
+        f'fill="{accent_hex}">{escape(section.heading)}</text>',
+        # Accent rule under heading — thin line the width of the heading text.
+        f'<rect x="{sx}" y="{y + 12}" width="{min(sw, 220)}" height="3" fill="{accent_hex}"/>',
     ]
-    y += 24  # gap after heading
+    y += 24 + 16  # gap after heading + accent rule
     for kind, text in _parse_body(section.body):
         if kind == "bullet":
             lines = _wrap(text, _BODY_MAX_CHARS_PER_LINE - 2)
@@ -200,7 +231,11 @@ def _render_back_panel_text(panel: PanelRect, brochure: BrochureInput) -> str:
             f'fill="{brochure.color_accent}">'
             f"{escape(heading_text)}</text>"
         )
-        y += _HEADING_FONT_SIZE
+        parts.append(
+            f'<rect x="{sx}" y="{y + 12}" width="{min(sw, 220)}" height="3" '
+            f'fill="{brochure.color_accent}"/>'
+        )
+        y += _HEADING_FONT_SIZE + 16
         for line in _wrap(brochure.back_panel.content, _BODY_MAX_CHARS_PER_LINE):
             y += _BODY_LINE_HEIGHT
             parts.append(
@@ -216,6 +251,11 @@ def _render_back_panel_text(panel: PanelRect, brochure: BrochureInput) -> str:
         f'font-family="{_FONT_TITLE}" font-size="{_HEADING_FONT_SIZE}" '
         f'fill="{brochure.color_accent}">{escape(brochure.org)}</text>'
     )
+    parts.append(
+        f'<rect x="{sx}" y="{y + 12}" width="{min(sw, 220)}" height="3" '
+        f'fill="{brochure.color_accent}"/>'
+    )
+    y += 16  # accent rule gap
     if brochure.contact is not None:
         for attr in ("name", "phone", "email", "url", "address"):
             value = getattr(brochure.contact, attr)
@@ -340,15 +380,15 @@ def _render_section_text_below_image(
 ) -> str:
     """Like _render_section_text but starts below a spot image occupying top image_h pixels."""
     sx, sy, sw, _ = panel.safe_rect
-    # Shift all text down by image_h + padding.
     text_top = sy + image_h + 16
     y = text_top + _HEADING_FONT_SIZE
     parts = [
         f'<text x="{sx}" y="{y}" '
         f'font-family="{_FONT_TITLE}" font-size="{_HEADING_FONT_SIZE}" '
-        f'fill="{accent_hex}">{escape(section.heading)}</text>'
+        f'fill="{accent_hex}">{escape(section.heading)}</text>',
+        f'<rect x="{sx}" y="{y + 12}" width="{min(sw, 220)}" height="3" fill="{accent_hex}"/>',
     ]
-    y += 24
+    y += 24 + 16
     for kind, text in _parse_body(section.body):
         if kind == "bullet":
             lines = _wrap(text, _BODY_MAX_CHARS_PER_LINE - 2)
@@ -424,25 +464,36 @@ def compose_brochure_svgs(
             outside_parts.append(_render_back_panel_text(panel, brochure))
         elif panel.name == "tuck_flap":
             outside_parts.append(_render_panel_gradient(panel, brochure.color_accent))
-            # Tuck flap carries a compressed version of the first section.
-            first_section = brochure.sections[0]
-            body_first = first_section.body.split(". ")
-            compressed_body = ". ".join(body_first[:2]).strip().rstrip(".") + "."
-            compressed = BrochureSection(
-                heading=first_section.heading,
-                body=compressed_body,
-                icon_hint=first_section.icon_hint,
+            # Tuck flap shows the FOURTH section (index 3) when present, so it doesn't
+            # duplicate an inner panel. When N < 4, tuck flap is gradient + shapes only
+            # (handled below — skip text).
+            tuck_section = (
+                brochure.sections[3] if len(brochure.sections) >= 4 else None
             )
-            tuck_spot = spot_images.get(first_section.heading) if spot_images else None
+            # When we do have a tuck section, keep it compact (2 sentences max).
+            compressed: BrochureSection | None = None
+            if tuck_section is not None:
+                body_first = tuck_section.body.split(". ")
+                compressed_body = ". ".join(body_first[:2]).strip().rstrip(".") + "."
+                compressed = BrochureSection(
+                    heading=tuck_section.heading,
+                    body=compressed_body,
+                    icon_hint=tuck_section.icon_hint,
+                )
+            tuck_spot = (
+                spot_images.get(tuck_section.heading)
+                if (tuck_section is not None and spot_images)
+                else None
+            )
             if template is not None:
                 outside_parts.append(
                     _resolve_shapes_for_panel(
                         panel, template.shape_mix.get(panel.name, ()),
                         brochure.color_accent, seed_base + 1, shape_density,
-                        section_heading=compressed.heading,
+                        section_heading=compressed.heading if compressed else None,
                     )
                 )
-            if tuck_spot is not None:
+            if compressed is not None and tuck_spot is not None:
                 outside_parts.append(_render_spot_image(panel, tuck_spot))
                 image_h = int(panel.safe_rect[3] * 0.40)
                 outside_parts.append(
@@ -450,10 +501,11 @@ def compose_brochure_svgs(
                         panel, compressed, brochure.color_accent, image_h
                     )
                 )
-            else:
+            elif compressed is not None:
                 outside_parts.append(
                     _render_section_text(panel, compressed, brochure.color_accent)
                 )
+            # else: tuck flap is gradient + shapes only (no text) — graceful for N<4.
 
     outside_svg = _sheet_svg(
         canvas_w=canvas_w,
@@ -466,13 +518,21 @@ def compose_brochure_svgs(
 
     # --- INSIDE SHEET ---
     inside_parts: list[str] = []
-    # Section assignment: sections[1..3] into inner_left/center/right.
-    # If only 2 sections exist (minimum), inner_center and inner_right may be empty.
-    inside_sections: list[BrochureSection | None] = []
-    for idx in (1, 2, 3):
-        inside_sections.append(
-            brochure.sections[idx] if idx < len(brochure.sections) else None
-        )
+    # Inner-first section assignment:
+    #   N=2: sections[0..1] → inner_left, inner_right (inner_center stays empty for breathing room)
+    #   N=3: sections[0..2] → inner_left, inner_center, inner_right (tuck flap already shows sections[0] too — OK, it's the same section)
+    #   N>=4: sections[0..2] → inner panels, sections[3+] → tuck flap + overflow handled above
+    inside_sections: list[BrochureSection | None]
+    n = len(brochure.sections)
+    if n == 2:
+        inside_sections = [brochure.sections[0], None, brochure.sections[1]]
+    else:
+        # n >= 3: fill all three inner panels with the first three sections.
+        inside_sections = [
+            brochure.sections[0] if n >= 1 else None,
+            brochure.sections[1] if n >= 2 else None,
+            brochure.sections[2] if n >= 3 else None,
+        ]
 
     for idx, (panel, section) in enumerate(zip(layout.inside_panels, inside_sections)):
         inside_parts.append(_render_panel_gradient(panel, brochure.color_accent))
@@ -507,8 +567,9 @@ def compose_brochure_svgs(
             )
 
     # Overflow section[4] → bottom of rightmost inner panel as a compact list.
-    # Fix v1 bug: heading must be ≥ body font size. Use same heading size, smaller body.
-    if len(brochure.sections) == 5:
+    # With the new inner-first assignment: sections[0..2] fill inner panels,
+    # sections[3] goes to tuck flap, sections[4] overflows here.
+    if len(brochure.sections) >= 5:
         right_panel = layout.inside_panels[-1]
         overflow = brochure.sections[4]
         sx, sy, sw, sh = right_panel.safe_rect

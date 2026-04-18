@@ -67,20 +67,67 @@ def _assemble_brochure_input(
 ) -> BrochureInput:
     """Glue outline + text results into a BrochureInput the composer can render.
 
-    The 'cover' section provides title/hero_concept; remaining sections become
-    the visible section list (2-4 sections). A 'cta' role produces the back_panel.
+    Panel assignment strategy (quality tuning, phase 16):
+      1. The cover section drives title + hero_concept.
+      2. A 'cta' section becomes the back_panel.
+      3. All remaining sections (feature + detail) populate `sections`,
+         capped at 5. Sections[0] lands on the tuck flap; sections[1..3] on
+         the three inner panels; sections[4] overflows to the inner-right
+         compact list. Prefer feature sections before detail sections so
+         image_hint-bearing content lands on inside panels.
+      4. If sections would have <2 items (minimum for BrochureInput),
+         repurpose the cta section as a regular section AND make back_panel None.
     """
     cover_section = next(s for s in outline.sections if s.panel_role == "cover")
-
-    # Title: use cover section heading.
     title = cover_section.heading
-    # Hero concept: use cover body if it reads like a concept, else fall back to prompt.
     hero_concept = cover_section.body_brief or prompt.prompt[:120]
 
-    # back_panel: if any section has role cta, pull its body as content.
-    back_panel = None
+    # Split into cta vs content sections.
     cta_section = next((s for s in outline.sections if s.panel_role == "cta"), None)
-    if cta_section is not None:
+    content_specs = [
+        s for s in outline.sections if s.panel_role in ("feature", "detail")
+    ]
+
+    # Sort: features first (more likely to have image_hint), then details. Stable.
+    content_specs.sort(key=lambda s: 0 if s.panel_role == "feature" else 1)
+
+    # If we have <2 content sections, promote cta into content + drop back_panel.
+    promoted_cta = False
+    if len(content_specs) < 2 and cta_section is not None:
+        content_specs.append(cta_section)
+        promoted_cta = True
+
+    # Last-resort: if STILL too few, pad with a concise-org section built from cta_intent.
+    if len(content_specs) < 2:
+        content_specs.append(
+            SectionSpec(
+                heading="About",
+                body_brief=outline.cta_intent,
+                image_hint=None,
+                panel_role="detail",
+            )
+        )
+
+    # Map to BrochureSection using generated body text.
+    def _body_for(spec: SectionSpec) -> str:
+        match = next((t for t in texts if t.heading == spec.heading), None)
+        if match is not None:
+            return match.body
+        return spec.body_brief
+
+    sections: list[BrochureSection] = []
+    for spec in content_specs[:5]:
+        sections.append(
+            BrochureSection(
+                heading=spec.heading,
+                body=_body_for(spec),
+                icon_hint=spec.image_hint,
+            )
+        )
+
+    # Back panel (only if cta wasn't promoted into content).
+    back_panel = None
+    if cta_section is not None and not promoted_cta:
         cta_text = next((t for t in texts if t.heading == cta_section.heading), None)
         if cta_text is not None:
             from flyer_generator.brochure.models import BrochureBackPanel
@@ -89,21 +136,6 @@ def _assemble_brochure_input(
                 kind=_panel_role_to_back_panel_kind(cta_section.panel_role),
                 content=cta_text.body,
             )
-
-    # Visible sections: all non-cover, non-cta sections (2-4 items).
-    visible = [
-        s for s in outline.sections if s.panel_role not in ("cover", "cta")
-    ]
-    # Keep minimum 2 — if too few, fall back to all non-cover sections.
-    if len(visible) < 2:
-        visible = [s for s in outline.sections if s.panel_role != "cover"]
-
-    # Map to BrochureSection using the generated text bodies.
-    sections: list[BrochureSection] = []
-    for spec in visible[:5]:
-        text = next((t for t in texts if t.heading == spec.heading), None)
-        body = text.body if text else spec.body_brief
-        sections.append(BrochureSection(heading=spec.heading, body=body, icon_hint=spec.image_hint))
 
     return BrochureInput(
         title=title,
@@ -229,10 +261,23 @@ async def _render_and_verify(
     layout = compute_panel_layout()
 
     last_verdict: VerificationVerdict | None = None
+    # Different seed per iteration → shape positions shift, giving the verifier a
+    # genuinely different composition to evaluate (not the same bytes).
+    base_title = brochure_input.title
 
     for iteration in range(1, max_verify_iterations + 1):
+        # Nudge the title with an invisible marker per iteration so the composer's
+        # seed (derived from title hash) produces different shape positions.
+        if iteration > 1:
+            # Mutate a copy so we don't leak the marker into the final title.
+            iter_brochure = brochure_input.model_copy(
+                update={"title": base_title + "\u200b" * (iteration - 1)}
+            )
+        else:
+            iter_brochure = brochure_input
+
         outside_svg, inside_svg = compose_brochure_svgs(
-            brochure_input,
+            iter_brochure,
             layout,
             hero_bytes,
             layout_choice=layout_choice,

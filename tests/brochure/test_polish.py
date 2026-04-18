@@ -155,11 +155,11 @@ def test_v1_tests_still_pass_without_spot_images_kwarg() -> None:
     ET.fromstring(inside)
 
 
-def test_spot_image_renders_on_tuck_flap() -> None:
-    """Spot image keyed to sections[0] (tuck flap content) must render on the tuck flap too."""
-    brochure = _brochure_with_section_headings(["FirstFeature", "Second", "Third"])
+def test_spot_image_renders_on_tuck_flap_when_section_landed_there() -> None:
+    """Phase 16 change: tuck flap shows sections[3] when present. Spot keyed there renders."""
+    brochure = _brochure_with_section_headings(["A", "B", "C", "TuckOne"])
     spot = b"\x89PNG-spot-bytes"
-    spot_images = {"FirstFeature": spot}
+    spot_images = {"TuckOne": spot}
 
     layout = compute_panel_layout()
     outside, _ = compose_brochure_svgs(
@@ -168,7 +168,6 @@ def test_spot_image_renders_on_tuck_flap() -> None:
 
     import base64
     b64 = base64.b64encode(spot).decode()
-    # Tuck flap is on the OUTSIDE sheet.
     assert f"data:image/png;base64,{b64}" in outside
 
 

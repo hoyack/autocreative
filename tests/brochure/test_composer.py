@@ -125,16 +125,16 @@ def test_gradient_uses_accent_color() -> None:
 
 def test_inner_panels_render_section_headings_in_order() -> None:
     _, inside = _both_sheets(FULL_BROCHURE)
-    # sections[1..3] assigned to inner_left, inner_center, inner_right
+    # Inner-first assignment: sections[0..2] → inner_left/center/right.
+    assert FULL_BROCHURE.sections[0].heading in inside
     assert FULL_BROCHURE.sections[1].heading in inside
     assert FULL_BROCHURE.sections[2].heading in inside
-    assert FULL_BROCHURE.sections[3].heading in inside
 
 
-def test_tuck_flap_shows_compressed_first_section() -> None:
-    outside, _ = _both_sheets(FULL_BROCHURE)
-    # Heading of sections[0] appears on tuck flap
-    assert FULL_BROCHURE.sections[0].heading in outside
+def test_tuck_flap_shows_fourth_section_when_present() -> None:
+    outside, _ = _both_sheets(FULL_BROCHURE)  # 5 sections
+    # With N≥4, tuck flap shows sections[3] (not sections[0] as in v1).
+    assert FULL_BROCHURE.sections[3].heading in outside
 
 
 def test_overflow_fifth_section_appears_on_inside_right_panel() -> None:
@@ -252,10 +252,10 @@ def test_user_supplied_strings_are_xml_escaped() -> None:
         bare = re.findall(r"&(?!amp;|lt;|gt;|quot;|apos;|#\d+;|#x[0-9A-Fa-f]+;)", svg)
         assert not bare, f"bare ampersands in SVG: {bare}"
 
-    # sections[0] is assigned to tuck_flap on OUTSIDE; heading "a > b" and body
-    # "b < c & d" must be properly escaped there.
-    assert "a &gt; b" in outside
-    assert "b &lt; c &amp; d" in outside
+    # With N=2 and the new inner-first assignment, sections[0] lands on inner_left
+    # (INSIDE sheet). Escaping must be correct wherever it renders.
+    assert "a &gt; b" in inside
+    assert "b &lt; c &amp; d" in inside
 
     # Both sheets must parse as XML (catches unescaped angle brackets).
     _parse(outside)
