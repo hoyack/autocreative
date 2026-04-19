@@ -10,6 +10,7 @@ import uuid
 
 import httpx
 
+from flyer_generator.brochure.generative.models import LayoutChoice
 from flyer_generator.brochure.models import BrochureInput, BrochureOutput
 from flyer_generator.brochure.stages.composer import compose_brochure_svgs
 from flyer_generator.brochure.stages.layout import (
@@ -20,6 +21,7 @@ from flyer_generator.brochure.stages.layout import (
 from flyer_generator.brochure.stages.pdf import assemble_brochure_pdf
 from flyer_generator.brochure.stages.prompt_builder import BrochureCoverPromptBuilder
 from flyer_generator.brochure.stages.vision import BrochureCoverVisionEvaluator
+from flyer_generator.brochure.templates import get_template
 from flyer_generator.config import Settings
 from flyer_generator.errors import MaxAttemptsExceededError
 from flyer_generator.logging_config import get_logger
@@ -55,8 +57,18 @@ class BrochureGenerator:
         self._vision = BrochureCoverVisionEvaluator(settings)
         self._rasterizer = Rasterizer(width=BLEED_CANVAS_WIDTH, height=BLEED_CANVAS_HEIGHT)
 
-    async def generate(self, brochure: BrochureInput) -> BrochureOutput:
+    async def generate(
+        self,
+        brochure: BrochureInput,
+        *,
+        layout_choice: LayoutChoice | None = None,
+    ) -> BrochureOutput:
         """Run the full brochure generation pipeline.
+
+        When `layout_choice` is provided, composer uses its template + shape
+        parameters; otherwise the composer falls back to its default
+        (editorial, medium density). Use this to force a specific
+        LayoutTemplate for JSON-driven style testing.
 
         Raises:
             MaxAttemptsExceededError: If vision rejects all hero generation attempts.
@@ -115,7 +127,14 @@ class BrochureGenerator:
 
         # Compose SVGs → rasterize → assemble PDF
         layout = compute_panel_layout()
-        outside_svg, inside_svg = compose_brochure_svgs(brochure, layout, hero_bytes)
+        template = get_template(layout_choice.template) if layout_choice else None
+        outside_svg, inside_svg = compose_brochure_svgs(
+            brochure,
+            layout,
+            hero_bytes,
+            layout_choice=layout_choice,
+            template=template,
+        )
         front_png = self._rasterizer.rasterize(outside_svg)
         back_png = self._rasterizer.rasterize(inside_svg)
         pdf_bytes = assemble_brochure_pdf(front_png, back_png)
