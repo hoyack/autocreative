@@ -161,12 +161,14 @@ python -m flyer_generator.brochure \
 
 ---
 
-## Generate a brochure — schema-driven (Phase 1 + Phase 4)
+## Generate a brochure — schema-driven (Phases 1, 2, 4, 6)
 
 The newest path. A JSON **template** declares the visual design (shapes, text
 regions with char budgets, image placeholders); a JSON **content** document
-carries the words. Renders deterministically in ~1.2 s with zero API calls,
-or optionally fills `image_placeholder` slots via ComfyUI.
+— or a natural-language `--prompt` — supplies the words. Renders
+deterministically in ~1.2 s with zero API calls, or optionally fills
+`image_placeholder` slots via ComfyUI, `logo_placeholder` with a real logo,
+and `texture_slot` shape fills with tiled textures.
 
 ### Design-only render (no API calls, ~1.2 s)
 
@@ -222,6 +224,64 @@ See `HANDOFF.md` §6 for the full comparison table.
 Typical timings (single cell, ComfyCloud cold):
 - template with 1 hero + 1 spot: ~75–115 s
 - template with 1 hero + 3 spots (`hero_image_dominant`): ~115–135 s
+
+### With LLM-written copy (Phase 2)
+
+Skip the content JSON entirely — give the LLM a sentence and let it fill every
+budgeted region:
+
+```bash
+python -m flyer_generator.brochure.schema_renderer \
+    --template editorial_classic \
+    --prompt "a boutique estate-planning law firm specialising in young families" \
+    --audience "parents under 45, warm tone" \
+    --output /tmp/brochure-out
+```
+
+`--prompt` and `--content` are mutually exclusive. The generated content JSON
+is written to `<output>/content.json` for inspection/reuse. Backed by the
+`TextClient` chosen via `FLYER_VISION_PROVIDER` (`anthropic` default, or
+`ollama`).
+
+### With a real logo
+
+```bash
+python -m flyer_generator.brochure.schema_renderer \
+    --template editorial_classic \
+    --content docs/brochure/sample-content/law_firm.json \
+    --logo path/to/logo.png \
+    --output /tmp/brochure-out
+```
+
+Accepts PNG, JPG, or SVG. Logos are embedded with `xMidYMid meet` — letterboxed
+inside the placeholder's bbox, never cropped. Absent → monogram fallback.
+
+### With tiled shape textures
+
+```bash
+python -m flyer_generator.brochure.schema_renderer \
+    --template <template-with-texture_slot-shapes> \
+    --content my_content.json \
+    --textures-dir ./textures \
+    --output /tmp/brochure-out
+```
+
+Each `<slot>.png` in the directory fills any `TextureSlotFill` whose `slot` matches.
+Tiles at 512×512.
+
+### End-to-end one-shot
+
+Combine all three: a sentence turns into a finished print-ready brochure.
+
+```bash
+python -m flyer_generator.brochure.schema_renderer \
+    --template hero_image_dominant \
+    --prompt "a boutique estate-planning law firm for young families" \
+    --audience "parents under 45, warm tone" \
+    --generate-images --workflow ernie_landscape \
+    --logo path/to/logo.png \
+    --output /tmp/brochure-out
+```
 
 ---
 

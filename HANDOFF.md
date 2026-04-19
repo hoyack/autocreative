@@ -9,9 +9,13 @@ Prior handoff (pre-schema era): `docs/brochure-improvement-v2.md`.
 ## 1. Quick orientation
 
 - **Branch:** `master`, clean working tree
-- **Tests:** `python -m pytest tests/ -q` → 634/634 pass in ~35s
+- **Tests:** `python -m pytest tests/ -q` → 658/658 pass in ~35s
 - **Latest commits (newest first):**
   ```
+  e1896f8 feat(brochure/schema-renderer): Phase 2 — LLM text budgeting
+  0ddd85d feat(brochure/schema-renderer): Phase 6 — real logo embedding
+  a08fe18 feat(brochure/schema-renderer): Phase 4 stretch — texture_slot → <pattern>
+  1992c80 docs: refresh HANDOFF staleness — test count, commits, file index, TL;DR
   0ad3744 docs: write README covering flyer + brochure (v1/v2/schema-driven) paths
   1e84991 docs: mark Phase 4 shipped in HANDOFF, retarget §6-§8 to current state
   0ed9939 feat(brochure/schema-renderer): Phase 4 — image gate + placeholder embedding
@@ -19,11 +23,6 @@ Prior handoff (pre-schema era): `docs/brochure-improvement-v2.md`.
   a56d5d6 fix(schemas/bold_diagonal_split): front cover text wrapping + negative leading
   d539b37 feat(brochure/schemas): adopt 10 user-contributed templates + 3 new content samples
   806b68e feat(brochure/schema-renderer): Phase 1 — schema-driven design-first rendering
-  9072c99 feat(brochure): accept layout_choice on v1 BrochureGenerator.generate()
-  65b626d feat(brochure): add --workflow CLI flag
-  9946c49 feat(workflows): add ernie_turbo_landscape
-  bc892e2 feat(workflows): add ernie_landscape
-  1ea8d19 feat(workflows): add flux2_landscape (txt2img) + seed-field detection
   ```
 - **.env:** `FLYER_ANTHROPIC_API_KEY`, `FLYER_COMFYCLOUD_API_KEY`, `FLYER_OLLAMA_API_KEY` all live.
 - **Plan file:** `~/.claude/plans/lets-continue-testing-various-cheeky-puddle.md` — full phase plan (Phases 1–6).
@@ -151,61 +150,73 @@ python -m pytest tests/brochure/schema_renderer/ -q          # 166 tests, ~10s
 
 | Phase | Status | Scope |
 |---|---|---|
-| 1 | ✅ shipped | Schema foundation — pure data → SVG, 13 templates, 88+78 tests |
-| 2 | next up | Ollama text-budgeting: given a template's char budgets, LLM writes text that exactly fits |
+| 1 | ✅ shipped | Schema foundation — pure data → SVG, 13 templates |
+| 2 | ✅ shipped | LLM text-budgeting: `--prompt` → Ollama/Anthropic writes copy fitting every region (commit `e1896f8`) |
 | 3 | deferred | Template-library expansion (already 13 — user may want 20+) + authoring docs |
-| 4 | ✅ shipped | Image placeholders + vision gate — 4×4 gallery 16/16 green (commits `0ed9939`, `/tmp/phase4-gallery/`) |
+| 4 | ✅ shipped | Image placeholders + vision gate — 4×4 gallery 16/16 green (commit `0ed9939`) |
+| 4 stretch | ✅ shipped | `texture_slot` → `<pattern>` tile on shape fills (commit `a08fe18`) |
 | 5 | deferred | Text-on-image (flyer-pipeline safe-region port) |
-| 6 | deferred | Logo placeholder: embed real SVG/PNG logos (current impl is monogram fallback) |
+| 6 | ✅ shipped | Real logo embedding — PNG/JPG/SVG via `--logo` (commit `0ddd85d`) |
 
 ---
 
-## 6. Phase 4 — shipped
+## 6. Recently shipped
 
-**Commits:** `0ed9939 feat(brochure/schema-renderer): Phase 4 — image gate + placeholder embedding`.
+### Phase 4 — image placeholders + vision gate (`0ed9939`)
+Gallery `/tmp/phase4-gallery/` — 4 templates × 4 contents = 16 cells. **16/16 green, 0 fallbacks.** Vision gate approved 40/40 hero generations first try. Workflow `ernie_landscape`, preset `photorealistic`. Avg cell time 110s.
 
-**Gallery:** `/tmp/phase4-gallery/` — 4 templates × 4 contents = 16 cells. **16/16 green, 0 fallbacks.** Vision gate approved every first attempt (40 hero generations). Workflow: `ernie_landscape`, style preset: `photorealistic`. Avg cell time 110s (hero + 1–3 spots sequential hero + parallel spots). Summary at `/tmp/phase4-gallery/index.md`, full JSON at `/tmp/phase4-gallery/results.json`.
+`image_gate.generate_template_images(template, content, ...)` walks image_placeholder slots, runs hero through `BrochureCoverPromptBuilder` + vision retry, spots via minimal spot workflow in parallel. `render_schema_brochure(..., images=)` base64-embeds PNGs with `xMidYMid slice` and mask-aware `<clipPath>`. CLI: `--generate-images / --workflow / --style-preset`.
 
-Templates exercised: `hero_image_dominant` (4 slots), `layered_depth_stack`, `radial_feature`, `editorial_spread` (2 slots each).
+### Phase 4 stretch — texture_slot → `<pattern>` (`a08fe18`)
+`render_fill(fill, salt, textures=)` now resolves `TextureSlotFill` to a tiled `<pattern>` when the slot matches; falls through to `fallback:` fill otherwise. Tiles at 512×512 (`TEXTURE_TILE_PX`), userSpaceOnUse. `textures` plumbs through every shape renderer → `render_shape` → `_render_panel` → `render_schema_brochure(..., textures=)`. CLI: `--textures-dir <path>` loads `<slot>.png` files.
 
-### What shipped
-- `flyer_generator/brochure/schema_renderer/image_gate.py` — `generate_template_images(template, content, ...)` walks image_placeholder slots, generates hero via `BrochureCoverPromptBuilder` + vision retry, spots via minimal spot workflow in parallel. Failures are soft (missing slot → renderer falls back to `fallback_fill`). All components injectable (ComfyClient / cover_builder / cover_vision) for tests.
-- `renderer.render_schema_brochure(..., images=)` — embeds PNG bytes as base64 `<image>` with `preserveAspectRatio="xMidYMid slice"` and mask-aware `<clipPath>` (none / rounded / circle).
-- CLI `--generate-images / --workflow / --style-preset` — when set, runs image_gate and writes per-slot PNGs to `<output>/images/`.
-- 23 new tests (16 image_gate + 7 renderer embedding). Full suite 634/634 green.
+### Phase 6 — real logo embedding (`0ddd85d`)
+`render_schema_brochure(..., logo_bytes=)` fills every `logo_placeholder` with the supplied bytes; absent → monogram fallback as before. PNG/JPG base64-embedded with `xMidYMid meet` (letterboxing, never crops); JPEG detected via SOI marker. SVG inlined as a nested `<svg>` viewport after stripping the XML prolog + DOCTYPE (caught in live smoke — cairosvg rejects nested `<?xml?>`). CLI: `--logo <path>` accepts PNG/JPG/SVG.
 
-### Gotcha caught during implementation
-- **1×1 fake PNGs + cairo OOM.** Initial renderer tests used a hand-rolled 1×1 PNG; cairo blew up with `CAIRO_STATUS_NO_MEMORY` when upsampling to ~900px. Fix: `Pillow.Image.new((128, 128), ...)` for test fixtures. Real ComfyUI outputs (1472×832) rasterize cleanly.
-- `ImagePlaceholder.corner_radius` is `float` → serializes as `"22.0"`, not `"22"`. Existing Phase 1 fallback had the same behavior, so no change needed — tests match `rx="22`.
+### Phase 2 — LLM text budgeting (`e1896f8`)
+`text_gen.generate_content_from_prompt(template, prompt, audience=)` collects every TextElement + BulletsElement's tightest char budget per content_key, then asks the configured TextClient (Ollama or Anthropic, via `settings.vision_provider`) for a JSON object shaped to those limits. Overflow fields get one retry with a stricter instruction; word-boundary truncation is the final fallback. CLI: `--prompt <text>` mutually exclusive with `--content`, persists LLM output to `<output>/content.json`.
 
-### Still deferred
-- **Phase 4 stretch — `texture_slot` → `<pattern>`.** Not shipped. `TextureSlotFill` still falls back to its `fallback:` SolidFill/LinearGradient/RadialGradient. When someone wants real texture generation into shape fills: extend `render_fill()` in `shapes.py` to accept a `textures: dict[slot, bytes]` kwarg and emit a `<pattern>` referencing the bytes.
-- **Phase 5 — text-on-image safe-region detection.** Not started.
-- **Phase 6 — real logo embedding.** Still monogram.
+Live smoke (editorial_classic × Anthropic): 21 budgeted fields filled in one call, cogent on-tone copy; 0 overflow retries needed for this prompt.
+
+### Gotchas caught
+- **1×1 fake PNGs + cairo OOM.** Initial renderer tests used a hand-rolled 1×1 PNG; cairo OOM'd upsampling to ~900px. Fix: `Pillow.Image.new((128, 128), ...)` for test fixtures.
+- **Nested `<?xml?>`** inside another SVG breaks cairosvg. `_strip_svg_prolog()` removes the XML declaration + DOCTYPE before inlining SVG logos.
+- `ImagePlaceholder.corner_radius` is `float` → serializes as `"22.0"`; asserts match `rx="22`.
 
 ---
 
 ## 7. Open issues / gotchas
 
-- **`texture_slot` falls back to solid/gradient.** Not wired to ComfyUI textures yet. Phase 4 stretch, deferred.
-- **`logo_placeholder` renders a monogram, not a real logo.** Phase 6.
+- **Phase 3** — template library expansion is still open; 13 templates today. Adding templates requires no code changes, just JSON.
+- **Phase 5** — text-on-image safe-region detection (flyer-pipeline port). Not started.
 - **Template font families are CSS strings** (`'Playfair Display', serif`). If the rasterizer doesn't have the font installed, it falls back to the next in the stack. `flyer_generator/assets/fonts/` is empty — drop subsetted woff2 files to get exact typography. Not blocking.
 - **`docs/brochure-templates/`** still contains the 10 original JSONs (copied into `flyer_generator/brochure/schemas/` rather than moved — docs/brochure-templates/ is the "design reference" directory). No harm; identical.
 - **`/tmp/brochure-adversarial/`** — old adversarial battery data. Not touched by the schema renderer.
 - **Gallery PDFs are large** (~17 MB per cell) because each embeds 2–4 real 1472×832 photos base64'd into SVG, then rasterized at 3376×2626 and wrapped in PDF. Acceptable for print; if this grows, downscale embedded PNGs before base64 or cache-dedupe shared slots across sheets.
+- **Texture generation** — `--textures-dir` is fed by the user today. There is no LLM/ComfyUI orchestrator that generates textures to match a template's needs; that's a future iteration (could piggyback on `image_gate`).
 
 ---
 
 ## 8. When you come back after `/clear`
 
-1. `git log --oneline | head -10` → confirm tree state (expect `0ed9939 feat(brochure/schema-renderer): Phase 4 …` at top).
-2. `python -m pytest tests/ -q` → confirm 634/634 pass.
+1. `git log --oneline | head -10` → expect `e1896f8 feat(brochure/schema-renderer): Phase 2 …` at top.
+2. `python -m pytest tests/ -q` → confirm 658/658 pass.
 3. `ls /tmp/phase4-gallery/` → Phase 4 gallery artifacts (may be purged by /tmp rotation; rerun `PYTHONPATH=$PWD python /tmp/phase4-gallery/run.py` if needed, ~30 min).
-4. Open `HANDOFF.md` (this file) + `~/.claude/plans/lets-continue-testing-various-cheeky-puddle.md` for full plan context.
-5. Next candidate phases:
-   - **Phase 2 — Ollama text budgeting** (make the LLM write text that fits char budgets declared in the template).
-   - **Phase 4 stretch — `texture_slot` patterns** (generate textures for shape fills).
-   - **Phase 6 — real logo embedding** (swap monogram for user-supplied PNG/SVG).
+4. Open `HANDOFF.md` (this file) + `README.md` for full context.
+5. Try the end-to-end path, one sentence → finished brochure with photos + logo:
+   ```bash
+   python -m flyer_generator.brochure.schema_renderer \
+       --template hero_image_dominant \
+       --prompt "a boutique estate-planning law firm for young families" \
+       --audience "parents under 45, warm tone" \
+       --generate-images --workflow ernie_landscape \
+       --logo path/to/logo.png \
+       --output /tmp/oneshot
+   ```
+6. Remaining candidates:
+   - **Phase 3** — 5–9 more templates (JSON-only, no Python).
+   - **Phase 5** — text-on-image safe-region detection (port from flyer pipeline).
+   - **Auto-texture** — wire an LLM concept generator + ComfyUI into `--textures-dir` so textures are generated per template rather than fed by hand.
 
 ---
 
@@ -213,34 +224,24 @@ Templates exercised: `hero_image_dominant` (4 slots), `layered_depth_stack`, `ra
 
 ```
 flyer_generator/brochure/
-├── schema_renderer/          ← Phase 1 + Phase 4 subsystem
-│   ├── __init__.py           exports load_template, list_templates, render_schema_brochure, BrochureContent, TemplateSchema, generate_template_images, collect_image_slots, resolve_concept_for_slot
-│   ├── __main__.py           CLI (+ --generate-images / --workflow / --style-preset flags)
+├── schema_renderer/          ← Phases 1, 2, 4 (+ stretch), 6 subsystem
+│   ├── __init__.py           load_template, list_templates, render_schema_brochure,
+│   │                         BrochureContent, TemplateSchema, TextBudget,
+│   │                         generate_template_images, generate_content_from_prompt,
+│   │                         collect_image_slots, collect_text_budgets, resolve_concept_for_slot
+│   ├── __main__.py           CLI — accepts --content OR --prompt; flags
+│   │                         --generate-images, --workflow, --style-preset,
+│   │                         --logo, --textures-dir, --audience
 │   ├── content_model.py      BrochureContent + adapter from BrochureInput
 │   ├── image_gate.py         Phase 4: ComfyUI image fill for image_placeholder slots (hero vision gate + parallel spots)
 │   ├── loader.py             load_template + list_templates
-│   ├── renderer.py           render_schema_brochure(images=) — CORE, embeds base64 PNGs with clipPath masks
+│   ├── renderer.py           render_schema_brochure(images=, textures=, logo_bytes=) — CORE
 │   ├── schema_model.py       TemplateSchema + every element Pydantic type
-│   ├── shapes.py             SVG primitive emitters
-│   └── text_fit.py           text measurement + wrap + char budget
+│   ├── shapes.py             SVG primitive emitters + texture_slot → <pattern>
+│   ├── text_fit.py           text measurement + wrap + char budget
+│   └── text_gen.py           Phase 2: LLM text budgeting (Ollama / Anthropic)
 ├── schemas/                  ← 13 template JSONs
-│   ├── bold_diagonal_split.json
-│   ├── edge_anchored_geometry.json
-│   ├── editorial_classic.json   (my starter)
-│   ├── editorial_spread.json
-│   ├── geometric_bold.json      (my starter)
-│   ├── hero_image_dominant.json
-│   ├── layered_depth_stack.json
-│   ├── minimal_panel_overlay.json
-│   ├── modular_grid_system.json
-│   ├── pattern_overlay_hybrid.json
-│   ├── quote_center.json        (my starter)
-│   ├── radial_feature.json
-│   └── technical_futuristic_grid.json
 ├── generative/               ← LLM-driven legacy path (untouched)
-│   ├── pipeline.py           generate_brochure_from_prompt
-│   ├── imagery.py            generate_imagery (reuse in Phase 4)
-│   └── …
 ├── stages/                   ← shared stages (composer, layout, pdf, vision, prompt_builder)
 └── pipeline.py               v1 BrochureGenerator (layout_choice-aware)
 
@@ -249,15 +250,16 @@ docs/brochure/
 
 tests/brochure/schema_renderer/
 ├── test_schema_model.py      20 tests
-├── test_shapes.py            19 tests
+├── test_shapes.py            23 tests (Phase 4 stretch added 4 texture_slot tests)
 ├── test_text_fit.py          11 tests
 ├── test_content_model.py     13 tests
 ├── test_loader.py            7 tests
-├── test_renderer.py          24 tests (Phase 4 added 7 embedding tests)
+├── test_renderer.py          38 tests (Phase 4 + 4-stretch + Phase 6 additions)
 ├── test_image_gate.py        16 tests (Phase 4)
+├── test_text_gen.py          14 tests (Phase 2)
 └── test_gallery.py           78 dynamic tests (grows with schemas + content)
 ```
 
 ---
 
-**TL;DR for next session:** Phases 1 + 4 shipped. 13 templates, zero-API rendering in 1.2s; or with `--generate-images` generates hero (vision-gated) + spot photos via ComfyCloud, base64-embedded with clipPath masks. 634/634 tests, 16/16 live gallery cells green. README is written. Deferred: Phase 2 Ollama text budgeting, Phase 4 stretch (texture_slot → `<pattern>`), Phase 3 template expansion, Phase 5 text-on-image, Phase 6 real logo embedding.
+**TL;DR for next session:** Phases 1, 2, 4 (+ stretch), 6 all shipped. One CLI command turns a single sentence into a print-ready tri-fold brochure with LLM-budgeted copy, ComfyUI hero + spot photos (vision-gated), embedded logo, and optional tiled textures. 658/658 tests. 16/16 live gallery cells green. Deferred: Phase 3 template expansion, Phase 5 text-on-image.
