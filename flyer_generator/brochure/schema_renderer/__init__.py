@@ -26,6 +26,11 @@ from flyer_generator.brochure.schema_renderer.content_model import (
     BrochureContent,
     ContentSection,
 )
+from flyer_generator.brochure.schema_renderer.image_gate import (
+    collect_image_slots,
+    generate_template_images,
+    resolve_concept_for_slot,
+)
 from flyer_generator.brochure.schema_renderer.loader import (
     list_templates,
     load_template,
@@ -37,7 +42,10 @@ __all__ = [
     "BrochureContent",
     "ContentSection",
     "TemplateSchema",
+    "collect_image_slots",
+    "generate_template_images",
     "list_templates",
     "load_template",
     "render_schema_brochure",
+    "resolve_concept_for_slot",
 ]

@@ -15,6 +15,7 @@ so shape authors don't need to know absolute sheet coordinates.
 
 from __future__ import annotations
 
+import base64
 from typing import Iterable
 from xml.sax.saxutils import escape as xml_escape
 
@@ -378,12 +379,68 @@ def _render_logo_placeholder(
     return shape + text
 
 
+def _embed_image(
+    el: ImagePlaceholder,
+    image_bytes: bytes,
+    salt: str,
+) -> str:
+    """Embed `image_bytes` as base64 PNG inside the placeholder's bbox.
+
+    Uses preserveAspectRatio="xMidYMid slice" so the image always fills the
+    bbox (cropping the overflowing side), and applies a clipPath when the
+    placeholder requests a rounded or circle mask.
+    """
+    x, y, w, h = el.bbox
+    b64 = base64.b64encode(image_bytes).decode("ascii")
+    href = f"data:image/png;base64,{b64}"
+    image_tag = (
+        f'<image x="{x}" y="{y}" width="{w}" height="{h}" '
+        f'preserveAspectRatio="xMidYMid slice" href="{href}"'
+    )
+
+    if el.mask == "circle":
+        r = min(w, h) / 2
+        cx = x + w / 2
+        cy = y + h / 2
+        clip_id = f"img-clip-{salt}"
+        clip = (
+            f'<defs><clipPath id="{clip_id}">'
+            f'<circle cx="{cx}" cy="{cy}" r="{r}"/>'
+            f"</clipPath></defs>"
+        )
+        return f'{clip}{image_tag} clip-path="url(#{clip_id})"/>'
+
+    if el.mask == "rounded":
+        rx = el.corner_radius if el.corner_radius else 40
+        clip_id = f"img-clip-{salt}"
+        clip = (
+            f'<defs><clipPath id="{clip_id}">'
+            f'<rect x="{x}" y="{y}" width="{w}" height="{h}" '
+            f'rx="{rx}" ry="{rx}"/>'
+            f"</clipPath></defs>"
+        )
+        return f'{clip}{image_tag} clip-path="url(#{clip_id})"/>'
+
+    # mask == "none"
+    return f"{image_tag}/>"
+
+
 def _render_image_placeholder(
     el: ImagePlaceholder,
     content: BrochureContent,
     schema: TemplateSchema,
+    images: dict[str, bytes] | None = None,
+    salt: str = "img",
 ) -> str:
-    """Phase 1: render fallback fill + optional label. Phase 4 will embed images."""
+    """Render an image_placeholder.
+
+    When `images` contains this element's slot, embed the PNG bytes as a
+    base64 data URL with the appropriate clip path. Otherwise render the
+    fallback fill — Phase 1 behavior — so design-only renders still work.
+    """
+    if images is not None and el.slot in images:
+        return _embed_image(el, images[el.slot], salt)
+
     x, y, w, h = el.bbox
     # Derive default fallback fill if not set: light gradient from accent muted to neutral_light
     if el.fallback_fill is None:
@@ -465,6 +522,7 @@ def _render_panel(
     panel_rect: PanelRect,
     content: BrochureContent,
     schema: TemplateSchema,
+    images: dict[str, bytes] | None = None,
 ) -> str:
     tx, ty, tw, th = panel_rect.trim_rect
     margins = panel_bleed_margins(panel_rect)
@@ -505,7 +563,9 @@ def _render_panel(
         elif isinstance(el, LogoPlaceholder):
             parts.append(_render_logo_placeholder(el, content, schema))
         elif isinstance(el, ImagePlaceholder):
-            parts.append(_render_image_placeholder(el, content, schema))
+            parts.append(
+                _render_image_placeholder(el, content, schema, images, salt)
+            )
         elif isinstance(el, DividerElement):
             parts.append(_render_divider(el))
 
@@ -539,9 +599,10 @@ def _render_sheet(
     schema: TemplateSchema,
     content: BrochureContent,
     sheet_name: str,
+    images: dict[str, bytes] | None = None,
 ) -> str:
     body = "".join(
-        _render_panel(panel_schema, panel_rect, content, schema)
+        _render_panel(panel_schema, panel_rect, content, schema, images)
         for panel_rect, panel_schema in panels
     )
     # Crop marks only for this sheet's corners
@@ -584,8 +645,16 @@ def _render_sheet(
 def render_schema_brochure(
     template: TemplateSchema,
     content: BrochureContent,
+    *,
+    images: dict[str, bytes] | None = None,
 ) -> tuple[str, str]:
-    """Render a template + content pair to (outside_svg, inside_svg)."""
+    """Render a template + content pair to (outside_svg, inside_svg).
+
+    When `images` is supplied, each `image_placeholder` whose `slot` matches a
+    key has the PNG bytes embedded as a base64 data URL with the appropriate
+    clip path (rounded / circle / none). Slots missing from the dict fall back
+    to the placeholder's `fallback_fill`.
+    """
     layout = compute_panel_layout()
 
     outside_panels = []
@@ -604,6 +673,10 @@ def render_schema_brochure(
             continue
         inside_panels.append((panel_rect, schema_panel))
 
-    outside_svg = _render_sheet(outside_panels, layout, template, content, "outside")
-    inside_svg = _render_sheet(inside_panels, layout, template, content, "inside")
+    outside_svg = _render_sheet(
+        outside_panels, layout, template, content, "outside", images
+    )
+    inside_svg = _render_sheet(
+        inside_panels, layout, template, content, "inside", images
+    )
     return outside_svg, inside_svg

@@ -1,17 +1,29 @@
 """CLI entrypoint: render a brochure from a template + content JSON.
 
 Usage:
+    # Pure design render (no API calls)
     python -m flyer_generator.brochure.schema_renderer \\
         --template editorial_classic \\
         --content docs/brochure/sample-content/law_firm.json \\
         --output /tmp/schema-out/
 
+    # With ComfyUI-generated images in image_placeholder slots
+    python -m flyer_generator.brochure.schema_renderer \\
+        --template hero_image_dominant \\
+        --content docs/brochure/sample-content/law_firm.json \\
+        --generate-images \\
+        --workflow ernie_landscape \\
+        --style-preset photorealistic \\
+        --output /tmp/schema-out/
+
 Writes `outside.svg`, `inside.svg`, `brochure_front.png`, `brochure_back.png`,
-and `brochure_print.pdf` into the output directory. No API calls.
+and `brochure_print.pdf` into the output directory. With `--generate-images`,
+also writes per-slot PNGs to `<output>/images/`.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 from typing import Annotated, Optional
@@ -53,6 +65,21 @@ def render(
         bool,
         typer.Option("--write-svg/--no-write-svg", help="Write .svg alongside PNG/PDF."),
     ] = True,
+    generate_images: Annotated[
+        bool,
+        typer.Option(
+            "--generate-images/--no-generate-images",
+            help="Call ComfyUI to fill image_placeholder slots (hero + spots).",
+        ),
+    ] = False,
+    workflow: Annotated[
+        str,
+        typer.Option("--workflow", help="ComfyUI workflow for image generation."),
+    ] = "ernie_landscape",
+    style_preset: Annotated[
+        str,
+        typer.Option("--style-preset", help="Preset for image style (photorealistic, anime, ...)."),
+    ] = "photorealistic",
 ) -> None:
     """Render a brochure from a template schema + content JSON."""
     if list_templates_only:
@@ -69,10 +96,44 @@ def render(
     data = json.loads(content.read_text(encoding="utf-8"))
     ct = BrochureContent.model_validate(data)
 
-    typer.echo(f"Rendering {tmpl.name} × {content.name}…")
-    outside_svg, inside_svg = render_schema_brochure(tmpl, ct)
-
     output.mkdir(parents=True, exist_ok=True)
+
+    images: dict[str, bytes] | None = None
+    if generate_images:
+        from flyer_generator.brochure.schema_renderer.image_gate import (
+            collect_image_slots,
+            generate_template_images,
+        )
+        from flyer_generator.config import Settings
+
+        slots = collect_image_slots(tmpl)
+        typer.echo(
+            f"Generating images for slots {slots} via workflow={workflow} "
+            f"preset={style_preset}…"
+        )
+        settings = Settings()
+        images = asyncio.run(
+            generate_template_images(
+                tmpl,
+                ct,
+                style_preset=style_preset,
+                workflow_name=workflow,
+                settings=settings,
+            )
+        )
+        missing = [s for s in slots if s not in images]
+        typer.echo(
+            f"  generated={list(images.keys())}  "
+            f"fell_back={missing if missing else 'none'}"
+        )
+        # Persist per-slot images for inspection
+        images_dir = output / "images"
+        images_dir.mkdir(parents=True, exist_ok=True)
+        for slot, raw in images.items():
+            (images_dir / f"{slot}.png").write_bytes(raw)
+
+    typer.echo(f"Rendering {tmpl.name} × {content.name}…")
+    outside_svg, inside_svg = render_schema_brochure(tmpl, ct, images=images)
 
     if write_svg:
         (output / "outside.svg").write_text(outside_svg, encoding="utf-8")
