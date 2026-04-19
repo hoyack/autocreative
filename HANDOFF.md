@@ -9,21 +9,21 @@ Prior handoff (pre-schema era): `docs/brochure-improvement-v2.md`.
 ## 1. Quick orientation
 
 - **Branch:** `master`, clean working tree
-- **Tests:** `python -m pytest tests/ -q` → 611/611 pass in ~35s
+- **Tests:** `python -m pytest tests/ -q` → 634/634 pass in ~35s
 - **Latest commits (newest first):**
   ```
+  0ad3744 docs: write README covering flyer + brochure (v1/v2/schema-driven) paths
+  1e84991 docs: mark Phase 4 shipped in HANDOFF, retarget §6-§8 to current state
+  0ed9939 feat(brochure/schema-renderer): Phase 4 — image gate + placeholder embedding
+  2a533a6 docs: session handoff — schema-renderer subsystem state + Phase 4 plan
   a56d5d6 fix(schemas/bold_diagonal_split): front cover text wrapping + negative leading
-  856d7a7 feat(brochure/schemas): adopt 10 user-contributed templates + 3 new content samples
+  d539b37 feat(brochure/schemas): adopt 10 user-contributed templates + 3 new content samples
   806b68e feat(brochure/schema-renderer): Phase 1 — schema-driven design-first rendering
   9072c99 feat(brochure): accept layout_choice on v1 BrochureGenerator.generate()
-  274d53c feat(brochure): force LayoutTemplate + cover treatment via CLI/API
   65b626d feat(brochure): add --workflow CLI flag
   9946c49 feat(workflows): add ernie_turbo_landscape
   bc892e2 feat(workflows): add ernie_landscape
   1ea8d19 feat(workflows): add flux2_landscape (txt2img) + seed-field detection
-  92a04cf feat(workflows): add longcat_landscape
-  3a5d58e feat(workflows): add qwen_landscape
-  1090a3c feat(prompt-builder): make negative_prompt injection optional
   ```
 - **.env:** `FLYER_ANTHROPIC_API_KEY`, `FLYER_COMFYCLOUD_API_KEY`, `FLYER_OLLAMA_API_KEY` all live.
 - **Plan file:** `~/.claude/plans/lets-continue-testing-various-cheeky-puddle.md` — full phase plan (Phases 1–6).
@@ -62,7 +62,7 @@ Everything in `flyer_generator/brochure/schema_renderer/` is new and **additive*
 `law_firm.json`, `kids_coding_camp.json`, `tech_startup.json`, `nonprofit.json`. Rich structured data with lead paragraphs + bullet arrays per section + structured back_panel + full ContactBlock.
 
 **Tests** under `tests/brochure/schema_renderer/`:
-88 unit tests (schema model, shapes, text fit, content model, loader, renderer) + 78 dynamic gallery tests (every template × every content sample × every rasterization, auto-picked up when a new JSON is added). 611 total tests in the repo.
+95 unit tests (schema model, shapes, text fit, content model, loader, renderer, image_gate) + 78 dynamic gallery tests (every template × every content sample × every rasterization, auto-picked up when a new JSON is added) + 16 image_gate tests. 634 total tests in the repo.
 
 **Gallery:** `/tmp/brochure-gallery/` has 52 brochures (13 × 4) rendered by `/tmp/brochure-adversarial/render_gallery.py`. Open `/tmp/brochure-gallery/index.md` for a markdown catalog with file:// links.
 
@@ -213,12 +213,13 @@ Templates exercised: `hero_image_dominant` (4 slots), `layered_depth_stack`, `ra
 
 ```
 flyer_generator/brochure/
-├── schema_renderer/          ← NEW subsystem (Phase 1)
-│   ├── __init__.py           exports load_template, list_templates, render_schema_brochure, BrochureContent, TemplateSchema
-│   ├── __main__.py           CLI
+├── schema_renderer/          ← Phase 1 + Phase 4 subsystem
+│   ├── __init__.py           exports load_template, list_templates, render_schema_brochure, BrochureContent, TemplateSchema, generate_template_images, collect_image_slots, resolve_concept_for_slot
+│   ├── __main__.py           CLI (+ --generate-images / --workflow / --style-preset flags)
 │   ├── content_model.py      BrochureContent + adapter from BrochureInput
+│   ├── image_gate.py         Phase 4: ComfyUI image fill for image_placeholder slots (hero vision gate + parallel spots)
 │   ├── loader.py             load_template + list_templates
-│   ├── renderer.py           render_schema_brochure — CORE
+│   ├── renderer.py           render_schema_brochure(images=) — CORE, embeds base64 PNGs with clipPath masks
 │   ├── schema_model.py       TemplateSchema + every element Pydantic type
 │   ├── shapes.py             SVG primitive emitters
 │   └── text_fit.py           text measurement + wrap + char budget
@@ -252,10 +253,11 @@ tests/brochure/schema_renderer/
 ├── test_text_fit.py          11 tests
 ├── test_content_model.py     13 tests
 ├── test_loader.py            7 tests
-├── test_renderer.py          17 tests
+├── test_renderer.py          24 tests (Phase 4 added 7 embedding tests)
+├── test_image_gate.py        16 tests (Phase 4)
 └── test_gallery.py           78 dynamic tests (grows with schemas + content)
 ```
 
 ---
 
-**TL;DR for next session:** Phase 1 shipped. 13 templates. Zero-API rendering in 1.2s per brochure. Next up: Phase 4 — wire ComfyUI image generation into `image_placeholder` slots (and optionally `texture_slot` fills for shapes), respect the existing vision gate that rejects text-in-image, then re-render the gallery with real hero photos + spot images.
+**TL;DR for next session:** Phases 1 + 4 shipped. 13 templates, zero-API rendering in 1.2s; or with `--generate-images` generates hero (vision-gated) + spot photos via ComfyCloud, base64-embedded with clipPath masks. 634/634 tests, 16/16 live gallery cells green. README is written. Deferred: Phase 2 Ollama text budgeting, Phase 4 stretch (texture_slot → `<pattern>`), Phase 3 template expansion, Phase 5 text-on-image, Phase 6 real logo embedding.
