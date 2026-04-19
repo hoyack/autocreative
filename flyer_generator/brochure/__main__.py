@@ -87,6 +87,18 @@ def main(
         str,
         typer.Option("--workflow", help="ComfyUI workflow name (e.g. turbo_landscape, flux2_landscape, qwen_landscape, ernie_landscape, ernie_turbo_landscape, longcat_landscape)"),
     ] = "turbo_landscape",
+    template: Annotated[
+        Optional[str],
+        typer.Option("--template", help="v2 only: force a LayoutTemplate (editorial, minimalist, playful, gallery_strip, quote_driven, spotlight). Bypasses LLM selection."),
+    ] = None,
+    cover_treatment: Annotated[
+        str,
+        typer.Option("--cover-treatment", help="v2 only, with --template: image_full | image_half_shapes | shapes_only"),
+    ] = "image_full",
+    shape_density: Annotated[
+        str,
+        typer.Option("--shape-density", help="v2 only, with --template: sparse | medium | dense"),
+    ] = "medium",
 ) -> None:
     """Generate a tri-fold landscape brochure (outside + inside PNGs + print PDF)."""
     if list_presets:
@@ -124,6 +136,9 @@ def main(
                     target_length=target_length,  # type: ignore[arg-type]
                     verify_threshold=verify_threshold,
                     workflow_name=workflow,
+                    layout_template=template,
+                    cover_treatment=cover_treatment,
+                    shape_density=shape_density,
                 )
             )
         except FlyerGeneratorError as exc:

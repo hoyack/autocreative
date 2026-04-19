@@ -174,6 +174,10 @@ async def generate_brochure_from_prompt(
     max_verify_iterations: int = 2,
     text_client: TextClient | None = None,
     workflow_name: str = "turbo_landscape",
+    layout_template: str | None = None,
+    shape_density: str = "medium",
+    accent_placement: str = "side_band",
+    cover_treatment: str = "image_full",
 ) -> BrochureOutput:
     """Prompt-driven end-to-end brochure generation.
 
@@ -203,9 +207,18 @@ async def generate_brochure_from_prompt(
     log.info("brochure_text_ready", count=len(texts))
 
     # --- Stage 3: layout selection ---
-    layout_choice: LayoutChoice = await choose_layout(outline, text_client)
+    if layout_template is not None:
+        layout_choice = LayoutChoice(
+            template=layout_template,  # type: ignore[arg-type]
+            shape_density=shape_density,  # type: ignore[arg-type]
+            accent_placement=accent_placement,  # type: ignore[arg-type]
+            cover_treatment=cover_treatment,  # type: ignore[arg-type]
+        )
+        log.info("brochure_layout_forced", template=layout_template, density=shape_density)
+    else:
+        layout_choice = await choose_layout(outline, text_client)
+        log.info("brochure_layout_chosen", template=layout_choice.template, density=layout_choice.shape_density)
     template = get_template(layout_choice.template)
-    log.info("brochure_layout_chosen", template=layout_choice.template, density=layout_choice.shape_density)
 
     # --- Stage 5: fit optimization (runs before imagery since image gen is expensive) ---
     texts = await optimize_fit(texts, template, text_client, target_length=target_length)
