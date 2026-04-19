@@ -37,12 +37,20 @@ from flyer_generator.brochure.schema_renderer.loader import (
 )
 from flyer_generator.brochure.schema_renderer.renderer import render_schema_brochure
 from flyer_generator.brochure.schema_renderer.schema_model import TemplateSchema
+from flyer_generator.brochure.schema_renderer.text_gen import (
+    TextBudget,
+    collect_text_budgets,
+    generate_content_from_prompt,
+)
 
 __all__ = [
     "BrochureContent",
     "ContentSection",
     "TemplateSchema",
+    "TextBudget",
     "collect_image_slots",
+    "collect_text_budgets",
+    "generate_content_from_prompt",
     "generate_template_images",
     "list_templates",
     "load_template",

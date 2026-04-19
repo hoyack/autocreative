@@ -95,6 +95,22 @@ def render(
             "element in the template; absent → monogram fallback.",
         ),
     ] = None,
+    prompt: Annotated[
+        Optional[str],
+        typer.Option(
+            "--prompt",
+            help="Natural-language business/event description. Triggers Phase 2: "
+            "LLM writes content fitting the template's char budgets. Mutually "
+            "exclusive with --content.",
+        ),
+    ] = None,
+    audience: Annotated[
+        Optional[str],
+        typer.Option(
+            "--audience",
+            help="Optional audience/tone hint for --prompt (e.g. 'young professionals, playful').",
+        ),
+    ] = None,
 ) -> None:
     """Render a brochure from a template schema + content JSON."""
     if list_templates_only:
@@ -102,16 +118,57 @@ def render(
             typer.echo(name)
         raise typer.Exit(0)
 
-    if template is None or content is None:
-        typer.echo("Error: both --template and --content are required.", err=True)
+    if template is None:
+        typer.echo("Error: --template is required.", err=True)
         typer.echo("Hint: run with --list-templates to see available templates.", err=True)
+        raise typer.Exit(2)
+    if content is None and prompt is None:
+        typer.echo(
+            "Error: supply either --content <json> or --prompt '<description>'.",
+            err=True,
+        )
+        raise typer.Exit(2)
+    if content is not None and prompt is not None:
+        typer.echo(
+            "Error: --content and --prompt are mutually exclusive.", err=True
+        )
         raise typer.Exit(2)
 
     tmpl = load_template(template)
-    data = json.loads(content.read_text(encoding="utf-8"))
-    ct = BrochureContent.model_validate(data)
+
+    if prompt is not None:
+        from flyer_generator.brochure.schema_renderer.text_gen import (
+            collect_text_budgets,
+            generate_content_from_prompt,
+        )
+        from flyer_generator.config import Settings
+
+        budgets = collect_text_budgets(tmpl)
+        typer.echo(
+            f"Phase 2: LLM writing content for {len(budgets)} budgeted fields "
+            f"(template={tmpl.name})…"
+        )
+        ct = asyncio.run(
+            generate_content_from_prompt(
+                tmpl,
+                prompt,
+                audience=audience,
+                settings=Settings(),
+            )
+        )
+        content_label = "--prompt"
+    else:
+        data = json.loads(content.read_text(encoding="utf-8"))  # type: ignore[union-attr]
+        ct = BrochureContent.model_validate(data)
+        content_label = content.name if content is not None else "?"
 
     output.mkdir(parents=True, exist_ok=True)
+
+    if prompt is not None:
+        # Persist the LLM-generated content JSON for inspection / reuse
+        (output / "content.json").write_text(
+            ct.model_dump_json(indent=2), encoding="utf-8"
+        )
 
     images: dict[str, bytes] | None = None
     if generate_images:
@@ -165,7 +222,7 @@ def render(
         logo_bytes = logo.read_bytes()
         typer.echo(f"Loaded logo: {logo.name} ({len(logo_bytes)} bytes)")
 
-    typer.echo(f"Rendering {tmpl.name} × {content.name}…")
+    typer.echo(f"Rendering {tmpl.name} × {content_label}…")
     outside_svg, inside_svg = render_schema_brochure(
         tmpl, ct, images=images, textures=textures, logo_bytes=logo_bytes
     )
