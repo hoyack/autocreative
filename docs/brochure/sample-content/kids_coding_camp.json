@@ -1,0 +1,63 @@
+{
+  "title": "Code. Build. Launch.",
+  "subtitle": "Summer camp for kids ages 8 to 14",
+  "tagline": "One week. Real projects. No screen-time shame.",
+  "org": "Blast Radius Camp",
+  "hero_concept": "A vibrant photograph of kids high-fiving over a laptop with colorful LEGO robots on the desk, bright daylight",
+  "color_accent": "#F97316",
+  "contact": {
+    "name": "Maya Okonkwo, Program Director",
+    "phone": "(510) 555-0144",
+    "email": "hello@blastradius.camp",
+    "url": "blastradius.camp",
+    "address": "1910 Telegraph Avenue · Oakland, CA 94612"
+  },
+  "sections": [
+    {
+      "heading": "What Your Camper Builds",
+      "lead_paragraph": "By Friday, every camper goes home with something they made. No pre-made demos, no coloring-book coding.",
+      "bullets": [
+        "A two-player game they designed",
+        "A robot that obeys voice commands",
+        "A website about something they love",
+        "A short AI-illustrated film",
+        "A working app that talks to an API"
+      ]
+    },
+    {
+      "heading": "A Typical Day",
+      "lead_paragraph": "Screens off until after warm-up. Snacks, laughter, and a little bit of chaos — in that order.",
+      "bullets": [
+        "9:00 Drop-off, breakfast, morning yell",
+        "9:30 Warm-up challenge",
+        "10:00 Core build time",
+        "12:00 Lunch plus daily bug-hunt game",
+        "3:00 Share-back with parents"
+      ]
+    },
+    {
+      "heading": "Pricing and Sessions",
+      "lead_paragraph": "One-week intensives from June 16 through August 22. Extended care until 5pm at no extra charge.",
+      "bullets": [
+        "Beginner ages 8-10 — $485",
+        "Builder ages 10-12 — $545",
+        "Hacker ages 12-14 — $595",
+        "Sibling discount — 20 percent off",
+        "Scholarship seats — 10 per session"
+      ]
+    }
+  ],
+  "back_panel": {
+    "kind": "cta",
+    "heading": "Ready to sign up?",
+    "body": "Early-bird sessions sell out by April. Register before March 15th and save $75 per week.",
+    "bullets": [
+      "Register at blastradius.camp/summer",
+      "Call or text (510) 555-0144",
+      "Email hello@blastradius.camp",
+      "Open House Saturday February 22nd"
+    ],
+    "cta_label": "Reserve a spot",
+    "footer_note": "Scholarships available by application."
+  }
+}

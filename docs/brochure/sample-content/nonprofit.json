@@ -1,0 +1,63 @@
+{
+  "title": "Every Meal Is a Welcome",
+  "subtitle": "Community kitchen · Oakland, CA",
+  "tagline": "No forms. No lines. Just a seat at the table.",
+  "org": "Bay Common Kitchen",
+  "hero_concept": "A warm candid photograph of volunteers and guests sharing a meal at a long wooden table, natural light, inclusive and joyful",
+  "color_accent": "#2F6E5B",
+  "contact": {
+    "name": "Marisol Jimenez, Director",
+    "phone": "(510) 555-0232",
+    "email": "hello@baycommonkitchen.org",
+    "url": "baycommonkitchen.org",
+    "address": "512 17th Street · Oakland, CA 94612"
+  },
+  "sections": [
+    {
+      "heading": "Who We Serve",
+      "lead_paragraph": "Anyone who needs a hot meal, a few hours of warmth, or a place that knows their name.",
+      "bullets": [
+        "Neighbors facing food insecurity",
+        "Older adults without family nearby",
+        "Caregivers and first responders",
+        "Recent arrivals and refugees",
+        "Anyone who just needs to sit down"
+      ]
+    },
+    {
+      "heading": "What We Offer",
+      "lead_paragraph": "Open 365 days a year. Meals are free; company is the point.",
+      "bullets": [
+        "Hot breakfast from 7 to 10 a.m.",
+        "Soup and bread all afternoon",
+        "Community supper Wednesdays",
+        "Showers and laundry on Saturdays",
+        "Case management on request"
+      ]
+    },
+    {
+      "heading": "How You Help",
+      "lead_paragraph": "Eighty-four cents of every dollar goes directly to meals and guest services.",
+      "bullets": [
+        "$25 covers ten hot meals",
+        "$100 funds a community supper",
+        "$500 keeps the kitchen open a day",
+        "Volunteer two hours a month",
+        "Donate pantry staples any time"
+      ]
+    }
+  ],
+  "back_panel": {
+    "kind": "cta",
+    "heading": "Pull up a chair.",
+    "body": "Whether you need a meal, want to volunteer, or hope to give — the door is unlocked.",
+    "bullets": [
+      "Give at baycommonkitchen.org/give",
+      "Volunteer at baycommonkitchen.org/help",
+      "Call (510) 555-0232 anytime",
+      "Drop in: 512 17th St, Oakland"
+    ],
+    "cta_label": "Give or join today",
+    "footer_note": "501(c)(3) · EIN 00-0000000"
+  }
+}

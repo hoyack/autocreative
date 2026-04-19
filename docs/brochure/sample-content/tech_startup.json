@@ -1,0 +1,64 @@
+{
+  "title": "Reclaim Your Time with AI",
+  "subtitle": "Workflow automation for small businesses",
+  "tagline": "Setup in a day. ROI in a week. Your team stays in charge.",
+  "org": "Lumen Flow",
+  "hero_concept": "A clean modern office with a laptop showing a dashboard of automation workflows, soft daylight, minimalist aesthetic",
+  "color_accent": "#0EA5E9",
+  "contact": {
+    "name": "Chen Wei, Customer Success",
+    "phone": "(415) 555-0178",
+    "email": "team@lumenflow.io",
+    "url": "lumenflow.io",
+    "address": "Remote-first · Headquartered in San Francisco, CA"
+  },
+  "sections": [
+    {
+      "heading": "What Gets Automated",
+      "lead_paragraph": "We start with the five tasks every small business repeats daily — and let your team focus on the work only humans can do.",
+      "bullets": [
+        "Lead routing and follow-up",
+        "Invoice generation and reminders",
+        "Customer onboarding sequences",
+        "Inventory alerts and reorders",
+        "Meeting notes synced to your CRM",
+        "Support ticket triage and tagging"
+      ]
+    },
+    {
+      "heading": "How We Deliver",
+      "lead_paragraph": "No generic templates. Every workflow is tuned to the tools you already use and the voice your customers trust.",
+      "bullets": [
+        "Week 1 — mapping and audit",
+        "Week 2 — build and test in sandbox",
+        "Week 3 — go live with your team",
+        "Ongoing — 2-hour monthly tune-up",
+        "SOC2-aligned data handling"
+      ]
+    },
+    {
+      "heading": "What You'll See",
+      "lead_paragraph": "Most clients see 8 to 12 hours saved per week within the first month. We track it and show you.",
+      "bullets": [
+        "Weekly hours saved dashboard",
+        "Customer response time cut 60 percent",
+        "Error rate on manual tasks near zero",
+        "Team shifts to high-value work",
+        "Clear ROI calculator in your account"
+      ]
+    }
+  ],
+  "back_panel": {
+    "kind": "cta",
+    "heading": "Let's map your workflow",
+    "body": "A free 30-minute session where we sketch three automations tailored to your business and hand you the plan.",
+    "bullets": [
+      "Book at lumenflow.io/meet",
+      "Call or text (415) 555-0178",
+      "Email team@lumenflow.io",
+      "No sales pressure, ever"
+    ],
+    "cta_label": "Book a free mapping session",
+    "footer_note": "Offer for teams of 2 to 50."
+  }
+}

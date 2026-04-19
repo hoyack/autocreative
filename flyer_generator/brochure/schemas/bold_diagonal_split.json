@@ -1,0 +1,324 @@
+{
+  "schema_version": "1",
+  "name": "bold_diagonal_split",
+  "description": "High-contrast template built around strong diagonal blocks and sharply divided text/image zones.",
+  "tone_keywords": ["bold", "energetic", "campaign", "event", "impact"],
+  "canvas": {
+    "width": 1100,
+    "height": 2550
+  },
+  "palette": {
+    "accent_default": "#F25F3A",
+    "neutral_dark": "#121826",
+    "neutral_light": "#FFF8F4",
+    "muted": "#E5D8D1",
+    "extras": {
+      "deep_navy": "#1D2A44",
+      "soft_peach": "#FFE4D8"
+    }
+  },
+  "typography": {
+    "heading_family": "'Montserrat', 'Arial', sans-serif",
+    "body_family": "'Inter', 'Helvetica Neue', sans-serif",
+    "cover_title_size": 116,
+    "cover_subtitle_size": 40,
+    "heading_size": 56,
+    "body_size": 30,
+    "body_line_height": 42,
+    "body_max_chars_per_line": 28,
+    "bullet_size": 28,
+    "bullet_line_height": 38
+  },
+  "panels": {
+    "front_cover": {
+      "description": "Diagonal orange field collides with a tall hero strip.",
+      "background": {
+        "type": "solid",
+        "color": "#121826"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "polygon",
+          "points": [[-80, 0], [690, 0], [430, 2550], [-80, 2550]],
+          "fill": { "type": "solid", "color": "#F25F3A", "opacity": 1.0 },
+          "bleed": "left",
+          "z": 1
+        },
+        {
+          "type": "image_placeholder",
+          "bbox": [500, 0, 600, 2550],
+          "slot": "hero",
+          "mask": "none",
+          "fallback_fill": {
+            "type": "linear_gradient",
+            "angle": 0,
+            "stops": [
+              { "offset": 0.0, "color": "#2B3A5A" },
+              { "offset": 1.0, "color": "#121826" }
+            ]
+          },
+          "z": 2
+        },
+        {
+          "type": "text",
+          "bbox": [110, 180, 320, 500],
+          "role": "cover_title",
+          "content_key": "title",
+          "font_size": 116,
+          "line_height": 98,
+          "weight": "bold",
+          "color": "#FFF8F4",
+          "z": 10
+        },
+        {
+          "type": "text",
+          "bbox": [110, 760, 300, 180],
+          "role": "cover_subtitle",
+          "content_key": "subtitle",
+          "font_size": 40,
+          "line_height": 48,
+          "color": "#FFF8F4",
+          "z": 10
+        },
+        {
+          "type": "text",
+          "bbox": [110, 1020, 260, 60],
+          "role": "org_name",
+          "content_key": "org",
+          "font_size": 24,
+          "line_height": 30,
+          "weight": "medium",
+          "uppercase": true,
+          "letter_spacing": 2.0,
+          "color": "#FFF8F4",
+          "z": 10
+        }
+      ]
+    },
+    "back_cover": {
+      "description": "Diagonal back panel emphasizing CTA over contact details.",
+      "background": {
+        "type": "solid",
+        "color": "#FFF8F4"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "polygon",
+          "points": [[0, 1760], [1100, 1280], [1100, 2550], [0, 2550]],
+          "fill": { "type": "solid", "color": "#1D2A44", "opacity": 1.0 },
+          "z": 1
+        },
+        {
+          "type": "text",
+          "bbox": [120, 180, 760, 170],
+          "role": "cta_heading",
+          "content_key": "back_panel.heading",
+          "font_size": 56,
+          "line_height": 60,
+          "weight": "bold",
+          "color": "#121826"
+        },
+        {
+          "type": "text",
+          "bbox": [120, 420, 760, 300],
+          "role": "cta_body",
+          "content_key": "back_panel.body",
+          "font_size": 30,
+          "line_height": 42,
+          "color": "#121826"
+        },
+        {
+          "type": "text",
+          "bbox": [120, 1840, 700, 80],
+          "role": "static",
+          "content_key": "back_panel.cta_label",
+          "font_size": 34,
+          "line_height": 40,
+          "weight": "bold",
+          "uppercase": true,
+          "letter_spacing": 1.5,
+          "color": "#FFF8F4"
+        },
+        {
+          "type": "text",
+          "bbox": [120, 1950, 700, 70],
+          "role": "contact_url",
+          "content_key": "contact.url",
+          "font_size": 24,
+          "line_height": 30,
+          "color": "#FFF8F4"
+        }
+      ]
+    },
+    "tuck_flap": {
+      "description": "Compact diagonal flap for brand and tagline.",
+      "background": {
+        "type": "solid",
+        "color": "#121826"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "polygon",
+          "points": [[0, 0], [1100, 0], [760, 760], [0, 540]],
+          "fill": { "type": "solid", "color": "#F25F3A", "opacity": 1.0 },
+          "z": 1
+        },
+        {
+          "type": "text",
+          "bbox": [120, 980, 700, 80],
+          "role": "org_name",
+          "content_key": "org",
+          "font_size": 42,
+          "line_height": 48,
+          "weight": "bold",
+          "color": "#FFF8F4"
+        },
+        {
+          "type": "text",
+          "bbox": [120, 1090, 720, 220],
+          "role": "tagline",
+          "content_key": "tagline",
+          "font_size": 28,
+          "line_height": 38,
+          "color": "#E5D8D1"
+        }
+      ]
+    },
+    "inner_left": {
+      "description": "Large diagonal field creates a left-heavy feature panel.",
+      "background": {
+        "type": "solid",
+        "color": "#FFF8F4"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "polygon",
+          "points": [[-40, 0], [900, 0], [250, 1460], [-40, 1460]],
+          "fill": { "type": "solid", "color": "#FFE4D8", "opacity": 1.0 },
+          "bleed": "left",
+          "z": 1
+        },
+        {
+          "type": "text",
+          "bbox": [120, 170, 640, 160],
+          "role": "section_heading",
+          "content_key": "sections[0].heading",
+          "font_size": 56,
+          "line_height": 60,
+          "weight": "bold",
+          "color": "#121826"
+        },
+        {
+          "type": "text",
+          "bbox": [120, 400, 620, 340],
+          "role": "lead_paragraph",
+          "content_key": "sections[0].lead_paragraph",
+          "font_size": 30,
+          "line_height": 42,
+          "color": "#121826"
+        }
+      ]
+    },
+    "inner_center": {
+      "description": "Center panel uses a diagonal divider and bullets.",
+      "background": {
+        "type": "solid",
+        "color": "#121826"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "polygon",
+          "points": [[0, 2550], [1100, 2550], [1100, 900], [420, 1320]],
+          "fill": { "type": "solid", "color": "#1D2A44", "opacity": 1.0 },
+          "z": 1
+        },
+        {
+          "type": "text",
+          "bbox": [120, 180, 690, 160],
+          "role": "section_heading",
+          "content_key": "sections[1].heading",
+          "font_size": 56,
+          "line_height": 60,
+          "weight": "bold",
+          "color": "#FFF8F4"
+        },
+        {
+          "type": "text",
+          "bbox": [120, 420, 680, 220],
+          "role": "lead_paragraph",
+          "content_key": "sections[1].lead_paragraph",
+          "font_size": 30,
+          "line_height": 42,
+          "color": "#E5D8D1"
+        },
+        {
+          "type": "bullets",
+          "bbox": [120, 760, 700, 520],
+          "content_key": "sections[1].bullets",
+          "max_items": 5,
+          "bullet_style": "dash",
+          "bullet_color": "#F25F3A",
+          "text_color": "#FFF8F4",
+          "font_size": 28,
+          "line_height": 38
+        }
+      ]
+    },
+    "inner_right": {
+      "description": "Right panel balances the spread with a top-right color wedge and supporting image.",
+      "background": {
+        "type": "solid",
+        "color": "#FFF8F4"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "polygon",
+          "points": [[480, 0], [1100, 0], [1100, 780], [260, 1120]],
+          "fill": { "type": "solid", "color": "#F25F3A", "opacity": 1.0 },
+          "z": 1
+        },
+        {
+          "type": "image_placeholder",
+          "bbox": [120, 260, 760, 540],
+          "slot": "spot_1",
+          "mask": "rounded",
+          "corner_radius": 18,
+          "fallback_fill": {
+            "type": "linear_gradient",
+            "angle": 20,
+            "stops": [
+              { "offset": 0.0, "color": "#FFE4D8" },
+              { "offset": 1.0, "color": "#FFF8F4" }
+            ]
+          },
+          "z": 2
+        },
+        {
+          "type": "text",
+          "bbox": [120, 890, 700, 150],
+          "role": "section_heading",
+          "content_key": "sections[2].heading",
+          "font_size": 56,
+          "line_height": 60,
+          "weight": "bold",
+          "color": "#121826"
+        },
+        {
+          "type": "text",
+          "bbox": [120, 1080, 680, 320],
+          "role": "body",
+          "content_key": "sections[2].lead_paragraph",
+          "font_size": 30,
+          "line_height": 42,
+          "color": "#121826"
+        }
+      ]
+    }
+  }
+}

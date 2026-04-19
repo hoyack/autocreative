@@ -1,0 +1,354 @@
+{
+  "schema_version": "1",
+  "name": "technical_futuristic_grid",
+  "description": "Precision-led brochure template with micro-grid lines, data-panel framing, and a technical interface feel.",
+  "tone_keywords": ["technical", "futuristic", "grid", "data", "precision"],
+  "canvas": {
+    "width": 1100,
+    "height": 2550
+  },
+  "palette": {
+    "accent_default": "#3DD9F5",
+    "neutral_dark": "#08131F",
+    "neutral_light": "#F3F8FC",
+    "muted": "#C8D5E1",
+    "extras": {
+      "signal": "#99F6E4",
+      "panel_dark": "#102536"
+    }
+  },
+  "typography": {
+    "heading_family": "'Space Grotesk', 'Inter', sans-serif",
+    "body_family": "'IBM Plex Mono', 'Menlo', monospace",
+    "cover_title_size": 104,
+    "cover_subtitle_size": 30,
+    "heading_size": 46,
+    "body_size": 24,
+    "body_line_height": 36,
+    "body_max_chars_per_line": 34,
+    "bullet_size": 24,
+    "bullet_line_height": 34
+  },
+  "panels": {
+    "front_cover": {
+      "description": "Dark interface-style cover with grid lines and a restrained hero viewport.",
+      "background": {
+        "type": "solid",
+        "color": "#08131F"
+      },
+      "elements": [
+        {
+          "type": "divider",
+          "orientation": "horizontal",
+          "position": [0, 220, 1100, 220],
+          "thickness": 1.0,
+          "color": "#3DD9F5",
+          "opacity": 0.25
+        },
+        {
+          "type": "divider",
+          "orientation": "horizontal",
+          "position": [0, 520, 1100, 520],
+          "thickness": 1.0,
+          "color": "#3DD9F5",
+          "opacity": 0.18
+        },
+        {
+          "type": "divider",
+          "orientation": "vertical",
+          "position": [220, 0, 220, 2550],
+          "thickness": 1.0,
+          "color": "#3DD9F5",
+          "opacity": 0.18
+        },
+        {
+          "type": "divider",
+          "orientation": "vertical",
+          "position": [760, 0, 760, 2550],
+          "thickness": 1.0,
+          "color": "#3DD9F5",
+          "opacity": 0.18
+        },
+        {
+          "type": "shape",
+          "kind": "rounded_rect",
+          "rect": [120, 180, 760, 620],
+          "path_params": { "corner_radius": 16 },
+          "fill": { "type": "solid", "color": "#102536", "opacity": 0.9 },
+          "stroke": { "color": "#3DD9F5", "width": 2.0, "opacity": 0.8 },
+          "z": 1
+        },
+        {
+          "type": "image_placeholder",
+          "bbox": [160, 220, 680, 320],
+          "slot": "hero",
+          "mask": "rounded",
+          "corner_radius": 12,
+          "fallback_fill": {
+            "type": "linear_gradient",
+            "angle": 0,
+            "stops": [
+              { "offset": 0.0, "color": "#102536" },
+              { "offset": 1.0, "color": "#08131F" }
+            ]
+          },
+          "z": 2
+        },
+        {
+          "type": "text",
+          "bbox": [140, 980, 720, 220],
+          "role": "cover_title",
+          "content_key": "title",
+          "font_size": 104,
+          "line_height": 90,
+          "weight": "bold",
+          "uppercase": true,
+          "letter_spacing": 1.2,
+          "color": "#F3F8FC"
+        },
+        {
+          "type": "text",
+          "bbox": [140, 1240, 720, 100],
+          "role": "cover_subtitle",
+          "content_key": "subtitle",
+          "font_size": 30,
+          "line_height": 36,
+          "color": "#3DD9F5"
+        }
+      ]
+    },
+    "back_cover": {
+      "description": "Dark back panel with framed CTA box and utility lines.",
+      "background": {
+        "type": "solid",
+        "color": "#08131F"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "rect",
+          "rect": [120, 180, 760, 980],
+          "fill": { "type": "solid", "color": "#102536", "opacity": 0.92 },
+          "stroke": { "color": "#3DD9F5", "width": 2.0, "opacity": 0.8 },
+          "z": 1
+        },
+        {
+          "type": "divider",
+          "orientation": "horizontal",
+          "position": [120, 460, 880, 460],
+          "thickness": 1.0,
+          "color": "#3DD9F5",
+          "opacity": 0.35
+        },
+        {
+          "type": "text",
+          "bbox": [160, 250, 640, 120],
+          "role": "cta_heading",
+          "content_key": "back_panel.heading",
+          "font_size": 46,
+          "line_height": 52,
+          "weight": "bold",
+          "color": "#F3F8FC"
+        },
+        {
+          "type": "text",
+          "bbox": [160, 540, 640, 260],
+          "role": "cta_body",
+          "content_key": "back_panel.body",
+          "font_size": 24,
+          "line_height": 36,
+          "color": "#C8D5E1"
+        },
+        {
+          "type": "text",
+          "bbox": [160, 920, 640, 60],
+          "role": "contact_url",
+          "content_key": "contact.url",
+          "font_size": 22,
+          "line_height": 28,
+          "color": "#99F6E4"
+        }
+      ]
+    },
+    "tuck_flap": {
+      "description": "Utility flap with brand label and system note.",
+      "background": {
+        "type": "solid",
+        "color": "#08131F"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "rect",
+          "rect": [110, 180, 620, 340],
+          "fill": { "type": "solid", "color": "#102536", "opacity": 0.92 },
+          "stroke": { "color": "#3DD9F5", "width": 2.0, "opacity": 0.8 },
+          "z": 1
+        },
+        {
+          "type": "text",
+          "bbox": [150, 250, 520, 60],
+          "role": "org_name",
+          "content_key": "org",
+          "font_size": 30,
+          "line_height": 36,
+          "weight": "bold",
+          "uppercase": true,
+          "letter_spacing": 1.8,
+          "color": "#F3F8FC"
+        },
+        {
+          "type": "text",
+          "bbox": [150, 340, 540, 80],
+          "role": "tagline",
+          "content_key": "tagline",
+          "font_size": 20,
+          "line_height": 28,
+          "color": "#3DD9F5"
+        }
+      ]
+    },
+    "inner_left": {
+      "description": "Feature panel with outlined data box and clean type.",
+      "background": {
+        "type": "solid",
+        "color": "#08131F"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "rect",
+          "rect": [110, 180, 760, 1180],
+          "fill": { "type": "solid", "color": "#102536", "opacity": 0.92 },
+          "stroke": { "color": "#3DD9F5", "width": 2.0, "opacity": 0.8 },
+          "z": 1
+        },
+        {
+          "type": "text",
+          "bbox": [150, 260, 620, 120],
+          "role": "section_heading",
+          "content_key": "sections[0].heading",
+          "font_size": 46,
+          "line_height": 52,
+          "weight": "bold",
+          "color": "#F3F8FC"
+        },
+        {
+          "type": "text",
+          "bbox": [150, 470, 620, 280],
+          "role": "lead_paragraph",
+          "content_key": "sections[0].lead_paragraph",
+          "font_size": 24,
+          "line_height": 36,
+          "color": "#C8D5E1"
+        }
+      ]
+    },
+    "inner_center": {
+      "description": "Center panel uses bullets inside a gridded utility frame.",
+      "background": {
+        "type": "solid",
+        "color": "#08131F"
+      },
+      "elements": [
+        {
+          "type": "divider",
+          "orientation": "horizontal",
+          "position": [120, 220, 920, 220],
+          "thickness": 1.0,
+          "color": "#3DD9F5",
+          "opacity": 0.22
+        },
+        {
+          "type": "divider",
+          "orientation": "horizontal",
+          "position": [120, 1240, 920, 1240],
+          "thickness": 1.0,
+          "color": "#3DD9F5",
+          "opacity": 0.22
+        },
+        {
+          "type": "shape",
+          "kind": "rect",
+          "rect": [120, 300, 760, 1160],
+          "fill": { "type": "solid", "color": "#102536", "opacity": 0.92 },
+          "stroke": { "color": "#3DD9F5", "width": 2.0, "opacity": 0.8 },
+          "z": 1
+        },
+        {
+          "type": "text",
+          "bbox": [160, 380, 620, 120],
+          "role": "section_heading",
+          "content_key": "sections[1].heading",
+          "font_size": 46,
+          "line_height": 52,
+          "weight": "bold",
+          "color": "#F3F8FC"
+        },
+        {
+          "type": "bullets",
+          "bbox": [160, 600, 620, 520],
+          "content_key": "sections[1].bullets",
+          "max_items": 6,
+          "bullet_style": "square",
+          "bullet_color": "#3DD9F5",
+          "text_color": "#C8D5E1",
+          "font_size": 24,
+          "line_height": 34
+        }
+      ]
+    },
+    "inner_right": {
+      "description": "Image viewport with data-card summary underneath.",
+      "background": {
+        "type": "solid",
+        "color": "#08131F"
+      },
+      "elements": [
+        {
+          "type": "image_placeholder",
+          "bbox": [120, 180, 760, 560],
+          "slot": "spot_1",
+          "mask": "rounded",
+          "corner_radius": 12,
+          "fallback_fill": {
+            "type": "linear_gradient",
+            "angle": 0,
+            "stops": [
+              { "offset": 0.0, "color": "#102536" },
+              { "offset": 1.0, "color": "#08131F" }
+            ]
+          },
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "rect",
+          "rect": [120, 860, 760, 520],
+          "fill": { "type": "solid", "color": "#102536", "opacity": 0.92 },
+          "stroke": { "color": "#99F6E4", "width": 2.0, "opacity": 0.8 },
+          "z": 2
+        },
+        {
+          "type": "text",
+          "bbox": [160, 940, 620, 120],
+          "role": "section_heading",
+          "content_key": "sections[2].heading",
+          "font_size": 44,
+          "line_height": 50,
+          "weight": "bold",
+          "color": "#F3F8FC"
+        },
+        {
+          "type": "text",
+          "bbox": [160, 1140, 620, 180],
+          "role": "body",
+          "content_key": "sections[2].lead_paragraph",
+          "font_size": 24,
+          "line_height": 36,
+          "color": "#C8D5E1"
+        }
+      ]
+    }
+  }
+}

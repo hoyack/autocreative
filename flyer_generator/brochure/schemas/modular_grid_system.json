@@ -1,0 +1,341 @@
+{
+  "schema_version": "1",
+  "name": "modular_grid_system",
+  "description": "Strict modular brochure template using repeated bands, card blocks, and grid dividers for structured content.",
+  "tone_keywords": ["systematic", "grid", "catalog", "structured", "technical"],
+  "canvas": {
+    "width": 1100,
+    "height": 2550
+  },
+  "palette": {
+    "accent_default": "#2151D1",
+    "neutral_dark": "#0B1B3A",
+    "neutral_light": "#F7F9FC",
+    "muted": "#D7DFEC",
+    "extras": {
+      "panel_fill": "#EAF0FA",
+      "green_note": "#1F8A70"
+    }
+  },
+  "typography": {
+    "heading_family": "'IBM Plex Sans', 'Inter', sans-serif",
+    "body_family": "'IBM Plex Sans', 'Inter', sans-serif",
+    "cover_title_size": 98,
+    "cover_subtitle_size": 34,
+    "heading_size": 48,
+    "body_size": 28,
+    "body_line_height": 40,
+    "body_max_chars_per_line": 32,
+    "bullet_size": 26,
+    "bullet_line_height": 36
+  },
+  "panels": {
+    "front_cover": {
+      "description": "Top image band over a clean modular title stack.",
+      "background": {
+        "type": "solid",
+        "color": "#F7F9FC"
+      },
+      "elements": [
+        {
+          "type": "image_placeholder",
+          "bbox": [90, 120, 920, 760],
+          "slot": "hero",
+          "mask": "rounded",
+          "corner_radius": 18,
+          "fallback_fill": {
+            "type": "linear_gradient",
+            "angle": 15,
+            "stops": [
+              { "offset": 0.0, "color": "#EAF0FA" },
+              { "offset": 1.0, "color": "#D7DFEC" }
+            ]
+          },
+          "z": 1
+        },
+        {
+          "type": "divider",
+          "orientation": "horizontal",
+          "position": [90, 940, 1010, 940],
+          "thickness": 6.0,
+          "color": "#2151D1"
+        },
+        {
+          "type": "text",
+          "bbox": [90, 1040, 820, 220],
+          "role": "cover_title",
+          "content_key": "title",
+          "font_size": 98,
+          "line_height": 88,
+          "weight": "bold",
+          "color": "#0B1B3A"
+        },
+        {
+          "type": "text",
+          "bbox": [90, 1300, 760, 120],
+          "role": "cover_subtitle",
+          "content_key": "subtitle",
+          "font_size": 34,
+          "line_height": 42,
+          "color": "#0B1B3A"
+        },
+        {
+          "type": "text",
+          "bbox": [90, 1500, 400, 50],
+          "role": "org_name",
+          "content_key": "org",
+          "font_size": 22,
+          "line_height": 28,
+          "weight": "medium",
+          "uppercase": true,
+          "letter_spacing": 1.8,
+          "color": "#2151D1"
+        }
+      ]
+    },
+    "back_cover": {
+      "description": "Grid-aligned CTA and contact card.",
+      "background": {
+        "type": "solid",
+        "color": "#F7F9FC"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "rect",
+          "rect": [90, 140, 920, 420],
+          "fill": { "type": "solid", "color": "#EAF0FA" },
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "rect",
+          "rect": [90, 620, 920, 760],
+          "fill": { "type": "solid", "color": "#FFFFFF" },
+          "stroke": { "color": "#D7DFEC", "width": 2.0, "opacity": 1.0 },
+          "z": 1
+        },
+        {
+          "type": "text",
+          "bbox": [130, 190, 760, 130],
+          "role": "cta_heading",
+          "content_key": "back_panel.heading",
+          "font_size": 48,
+          "line_height": 54,
+          "weight": "bold",
+          "color": "#0B1B3A"
+        },
+        {
+          "type": "text",
+          "bbox": [130, 690, 760, 240],
+          "role": "cta_body",
+          "content_key": "back_panel.body",
+          "font_size": 28,
+          "line_height": 40,
+          "color": "#0B1B3A"
+        },
+        {
+          "type": "text",
+          "bbox": [130, 1030, 760, 60],
+          "role": "contact_phone",
+          "content_key": "contact.phone",
+          "font_size": 24,
+          "line_height": 30,
+          "color": "#2151D1"
+        },
+        {
+          "type": "text",
+          "bbox": [130, 1100, 760, 60],
+          "role": "contact_email",
+          "content_key": "contact.email",
+          "font_size": 24,
+          "line_height": 30,
+          "color": "#0B1B3A"
+        }
+      ]
+    },
+    "tuck_flap": {
+      "description": "Narrow modular brand strip with logo and tagline.",
+      "background": {
+        "type": "solid",
+        "color": "#EAF0FA"
+      },
+      "elements": [
+        {
+          "type": "logo_placeholder",
+          "bbox": [90, 160, 210, 210],
+          "fallback_style": "monogram_square",
+          "fallback_color": "#2151D1"
+        },
+        {
+          "type": "divider",
+          "orientation": "horizontal",
+          "position": [90, 450, 860, 450],
+          "thickness": 2.0,
+          "color": "#2151D1"
+        },
+        {
+          "type": "text",
+          "bbox": [90, 520, 700, 70],
+          "role": "org_name",
+          "content_key": "org",
+          "font_size": 36,
+          "line_height": 42,
+          "weight": "bold",
+          "color": "#0B1B3A"
+        },
+        {
+          "type": "text",
+          "bbox": [90, 620, 760, 220],
+          "role": "tagline",
+          "content_key": "tagline",
+          "font_size": 26,
+          "line_height": 36,
+          "color": "#0B1B3A"
+        }
+      ]
+    },
+    "inner_left": {
+      "description": "Feature panel with two stacked modular zones.",
+      "background": {
+        "type": "solid",
+        "color": "#F7F9FC"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "rect",
+          "rect": [90, 140, 920, 520],
+          "fill": { "type": "solid", "color": "#EAF0FA" },
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "rect",
+          "rect": [90, 720, 920, 780],
+          "fill": { "type": "solid", "color": "#FFFFFF" },
+          "stroke": { "color": "#D7DFEC", "width": 2.0, "opacity": 1.0 },
+          "z": 1
+        },
+        {
+          "type": "text",
+          "bbox": [130, 190, 720, 130],
+          "role": "section_heading",
+          "content_key": "sections[0].heading",
+          "font_size": 48,
+          "line_height": 54,
+          "weight": "bold",
+          "color": "#0B1B3A"
+        },
+        {
+          "type": "text",
+          "bbox": [130, 760, 720, 260],
+          "role": "lead_paragraph",
+          "content_key": "sections[0].lead_paragraph",
+          "font_size": 28,
+          "line_height": 40,
+          "color": "#0B1B3A"
+        }
+      ]
+    },
+    "inner_center": {
+      "description": "Middle panel uses bullets inside a bordered module.",
+      "background": {
+        "type": "solid",
+        "color": "#F7F9FC"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "rect",
+          "rect": [90, 140, 920, 1360],
+          "fill": { "type": "solid", "color": "#FFFFFF" },
+          "stroke": { "color": "#2151D1", "width": 3.0, "opacity": 1.0 },
+          "z": 1
+        },
+        {
+          "type": "text",
+          "bbox": [130, 190, 720, 130],
+          "role": "section_heading",
+          "content_key": "sections[1].heading",
+          "font_size": 48,
+          "line_height": 54,
+          "weight": "bold",
+          "color": "#0B1B3A"
+        },
+        {
+          "type": "text",
+          "bbox": [130, 390, 720, 200],
+          "role": "lead_paragraph",
+          "content_key": "sections[1].lead_paragraph",
+          "font_size": 28,
+          "line_height": 40,
+          "color": "#0B1B3A"
+        },
+        {
+          "type": "bullets",
+          "bbox": [130, 680, 720, 540],
+          "content_key": "sections[1].bullets",
+          "max_items": 6,
+          "bullet_style": "square",
+          "bullet_color": "#2151D1",
+          "text_color": "#0B1B3A",
+          "font_size": 26,
+          "line_height": 36
+        }
+      ]
+    },
+    "inner_right": {
+      "description": "Closing panel with image tile and structured notes.",
+      "background": {
+        "type": "solid",
+        "color": "#F7F9FC"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "rect",
+          "rect": [90, 140, 920, 1560],
+          "fill": { "type": "solid", "color": "#FFFFFF" },
+          "stroke": { "color": "#D7DFEC", "width": 2.0, "opacity": 1.0 },
+          "z": 1
+        },
+        {
+          "type": "image_placeholder",
+          "bbox": [130, 190, 720, 440],
+          "slot": "spot_1",
+          "mask": "rounded",
+          "corner_radius": 16,
+          "fallback_fill": {
+            "type": "linear_gradient",
+            "angle": 10,
+            "stops": [
+              { "offset": 0.0, "color": "#EAF0FA" },
+              { "offset": 1.0, "color": "#D7DFEC" }
+            ]
+          },
+          "z": 2
+        },
+        {
+          "type": "text",
+          "bbox": [130, 720, 720, 120],
+          "role": "section_heading",
+          "content_key": "sections[2].heading",
+          "font_size": 48,
+          "line_height": 54,
+          "weight": "bold",
+          "color": "#0B1B3A"
+        },
+        {
+          "type": "text",
+          "bbox": [130, 900, 720, 260],
+          "role": "body",
+          "content_key": "sections[2].lead_paragraph",
+          "font_size": 28,
+          "line_height": 40,
+          "color": "#0B1B3A"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,353 @@
+{
+  "schema_version": "1",
+  "name": "layered_depth_stack",
+  "description": "Multi-layer brochure template using stacked translucent cards, offset surfaces, and overlapping content planes.",
+  "tone_keywords": ["layered", "luxury", "immersive", "premium", "depth"],
+  "canvas": {
+    "width": 1100,
+    "height": 2550
+  },
+  "palette": {
+    "accent_default": "#C96C2D",
+    "neutral_dark": "#1F2933",
+    "neutral_light": "#FBF7F1",
+    "muted": "#E6DCCF",
+    "extras": {
+      "warm_shadow": "#D6B79A",
+      "sage": "#8AA391"
+    }
+  },
+  "typography": {
+    "heading_family": "'Manrope', 'Inter', sans-serif",
+    "body_family": "'Inter', 'Helvetica Neue', sans-serif",
+    "cover_title_size": 108,
+    "cover_subtitle_size": 36,
+    "heading_size": 52,
+    "body_size": 30,
+    "body_line_height": 42,
+    "body_max_chars_per_line": 29,
+    "bullet_size": 28,
+    "bullet_line_height": 38
+  },
+  "panels": {
+    "front_cover": {
+      "description": "Hero image sits in a stacked set of translucent rounded cards.",
+      "background": {
+        "type": "linear_gradient",
+        "angle": 180,
+        "stops": [
+          { "offset": 0.0, "color": "#FBF7F1" },
+          { "offset": 1.0, "color": "#F1E7DA" }
+        ]
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "rounded_rect",
+          "rect": [190, 180, 700, 980],
+          "path_params": { "corner_radius": 42 },
+          "fill": { "type": "solid", "color": "#D6B79A", "opacity": 0.45 },
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "rounded_rect",
+          "rect": [140, 130, 700, 980],
+          "path_params": { "corner_radius": 42 },
+          "fill": { "type": "solid", "color": "#FFFFFF", "opacity": 0.72 },
+          "z": 2
+        },
+        {
+          "type": "image_placeholder",
+          "bbox": [170, 160, 700, 980],
+          "slot": "hero",
+          "mask": "rounded",
+          "corner_radius": 42,
+          "fallback_fill": {
+            "type": "linear_gradient",
+            "angle": 35,
+            "stops": [
+              { "offset": 0.0, "color": "#E6DCCF" },
+              { "offset": 1.0, "color": "#FBF7F1" }
+            ]
+          },
+          "z": 3
+        },
+        {
+          "type": "shape",
+          "kind": "rounded_rect",
+          "rect": [330, 990, 580, 560],
+          "path_params": { "corner_radius": 30 },
+          "fill": { "type": "solid", "color": "#FFFFFF", "opacity": 0.9 },
+          "z": 4
+        },
+        {
+          "type": "text",
+          "bbox": [380, 1080, 470, 220],
+          "role": "cover_title",
+          "content_key": "title",
+          "font_size": 108,
+          "line_height": 94,
+          "weight": "bold",
+          "color": "#1F2933"
+        },
+        {
+          "type": "text",
+          "bbox": [380, 1320, 450, 140],
+          "role": "cover_subtitle",
+          "content_key": "subtitle",
+          "font_size": 36,
+          "line_height": 44,
+          "color": "#1F2933"
+        }
+      ]
+    },
+    "back_cover": {
+      "description": "CTA card floated above a warm background panel.",
+      "background": {
+        "type": "solid",
+        "color": "#FBF7F1"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "rounded_rect",
+          "rect": [180, 220, 720, 1120],
+          "path_params": { "corner_radius": 32 },
+          "fill": { "type": "solid", "color": "#D6B79A", "opacity": 0.35 },
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "rounded_rect",
+          "rect": [120, 160, 720, 1120],
+          "path_params": { "corner_radius": 32 },
+          "fill": { "type": "solid", "color": "#FFFFFF", "opacity": 0.95 },
+          "z": 2
+        },
+        {
+          "type": "text",
+          "bbox": [170, 250, 600, 160],
+          "role": "cta_heading",
+          "content_key": "back_panel.heading",
+          "font_size": 52,
+          "line_height": 58,
+          "weight": "bold",
+          "color": "#1F2933"
+        },
+        {
+          "type": "text",
+          "bbox": [170, 460, 600, 300],
+          "role": "cta_body",
+          "content_key": "back_panel.body",
+          "font_size": 30,
+          "line_height": 42,
+          "color": "#1F2933"
+        },
+        {
+          "type": "text",
+          "bbox": [170, 860, 600, 70],
+          "role": "contact_url",
+          "content_key": "contact.url",
+          "font_size": 24,
+          "line_height": 30,
+          "color": "#C96C2D"
+        }
+      ]
+    },
+    "tuck_flap": {
+      "description": "Stacked micro-cards for a compact brand lockup.",
+      "background": {
+        "type": "solid",
+        "color": "#FBF7F1"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "rounded_rect",
+          "rect": [170, 220, 500, 240],
+          "path_params": { "corner_radius": 24 },
+          "fill": { "type": "solid", "color": "#D6B79A", "opacity": 0.4 },
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "rounded_rect",
+          "rect": [120, 180, 500, 240],
+          "path_params": { "corner_radius": 24 },
+          "fill": { "type": "solid", "color": "#FFFFFF", "opacity": 0.95 },
+          "z": 2
+        },
+        {
+          "type": "text",
+          "bbox": [160, 240, 420, 60],
+          "role": "org_name",
+          "content_key": "org",
+          "font_size": 34,
+          "line_height": 40,
+          "weight": "bold",
+          "color": "#1F2933"
+        },
+        {
+          "type": "text",
+          "bbox": [160, 330, 500, 160],
+          "role": "tagline",
+          "content_key": "tagline",
+          "font_size": 24,
+          "line_height": 32,
+          "color": "#1F2933"
+        }
+      ]
+    },
+    "inner_left": {
+      "description": "Article panel built from layered translucent cards.",
+      "background": {
+        "type": "solid",
+        "color": "#FBF7F1"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "rounded_rect",
+          "rect": [170, 250, 720, 1320],
+          "path_params": { "corner_radius": 28 },
+          "fill": { "type": "solid", "color": "#D6B79A", "opacity": 0.38 },
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "rounded_rect",
+          "rect": [120, 200, 720, 1320],
+          "path_params": { "corner_radius": 28 },
+          "fill": { "type": "solid", "color": "#FFFFFF", "opacity": 0.92 },
+          "z": 2
+        },
+        {
+          "type": "text",
+          "bbox": [170, 300, 600, 150],
+          "role": "section_heading",
+          "content_key": "sections[0].heading",
+          "font_size": 52,
+          "line_height": 58,
+          "weight": "bold",
+          "color": "#1F2933"
+        },
+        {
+          "type": "text",
+          "bbox": [170, 500, 600, 340],
+          "role": "lead_paragraph",
+          "content_key": "sections[0].lead_paragraph",
+          "font_size": 30,
+          "line_height": 42,
+          "color": "#1F2933"
+        }
+      ]
+    },
+    "inner_center": {
+      "description": "Center panel uses layered cards plus bullets.",
+      "background": {
+        "type": "solid",
+        "color": "#FBF7F1"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "rounded_rect",
+          "rect": [180, 220, 660, 1450],
+          "path_params": { "corner_radius": 30 },
+          "fill": { "type": "solid", "color": "#8AA391", "opacity": 0.25 },
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "rounded_rect",
+          "rect": [120, 160, 660, 1450],
+          "path_params": { "corner_radius": 30 },
+          "fill": { "type": "solid", "color": "#FFFFFF", "opacity": 0.94 },
+          "z": 2
+        },
+        {
+          "type": "text",
+          "bbox": [170, 270, 560, 140],
+          "role": "section_heading",
+          "content_key": "sections[1].heading",
+          "font_size": 52,
+          "line_height": 58,
+          "weight": "bold",
+          "color": "#1F2933"
+        },
+        {
+          "type": "bullets",
+          "bbox": [170, 470, 560, 520],
+          "content_key": "sections[1].bullets",
+          "max_items": 5,
+          "bullet_style": "accent_block",
+          "bullet_color": "#C96C2D",
+          "text_color": "#1F2933",
+          "font_size": 28,
+          "line_height": 38
+        }
+      ]
+    },
+    "inner_right": {
+      "description": "Right panel combines a floating image card and text card.",
+      "background": {
+        "type": "solid",
+        "color": "#FBF7F1"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "rounded_rect",
+          "rect": [170, 210, 700, 560],
+          "path_params": { "corner_radius": 28 },
+          "fill": { "type": "solid", "color": "#D6B79A", "opacity": 0.38 },
+          "z": 1
+        },
+        {
+          "type": "image_placeholder",
+          "bbox": [120, 160, 700, 560],
+          "slot": "spot_1",
+          "mask": "rounded",
+          "corner_radius": 28,
+          "fallback_fill": {
+            "type": "linear_gradient",
+            "angle": 20,
+            "stops": [
+              { "offset": 0.0, "color": "#E6DCCF" },
+              { "offset": 1.0, "color": "#FBF7F1" }
+            ]
+          },
+          "z": 2
+        },
+        {
+          "type": "shape",
+          "kind": "rounded_rect",
+          "rect": [300, 780, 580, 680],
+          "path_params": { "corner_radius": 24 },
+          "fill": { "type": "solid", "color": "#FFFFFF", "opacity": 0.92 },
+          "z": 3
+        },
+        {
+          "type": "text",
+          "bbox": [350, 870, 470, 150],
+          "role": "section_heading",
+          "content_key": "sections[2].heading",
+          "font_size": 50,
+          "line_height": 56,
+          "weight": "bold",
+          "color": "#1F2933"
+        },
+        {
+          "type": "text",
+          "bbox": [350, 1050, 430, 260],
+          "role": "body",
+          "content_key": "sections[2].lead_paragraph",
+          "font_size": 28,
+          "line_height": 40,
+          "color": "#1F2933"
+        }
+      ]
+    }
+  }
+}
