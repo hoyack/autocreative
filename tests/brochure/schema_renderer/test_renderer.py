@@ -321,3 +321,86 @@ def test_textures_missing_slot_falls_back_to_fallback_fill() -> None:
     outside, _ = render_schema_brochure(t, c)
     assert "<pattern" not in outside
     assert "#222222" in outside
+
+
+# --------------------------------------------------------------------------- #
+# Phase 6 — real logo embedding in logo_placeholder
+# --------------------------------------------------------------------------- #
+
+
+def _template_with_logo_placeholder():
+    """In-memory template whose tuck_flap has a single logo_placeholder."""
+    from flyer_generator.brochure.schema_renderer.schema_model import (
+        Canvas,
+        LogoPlaceholder,
+        Palette,
+        PanelSchema,
+        TemplateSchema,
+    )
+
+    logo_el = LogoPlaceholder(
+        bbox=(100.0, 100.0, 400.0, 200.0),
+        fallback_style="monogram_circle",
+    )
+    return TemplateSchema(
+        schema_version="1",
+        name="test_logo",
+        description="template with a logo_placeholder",
+        canvas=Canvas(width=1100, height=2550),
+        palette=Palette(accent_default="#ABABAB"),
+        panels={
+            "front_cover": PanelSchema(elements=[]),
+            "back_cover": PanelSchema(elements=[]),
+            "tuck_flap": PanelSchema(elements=[logo_el]),
+            "inner_left": PanelSchema(elements=[]),
+            "inner_center": PanelSchema(elements=[]),
+            "inner_right": PanelSchema(elements=[]),
+        },
+    )
+
+
+def test_logo_bytes_emits_base64_image_when_supplied() -> None:
+    t = _template_with_logo_placeholder()
+    c = _sample_content()
+    outside, _ = render_schema_brochure(t, c, logo_bytes=_png_bytes())
+    # Logo is embedded as <image> with xMidYMid meet (logos never crop)
+    assert "<image " in outside
+    assert 'preserveAspectRatio="xMidYMid meet"' in outside
+    assert "data:image/png;base64," in outside
+
+
+def test_logo_absent_renders_monogram_fallback() -> None:
+    t = _template_with_logo_placeholder()
+    c = _sample_content()
+    outside, _ = render_schema_brochure(t, c)
+    # No logo → monogram circle + initials of the org ("Acme Test Co" → "AT")
+    assert "<circle" in outside
+    assert "AT" in outside
+    assert "<image " not in outside
+
+
+def test_logo_svg_input_inlines_as_nested_svg() -> None:
+    t = _template_with_logo_placeholder()
+    c = _sample_content()
+    svg_logo = (
+        b'<?xml version="1.0" encoding="UTF-8"?>'
+        b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+        b'<circle cx="50" cy="50" r="40" fill="#123456"/></svg>'
+    )
+    outside, _ = render_schema_brochure(t, c, logo_bytes=svg_logo)
+    # Inner <svg> viewport emitted at the bbox position
+    assert 'x="100' in outside or 'x="100.0' in outside
+    # The nested logo markup is inlined (fill color flows through)
+    assert "#123456" in outside
+    # Not a base64 data URL
+    assert "data:image/png" not in outside
+
+
+def test_logo_jpeg_uses_jpeg_mime_type() -> None:
+    """JPG logos should be embedded with image/jpeg MIME type."""
+    t = _template_with_logo_placeholder()
+    c = _sample_content()
+    # Minimal JPEG SOI marker — enough for our content-type sniff
+    jpeg_bytes = b"\xff\xd8\xff\xe0" + b"\x00" * 100
+    outside, _ = render_schema_brochure(t, c, logo_bytes=jpeg_bytes)
+    assert "data:image/jpeg;base64," in outside

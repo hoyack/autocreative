@@ -338,12 +338,78 @@ def _render_bullets_element(
     return "".join(parts)
 
 
+def _strip_svg_prolog(svg_text: str) -> str:
+    """Remove XML prolog (`<?xml …?>`) and DOCTYPE so the SVG can be nested.
+
+    An XML declaration is only legal at the start of a document; inlining it
+    inside another <svg> breaks cairo. DOCTYPE is likewise invalid mid-stream.
+    """
+    import re
+
+    # Strip leading whitespace/BOM
+    text = svg_text.lstrip("\ufeff \t\r\n")
+    # Drop <?xml …?>
+    text = re.sub(r"^\s*<\?xml[^?]*\?>\s*", "", text)
+    # Drop <!DOCTYPE …>
+    text = re.sub(r"^\s*<!DOCTYPE[^>]*>\s*", "", text)
+    return text
+
+
+def _embed_logo(
+    el: LogoPlaceholder,
+    logo_bytes: bytes,
+    salt: str,
+) -> str:
+    """Embed a user-supplied logo inside the placeholder bbox.
+
+    Uses `preserveAspectRatio="xMidYMid meet"` so the logo is scaled to fit
+    inside the bbox *without* cropping — letterboxing is acceptable (the
+    placeholder's containing panel background shows through).
+
+    Detects SVG by the leading bytes (`<?xml`, `<svg`, or a Unicode BOM) and
+    inlines the SVG contents; otherwise treats the bytes as raster (PNG/JPG)
+    and emits a base64 <image> data URL.
+    """
+    x, y, w, h = el.bbox
+
+    head = logo_bytes.lstrip()[:64].lower()
+    is_svg = head.startswith(b"<?xml") or head.startswith(b"<svg")
+
+    if is_svg:
+        svg_text = logo_bytes.decode("utf-8", errors="replace")
+        svg_text = _strip_svg_prolog(svg_text)
+        # Wrap in a <svg x y width height> sub-element so the inner <svg> behaves
+        # like a viewport. Most SVG logos have their own viewBox.
+        return (
+            f'<svg x="{x}" y="{y}" width="{w}" height="{h}" '
+            f'preserveAspectRatio="xMidYMid meet" overflow="visible">'
+            f"{svg_text}</svg>"
+        )
+
+    b64 = base64.b64encode(logo_bytes).decode("ascii")
+    # Crude content-type detection — PNG and JPG are by far the most common.
+    if logo_bytes[:3] == b"\xff\xd8\xff":
+        mime = "image/jpeg"
+    else:
+        mime = "image/png"
+    href = f"data:{mime};base64,{b64}"
+    return (
+        f'<image x="{x}" y="{y}" width="{w}" height="{h}" '
+        f'preserveAspectRatio="xMidYMid meet" href="{href}"/>'
+    )
+
+
 def _render_logo_placeholder(
     el: LogoPlaceholder,
     content: BrochureContent,
     schema: TemplateSchema,
+    logo_bytes: bytes | None = None,
+    salt: str = "logo",
 ) -> str:
-    """Render a monogram (Phase 1 fallback). Phase 6 will support real logos."""
+    """Render a real logo when `logo_bytes` supplied, else a monogram fallback."""
+    if logo_bytes is not None:
+        return _embed_logo(el, logo_bytes, salt)
+
     x, y, w, h = el.bbox
     bg_color = el.fallback_color or schema.palette.accent_default
     # Monogram: take the first letter of each word in org, up to 2 letters
@@ -527,6 +593,7 @@ def _render_panel(
     schema: TemplateSchema,
     images: dict[str, bytes] | None = None,
     textures: dict[str, bytes] | None = None,
+    logo_bytes: bytes | None = None,
 ) -> str:
     tx, ty, tw, th = panel_rect.trim_rect
     margins = panel_bleed_margins(panel_rect)
@@ -567,7 +634,9 @@ def _render_panel(
         elif isinstance(el, BulletsElement):
             parts.append(_render_bullets_element(el, content, schema))
         elif isinstance(el, LogoPlaceholder):
-            parts.append(_render_logo_placeholder(el, content, schema))
+            parts.append(
+                _render_logo_placeholder(el, content, schema, logo_bytes, salt)
+            )
         elif isinstance(el, ImagePlaceholder):
             parts.append(
                 _render_image_placeholder(el, content, schema, images, salt, textures)
@@ -607,9 +676,12 @@ def _render_sheet(
     sheet_name: str,
     images: dict[str, bytes] | None = None,
     textures: dict[str, bytes] | None = None,
+    logo_bytes: bytes | None = None,
 ) -> str:
     body = "".join(
-        _render_panel(panel_schema, panel_rect, content, schema, images, textures)
+        _render_panel(
+            panel_schema, panel_rect, content, schema, images, textures, logo_bytes
+        )
         for panel_rect, panel_schema in panels
     )
     # Crop marks only for this sheet's corners
@@ -655,6 +727,7 @@ def render_schema_brochure(
     *,
     images: dict[str, bytes] | None = None,
     textures: dict[str, bytes] | None = None,
+    logo_bytes: bytes | None = None,
 ) -> tuple[str, str]:
     """Render a template + content pair to (outside_svg, inside_svg).
 
@@ -666,6 +739,10 @@ def render_schema_brochure(
     When `textures` is supplied, any `texture_slot` fill whose slot name matches
     a key is rendered as a tiled `<pattern>` referencing the image bytes; slots
     missing from the dict fall back to the `texture_slot.fallback` fill.
+
+    When `logo_bytes` is supplied, every `logo_placeholder` element renders the
+    logo (PNG/JPG base64-embedded via `<image>`, or inline SVG) scaled with
+    `preserveAspectRatio="xMidYMid meet"`. Absent → monogram fallback.
     """
     layout = compute_panel_layout()
 
@@ -686,9 +763,11 @@ def render_schema_brochure(
         inside_panels.append((panel_rect, schema_panel))
 
     outside_svg = _render_sheet(
-        outside_panels, layout, template, content, "outside", images, textures
+        outside_panels, layout, template, content,
+        "outside", images, textures, logo_bytes,
     )
     inside_svg = _render_sheet(
-        inside_panels, layout, template, content, "inside", images, textures
+        inside_panels, layout, template, content,
+        "inside", images, textures, logo_bytes,
     )
     return outside_svg, inside_svg

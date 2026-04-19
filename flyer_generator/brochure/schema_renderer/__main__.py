@@ -87,6 +87,14 @@ def render(
             help="Directory of <slot>.png files used to fill texture_slot shape fills.",
         ),
     ] = None,
+    logo: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--logo",
+            help="Path to a PNG/JPG/SVG logo file. Used for every logo_placeholder "
+            "element in the template; absent → monogram fallback.",
+        ),
+    ] = None,
 ) -> None:
     """Render a brochure from a template schema + content JSON."""
     if list_templates_only:
@@ -149,9 +157,17 @@ def render(
         }
         typer.echo(f"Loaded textures: {list(textures.keys())}")
 
+    logo_bytes: bytes | None = None
+    if logo is not None:
+        if not logo.is_file():
+            typer.echo(f"Error: --logo {logo} is not a file.", err=True)
+            raise typer.Exit(2)
+        logo_bytes = logo.read_bytes()
+        typer.echo(f"Loaded logo: {logo.name} ({len(logo_bytes)} bytes)")
+
     typer.echo(f"Rendering {tmpl.name} × {content.name}…")
     outside_svg, inside_svg = render_schema_brochure(
-        tmpl, ct, images=images, textures=textures
+        tmpl, ct, images=images, textures=textures, logo_bytes=logo_bytes
     )
 
     if write_svg:
