@@ -1,0 +1,65 @@
+{
+  "title": "Protecting Your Family's Tomorrow",
+  "subtitle": "Estate planning for families with young children",
+  "tagline": "Clear advice. Flat fees. Evening appointments for busy parents.",
+  "org": "Harbor & Vale",
+  "hero_concept": "A warm golden-hour photograph of a young family on a sunlit porch",
+  "color_accent": "#1E3A5F",
+  "contact": {
+    "name": "Ellen Vale, Esq.",
+    "phone": "(415) 555-0199",
+    "email": "hello@harborvalelaw.com",
+    "url": "harborvalelaw.com",
+    "address": "225 Bush Street, Suite 1200 · San Francisco, CA 94104"
+  },
+  "sections": [
+    {
+      "heading": "Why Young Families Need a Plan",
+      "lead_paragraph": "Most parents under 45 have no will. Without one, California courts decide who raises your children and how your home is divided.",
+      "body_paragraphs": [],
+      "bullets": [
+        "Name guardians for your children",
+        "Skip probate (12 to 18 months in CA)",
+        "Protect your home from forced sale",
+        "Reduce estate tax exposure",
+        "Keep medical decisions in the family"
+      ]
+    },
+    {
+      "heading": "What We Prepare",
+      "lead_paragraph": "Every plan is a complete binder: tabbed, printed, and digitally backed up. No templates, no DIY PDFs.",
+      "body_paragraphs": [],
+      "bullets": [
+        "Revocable living trust",
+        "Pour-over will with guardians",
+        "Durable power of attorney",
+        "HIPAA and living-will directives",
+        "Trustee training session"
+      ]
+    },
+    {
+      "heading": "Our Process",
+      "lead_paragraph": "Two visits. No paperwork in advance. Evening and Saturday appointments for busy parents.",
+      "body_paragraphs": [],
+      "bullets": [
+        "Visit 1 — values and assets, 90 minutes",
+        "Behind the scenes — draft and review",
+        "Visit 2 — sign, notarize, and binder",
+        "Year 3 — free review and updates"
+      ]
+    }
+  ],
+  "back_panel": {
+    "kind": "cta",
+    "heading": "Ready to protect what matters?",
+    "body": "Your first consultation is free and takes 30 minutes — in person, by video, or on the phone. Bring nothing but your questions.",
+    "bullets": [
+      "Call (415) 555-0199",
+      "Book online at harborvalelaw.com/book",
+      "Text BINDER to 44-555 for a same-week slot",
+      "Mention this brochure to waive the $295 trust-funding fee"
+    ],
+    "cta_label": "Book a free consultation",
+    "footer_note": "Offer valid through December 31st."
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "schema_version": "1",
+  "name": "quote_center",
+  "description": "Whitespace-positive: one large pull-quote on front cover, gradient back panel, minimal inner panels with ribbon accents. Works for non-profits, mission-driven brands, hospitality.",
+  "tone_keywords": ["calm", "mission-driven", "non-profit", "testimonial", "whitespace"],
+  "canvas": { "width": 1100, "height": 2550 },
+  "palette": {
+    "accent_default": "#2F6E5B",
+    "neutral_dark": "#1F2937",
+    "neutral_light": "#FDFBF6",
+    "muted": "#E8E3D8"
+  },
+  "typography": {
+    "heading_family": "'Playfair Display', Georgia, serif",
+    "body_family": "'Source Serif Pro', Georgia, serif",
+    "cover_title_size": 112,
+    "cover_subtitle_size": 38,
+    "heading_size": 58,
+    "body_size": 30,
+    "body_line_height": 46,
+    "body_max_chars_per_line": 32,
+    "bullet_size": 30,
+    "bullet_line_height": 42
+  },
+  "panels": {
+    "front_cover": {
+      "description": "Cream background. Huge oval pull quote shape centered. Title at top, org at bottom.",
+      "background": { "type": "solid", "color": "#FDFBF6" },
+      "elements": [
+        { "type": "shape", "kind": "rect", "rect": [0, 0, 1100, 6], "fill": { "type": "solid", "color": "#2F6E5B" }, "bleed": "top", "z": 0 },
+        { "type": "text", "bbox": [80, 160, 940, 60], "role": "static", "static_text": "A NEW STORY", "font_size": 28, "letter_spacing": 8, "color": "#2F6E5B", "uppercase": true, "align": "center", "font_family": "'Source Serif Pro', Georgia, serif", "z": 10 },
+        { "type": "shape", "kind": "ellipse", "rect": [80, 280, 940, 1460], "fill": { "type": "linear_gradient", "stops": [{ "offset": 0.0, "color": "#2F6E5B", "opacity": 0.18 }, { "offset": 1.0, "color": "#FDFBF6", "opacity": 1.0 }], "angle": 135 }, "z": 2 },
+        { "type": "text", "bbox": [160, 420, 780, 160], "role": "static", "static_text": "\u201C", "font_size": 280, "line_height": 280, "color": "#2F6E5B", "weight": "bold", "align": "left", "z": 10 },
+        { "type": "text", "bbox": [120, 600, 860, 740], "role": "cover_title", "content_key": "title", "color": "#1F2937", "font_size": 86, "line_height": 108, "align": "center", "italic": true, "z": 10 },
+        { "type": "shape", "kind": "rect", "rect": [470, 1420, 160, 4], "fill": { "type": "solid", "color": "#2F6E5B" }, "z": 8 },
+        { "type": "text", "bbox": [120, 1450, 860, 180], "role": "cover_subtitle", "content_key": "subtitle", "font_size": 34, "align": "center", "color": "#4B5563", "z": 10 },
+        { "type": "text", "bbox": [80, 2020, 940, 100], "role": "org_name", "content_key": "org", "align": "center", "font_size": 44, "uppercase": true, "letter_spacing": 8, "color": "#2F6E5B", "weight": "semibold", "z": 10 },
+        { "type": "text", "bbox": [80, 2140, 940, 80], "role": "tagline", "content_key": "tagline", "align": "center", "font_size": 28, "italic": true, "color": "#6B7280", "z": 10 },
+        { "type": "shape", "kind": "rect", "rect": [0, 2500, 1100, 50], "fill": { "type": "linear_gradient", "stops": [{ "offset": 0.0, "color": "#FDFBF6", "opacity": 0.0 }, { "offset": 1.0, "color": "#2F6E5B", "opacity": 0.22 }], "angle": 180 }, "bleed": "bottom", "z": 1 }
+      ]
+    },
+    "back_cover": {
+      "description": "Gradient green panel, quote-style CTA, minimal contact.",
+      "background": { "type": "linear_gradient", "stops": [{ "offset": 0.0, "color": "#2F6E5B", "opacity": 1.0 }, { "offset": 1.0, "color": "#1D4A3C", "opacity": 1.0 }], "angle": 180 },
+      "elements": [
+        { "type": "shape", "kind": "rect", "rect": [0, 0, 1100, 2550], "fill": { "type": "linear_gradient", "stops": [{ "offset": 0.0, "color": "#2F6E5B", "opacity": 1.0 }, { "offset": 1.0, "color": "#1D4A3C", "opacity": 1.0 }], "angle": 180 }, "bleed": "all", "z": 0 },
+        { "type": "text", "bbox": [80, 220, 940, 80], "role": "static", "static_text": "GET IN TOUCH", "font_size": 26, "letter_spacing": 8, "color": "#FDFBF6", "opacity": 0.8, "uppercase": true, "align": "center", "font_family": "'Source Serif Pro', Georgia, serif", "z": 10 },
+        { "type": "text", "bbox": [80, 320, 940, 360], "role": "cta_heading", "content_key": "back_panel.heading", "align": "center", "font_size": 76, "line_height": 90, "italic": true, "color": "#FDFBF6", "z": 10 },
+        { "type": "shape", "kind": "rect", "rect": [470, 720, 160, 3], "fill": { "type": "solid", "color": "#FDFBF6" }, "opacity": 0.7, "z": 8 },
+        { "type": "text", "bbox": [120, 760, 860, 300], "role": "cta_body", "content_key": "back_panel.body", "align": "center", "font_size": 32, "line_height": 48, "color": "#FDFBF6", "z": 10 },
+        { "type": "bullets", "bbox": [120, 1100, 860, 520], "content_key": "back_panel.bullets", "max_items": 4, "max_chars_per_item": 48, "bullet_style": "dash", "font_size": 30, "line_height": 42, "text_color": "#FDFBF6", "bullet_color": "#FDFBF6", "item_spacing": 24, "z": 10 },
+        { "type": "shape", "kind": "ellipse", "rect": [200, 1720, 700, 700], "fill": { "type": "solid", "color": "#FDFBF6" }, "opacity": 0.08, "z": 1 },
+        { "type": "logo_placeholder", "bbox": [450, 1820, 200, 200], "fallback_style": "monogram_circle", "fallback_color": "#FDFBF6", "z": 10 },
+        { "type": "text", "bbox": [80, 2040, 940, 60], "role": "org_name", "content_key": "org", "align": "center", "font_size": 36, "uppercase": true, "letter_spacing": 6, "color": "#FDFBF6", "z": 10 },
+        { "type": "text", "bbox": [80, 2120, 940, 50], "role": "contact_url", "content_key": "contact.url", "align": "center", "font_size": 28, "italic": true, "color": "#FDFBF6", "opacity": 0.85, "z": 10 },
+        { "type": "text", "bbox": [80, 2180, 940, 50], "role": "contact_phone", "content_key": "contact.phone", "align": "center", "font_size": 28, "color": "#FDFBF6", "opacity": 0.7, "z": 10 },
+        { "type": "text", "bbox": [80, 2240, 940, 50], "role": "contact_email", "content_key": "contact.email", "align": "center", "font_size": 28, "color": "#FDFBF6", "opacity": 0.7, "z": 10 }
+      ]
+    },
+    "tuck_flap": {
+      "description": "Cream panel with a vertical ribbon of accent.",
+      "background": { "type": "solid", "color": "#FDFBF6" },
+      "elements": [
+        { "type": "shape", "kind": "ribbon", "rect": [360, -40, 380, 2630], "path_params": { "skew": 80 }, "fill": { "type": "linear_gradient", "stops": [{ "offset": 0.0, "color": "#2F6E5B", "opacity": 0.9 }, { "offset": 1.0, "color": "#2F6E5B", "opacity": 0.4 }], "angle": 180 }, "bleed": "all", "z": 2 },
+        { "type": "logo_placeholder", "bbox": [400, 720, 300, 300], "fallback_style": "monogram_circle", "fallback_color": "#FDFBF6", "z": 10 },
+        { "type": "text", "bbox": [80, 1120, 940, 110], "role": "org_name", "content_key": "org", "align": "center", "font_size": 40, "uppercase": true, "letter_spacing": 8, "weight": "semibold", "color": "#FDFBF6", "z": 10 },
+        { "type": "shape", "kind": "rect", "rect": [490, 1250, 120, 3], "fill": { "type": "solid", "color": "#FDFBF6" }, "z": 8 },
+        { "type": "text", "bbox": [80, 1290, 940, 320], "role": "tagline", "content_key": "tagline", "align": "center", "font_size": 34, "line_height": 50, "italic": true, "color": "#FDFBF6", "z": 10 },
+        { "type": "text", "bbox": [80, 2420, 940, 50], "role": "contact_url", "content_key": "contact.url", "align": "center", "font_size": 26, "color": "#FDFBF6", "opacity": 0.8, "z": 10 }
+      ]
+    },
+    "inner_left": {
+      "description": "Cream panel. Large heading, italic lead, short bullets. Whitespace-positive.",
+      "background": { "type": "solid", "color": "#FDFBF6" },
+      "elements": [
+        { "type": "shape", "kind": "rect", "rect": [0, 0, 1100, 6], "fill": { "type": "solid", "color": "#2F6E5B" }, "bleed": "top", "z": 0 },
+        { "type": "text", "bbox": [80, 180, 940, 60], "role": "static", "static_text": "ONE", "font_size": 28, "letter_spacing": 8, "color": "#2F6E5B", "uppercase": true, "font_family": "'Source Serif Pro', Georgia, serif", "z": 10 },
+        { "type": "text", "bbox": [80, 260, 940, 380], "role": "section_heading", "content_key": "sections[0].heading", "section_index": 0, "color": "#1F2937", "font_size": 72, "line_height": 86, "italic": true, "z": 10 },
+        { "type": "shape", "kind": "rect", "rect": [80, 680, 180, 3], "fill": { "type": "solid", "color": "#2F6E5B" }, "z": 6 },
+        { "type": "text", "bbox": [80, 720, 940, 420], "role": "lead_paragraph", "content_key": "sections[0].lead_paragraph", "section_index": 0, "color": "#1F2937", "font_size": 32, "line_height": 48, "z": 10 },
+        { "type": "bullets", "bbox": [80, 1200, 940, 900], "content_key": "sections[0].bullets", "section_index": 0, "max_items": 4, "max_chars_per_item": 52, "bullet_style": "dash", "font_size": 28, "line_height": 42, "text_color": "#1F2937", "bullet_color": "#2F6E5B", "item_spacing": 26, "z": 10 },
+        { "type": "shape", "kind": "ellipse", "rect": [880, 2280, 200, 200], "fill": { "type": "solid", "color": "#2F6E5B" }, "opacity": 0.12, "bleed": "right", "z": 1 }
+      ]
+    },
+    "inner_center": {
+      "description": "Cream with a subtle ribbon accent. Quote or lead passage given prominence.",
+      "background": { "type": "solid", "color": "#FDFBF6" },
+      "elements": [
+        { "type": "shape", "kind": "rect", "rect": [0, 0, 1100, 6], "fill": { "type": "solid", "color": "#2F6E5B" }, "bleed": "top", "z": 0 },
+        { "type": "text", "bbox": [80, 180, 940, 60], "role": "static", "static_text": "TWO", "font_size": 28, "letter_spacing": 8, "color": "#2F6E5B", "uppercase": true, "font_family": "'Source Serif Pro', Georgia, serif", "z": 10 },
+        { "type": "text", "bbox": [80, 260, 940, 380], "role": "section_heading", "content_key": "sections[1].heading", "section_index": 1, "color": "#1F2937", "font_size": 72, "line_height": 86, "italic": true, "z": 10 },
+        { "type": "shape", "kind": "rect", "rect": [80, 680, 180, 3], "fill": { "type": "solid", "color": "#2F6E5B" }, "z": 6 },
+        { "type": "text", "bbox": [80, 720, 940, 420], "role": "lead_paragraph", "content_key": "sections[1].lead_paragraph", "section_index": 1, "color": "#1F2937", "font_size": 32, "line_height": 48, "z": 10 },
+        { "type": "bullets", "bbox": [80, 1200, 940, 900], "content_key": "sections[1].bullets", "section_index": 1, "max_items": 4, "max_chars_per_item": 52, "bullet_style": "dash", "font_size": 28, "line_height": 42, "text_color": "#1F2937", "bullet_color": "#2F6E5B", "item_spacing": 26, "z": 10 },
+        { "type": "shape", "kind": "circle", "rect": [-180, 2200, 380, 380], "fill": { "type": "solid", "color": "#2F6E5B" }, "opacity": 0.10, "bleed": "left", "z": 1 }
+      ]
+    },
+    "inner_right": {
+      "description": "Cream panel mirroring inner_left; accent ribbon on opposite side.",
+      "background": { "type": "solid", "color": "#FDFBF6" },
+      "elements": [
+        { "type": "shape", "kind": "rect", "rect": [0, 0, 1100, 6], "fill": { "type": "solid", "color": "#2F6E5B" }, "bleed": "top", "z": 0 },
+        { "type": "text", "bbox": [80, 180, 940, 60], "role": "static", "static_text": "THREE", "font_size": 28, "letter_spacing": 8, "color": "#2F6E5B", "uppercase": true, "font_family": "'Source Serif Pro', Georgia, serif", "z": 10 },
+        { "type": "text", "bbox": [80, 260, 940, 380], "role": "section_heading", "content_key": "sections[2].heading", "section_index": 2, "color": "#1F2937", "font_size": 72, "line_height": 86, "italic": true, "z": 10 },
+        { "type": "shape", "kind": "rect", "rect": [80, 680, 180, 3], "fill": { "type": "solid", "color": "#2F6E5B" }, "z": 6 },
+        { "type": "text", "bbox": [80, 720, 940, 420], "role": "lead_paragraph", "content_key": "sections[2].lead_paragraph", "section_index": 2, "color": "#1F2937", "font_size": 32, "line_height": 48, "z": 10 },
+        { "type": "bullets", "bbox": [80, 1200, 940, 900], "content_key": "sections[2].bullets", "section_index": 2, "max_items": 4, "max_chars_per_item": 52, "bullet_style": "dash", "font_size": 28, "line_height": 42, "text_color": "#1F2937", "bullet_color": "#2F6E5B", "item_spacing": 26, "z": 10 },
+        { "type": "shape", "kind": "triangle", "rect": [880, 2280, 260, 260], "path_params": { "orient": "up" }, "fill": { "type": "solid", "color": "#2F6E5B" }, "opacity": 0.12, "bleed": "right", "z": 1 }
+      ]
+    }
+  }
+}
