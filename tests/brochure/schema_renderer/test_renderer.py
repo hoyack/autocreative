@@ -263,3 +263,61 @@ def test_image_embedding_rasterizes_cleanly() -> None:
     png_in = r.rasterize(inside)
     assert png_out[:4] == b"\x89PNG"
     assert png_in[:4] == b"\x89PNG"
+
+
+# --------------------------------------------------------------------------- #
+# Phase 4 stretch — texture_slot fills
+# --------------------------------------------------------------------------- #
+
+
+def _template_with_texture_slot_shape():
+    """Build an in-memory template whose front_cover has a texture_slot rect."""
+    from flyer_generator.brochure.schema_renderer.schema_model import (
+        Canvas,
+        Palette,
+        PanelSchema,
+        ShapeElement,
+        SolidFill,
+        TemplateSchema,
+        TextureSlotFill,
+    )
+
+    bg_rect = ShapeElement(
+        kind="rect",
+        rect=(0.0, 0.0, 1100.0, 2550.0),
+        fill=TextureSlotFill(slot="grain", fallback=SolidFill(color="#222222")),
+        bleed=True,
+    )
+    return TemplateSchema(
+        schema_version="1",
+        name="test_texture",
+        description="template with a texture_slot shape fill",
+        canvas=Canvas(width=1100, height=2550),
+        palette=Palette(accent_default="#ABABAB"),
+        panels={
+            "front_cover": PanelSchema(elements=[bg_rect]),
+            "back_cover": PanelSchema(elements=[]),
+            "tuck_flap": PanelSchema(elements=[]),
+            "inner_left": PanelSchema(elements=[]),
+            "inner_center": PanelSchema(elements=[]),
+            "inner_right": PanelSchema(elements=[]),
+        },
+    )
+
+
+def test_textures_kwarg_emits_pattern_on_outside_sheet() -> None:
+    t = _template_with_texture_slot_shape()
+    c = _sample_content()
+    outside, _ = render_schema_brochure(t, c, textures={"grain": _png_bytes()})
+    assert "<pattern" in outside
+    assert 'patternUnits="userSpaceOnUse"' in outside
+    assert "data:image/png;base64," in outside
+
+
+def test_textures_missing_slot_falls_back_to_fallback_fill() -> None:
+    t = _template_with_texture_slot_shape()
+    c = _sample_content()
+    # No textures supplied → fallback SolidFill color appears instead of pattern
+    outside, _ = render_schema_brochure(t, c)
+    assert "<pattern" not in outside
+    assert "#222222" in outside

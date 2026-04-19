@@ -137,6 +137,7 @@ def _render_shape_panel_local(
     el: ShapeElement,
     margins: dict[str, int],
     salt: str,
+    textures: dict[str, bytes] | None = None,
 ) -> str:
     """Render a shape element using panel-local coords + panel bleed margins."""
     # Clone with adjusted rect if bleed
@@ -152,7 +153,7 @@ def _render_shape_panel_local(
         _PANEL_TRIM_W + margins["left"] + margins["right"],
         _PANEL_TRIM_H + margins["top"] + margins["bottom"],
     )
-    return render_shape(effective, canvas, salt)
+    return render_shape(effective, canvas, salt, textures)
 
 
 # --------------------------------------------------------------------------- #
@@ -431,12 +432,14 @@ def _render_image_placeholder(
     schema: TemplateSchema,
     images: dict[str, bytes] | None = None,
     salt: str = "img",
+    textures: dict[str, bytes] | None = None,
 ) -> str:
     """Render an image_placeholder.
 
     When `images` contains this element's slot, embed the PNG bytes as a
     base64 data URL with the appropriate clip path. Otherwise render the
     fallback fill — Phase 1 behavior — so design-only renders still work.
+    `textures` is passed through in case a fallback_fill is a texture_slot.
     """
     if images is not None and el.slot in images:
         return _embed_image(el, images[el.slot], salt)
@@ -463,7 +466,7 @@ def _render_image_placeholder(
     else:
         fallback = el.fallback_fill
 
-    defs, fill_val = render_fill(fallback, f"img-{el.slot}-{int(x)}")
+    defs, fill_val = render_fill(fallback, f"img-{el.slot}-{int(x)}", textures)
     opacity = _fill_opacity(fallback)
 
     if el.mask == "circle":
@@ -523,6 +526,7 @@ def _render_panel(
     content: BrochureContent,
     schema: TemplateSchema,
     images: dict[str, bytes] | None = None,
+    textures: dict[str, bytes] | None = None,
 ) -> str:
     tx, ty, tw, th = panel_rect.trim_rect
     margins = panel_bleed_margins(panel_rect)
@@ -534,7 +538,9 @@ def _render_panel(
 
     # Optional full-panel background fill — drawn in bleed rect
     if panel.background is not None:
-        defs, fill_val = render_fill(panel.background, f"bg-{panel_rect.name}")
+        defs, fill_val = render_fill(
+            panel.background, f"bg-{panel_rect.name}", textures
+        )
         opacity = _fill_opacity(panel.background)
         bg_rect = (
             -margins["left"],
@@ -555,7 +561,7 @@ def _render_panel(
         salt = f"{panel_rect.name}-{salt_counter}"
         salt_counter += 1
         if isinstance(el, ShapeElement):
-            parts.append(_render_shape_panel_local(el, margins, salt))
+            parts.append(_render_shape_panel_local(el, margins, salt, textures))
         elif isinstance(el, TextElement):
             parts.append(_render_text_element(el, content, schema))
         elif isinstance(el, BulletsElement):
@@ -564,7 +570,7 @@ def _render_panel(
             parts.append(_render_logo_placeholder(el, content, schema))
         elif isinstance(el, ImagePlaceholder):
             parts.append(
-                _render_image_placeholder(el, content, schema, images, salt)
+                _render_image_placeholder(el, content, schema, images, salt, textures)
             )
         elif isinstance(el, DividerElement):
             parts.append(_render_divider(el))
@@ -600,9 +606,10 @@ def _render_sheet(
     content: BrochureContent,
     sheet_name: str,
     images: dict[str, bytes] | None = None,
+    textures: dict[str, bytes] | None = None,
 ) -> str:
     body = "".join(
-        _render_panel(panel_schema, panel_rect, content, schema, images)
+        _render_panel(panel_schema, panel_rect, content, schema, images, textures)
         for panel_rect, panel_schema in panels
     )
     # Crop marks only for this sheet's corners
@@ -647,6 +654,7 @@ def render_schema_brochure(
     content: BrochureContent,
     *,
     images: dict[str, bytes] | None = None,
+    textures: dict[str, bytes] | None = None,
 ) -> tuple[str, str]:
     """Render a template + content pair to (outside_svg, inside_svg).
 
@@ -654,6 +662,10 @@ def render_schema_brochure(
     key has the PNG bytes embedded as a base64 data URL with the appropriate
     clip path (rounded / circle / none). Slots missing from the dict fall back
     to the placeholder's `fallback_fill`.
+
+    When `textures` is supplied, any `texture_slot` fill whose slot name matches
+    a key is rendered as a tiled `<pattern>` referencing the image bytes; slots
+    missing from the dict fall back to the `texture_slot.fallback` fill.
     """
     layout = compute_panel_layout()
 
@@ -674,9 +686,9 @@ def render_schema_brochure(
         inside_panels.append((panel_rect, schema_panel))
 
     outside_svg = _render_sheet(
-        outside_panels, layout, template, content, "outside", images
+        outside_panels, layout, template, content, "outside", images, textures
     )
     inside_svg = _render_sheet(
-        inside_panels, layout, template, content, "inside", images
+        inside_panels, layout, template, content, "inside", images, textures
     )
     return outside_svg, inside_svg

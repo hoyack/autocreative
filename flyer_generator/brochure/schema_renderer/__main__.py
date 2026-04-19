@@ -80,6 +80,13 @@ def render(
         str,
         typer.Option("--style-preset", help="Preset for image style (photorealistic, anime, ...)."),
     ] = "photorealistic",
+    textures_dir: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--textures-dir",
+            help="Directory of <slot>.png files used to fill texture_slot shape fills.",
+        ),
+    ] = None,
 ) -> None:
     """Render a brochure from a template schema + content JSON."""
     if list_templates_only:
@@ -132,8 +139,20 @@ def render(
         for slot, raw in images.items():
             (images_dir / f"{slot}.png").write_bytes(raw)
 
+    textures: dict[str, bytes] | None = None
+    if textures_dir is not None:
+        if not textures_dir.is_dir():
+            typer.echo(f"Error: --textures-dir {textures_dir} is not a directory.", err=True)
+            raise typer.Exit(2)
+        textures = {
+            p.stem: p.read_bytes() for p in sorted(textures_dir.glob("*.png"))
+        }
+        typer.echo(f"Loaded textures: {list(textures.keys())}")
+
     typer.echo(f"Rendering {tmpl.name} × {content.name}…")
-    outside_svg, inside_svg = render_schema_brochure(tmpl, ct, images=images)
+    outside_svg, inside_svg = render_schema_brochure(
+        tmpl, ct, images=images, textures=textures
+    )
 
     if write_svg:
         (output / "outside.svg").write_text(outside_svg, encoding="utf-8")

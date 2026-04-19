@@ -201,3 +201,74 @@ class TestBleed:
     def test_no_bleed_unchanged(self):
         rect = (100, 100, 400, 300)
         assert apply_bleed(rect, False, (0, 0, 3300, 2550)) == rect
+
+
+class TestTextureSlot:
+    """Phase 4 stretch — texture_slot fill resolves to a tiled <pattern>."""
+
+    def _png(self, rgb=(200, 150, 80)) -> bytes:
+        import io
+
+        from PIL import Image
+
+        buf = io.BytesIO()
+        Image.new("RGB", (64, 64), color=rgb).save(buf, format="PNG")
+        return buf.getvalue()
+
+    def test_texture_slot_without_textures_falls_back_to_solid(self):
+        from flyer_generator.brochure.schema_renderer.schema_model import (
+            TextureSlotFill,
+        )
+
+        fill = TextureSlotFill(slot="grain", fallback=SolidFill(color="#BADA55"))
+        defs, val = render_fill(fill, "t")
+        assert defs == ""
+        assert val == "#BADA55"
+
+    def test_texture_slot_emits_pattern_when_slot_supplied(self):
+        from flyer_generator.brochure.schema_renderer.schema_model import (
+            TextureSlotFill,
+        )
+
+        fill = TextureSlotFill(slot="grain", fallback=SolidFill(color="#BADA55"))
+        png = self._png()
+        defs, val = render_fill(fill, "salt-1", textures={"grain": png})
+        assert "<pattern" in defs
+        assert "patternUnits=\"userSpaceOnUse\"" in defs
+        assert "data:image/png;base64," in defs
+        assert val == "url(#tex-grain-salt-1)"
+
+    def test_texture_slot_missing_slot_falls_back(self):
+        from flyer_generator.brochure.schema_renderer.schema_model import (
+            GradientStop,
+            LinearGradientFill,
+            TextureSlotFill,
+        )
+
+        fallback = LinearGradientFill(
+            stops=[
+                GradientStop(offset=0.0, color="#111111"),
+                GradientStop(offset=1.0, color="#EEEEEE"),
+            ],
+            angle=45,
+        )
+        fill = TextureSlotFill(slot="wanted_slot", fallback=fallback)
+        # Different slot name supplied → falls back to gradient.
+        defs, val = render_fill(fill, "s", textures={"other_slot": self._png()})
+        assert "<linearGradient" in defs
+        assert val.startswith("url(#grad-lin-")
+
+    def test_shape_with_texture_slot_fill_uses_pattern_end_to_end(self):
+        from flyer_generator.brochure.schema_renderer.schema_model import (
+            TextureSlotFill,
+        )
+
+        el = ShapeElement(
+            kind="rect",
+            rect=(0, 0, 1000, 800),
+            fill=TextureSlotFill(slot="grain", fallback=SolidFill(color="#BADA55")),
+        )
+        svg = render_shape(el, _CANVAS, "e2e", textures={"grain": self._png()})
+        # Shape fills via the pattern; no solid color leaked through.
+        assert "fill=\"url(#tex-grain-e2e)\"" in svg
+        assert "<pattern" in svg

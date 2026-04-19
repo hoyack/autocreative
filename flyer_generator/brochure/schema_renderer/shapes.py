@@ -8,6 +8,7 @@ if desired, but for simplicity we inline defs + shape in one string.
 
 from __future__ import annotations
 
+import base64
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -16,6 +17,12 @@ if TYPE_CHECKING:
         ShapeElement,
         Stroke,
     )
+
+# Default tile size for texture_slot fills (Phase 4 stretch). A texture image
+# is wrapped in a <pattern> and repeats every TEXTURE_TILE_PX pixels across the
+# shape fill. Larger = fewer visible seams for "atmospheric" textures; smaller
+# = more visible repeat for "grain / weave" textures.
+TEXTURE_TILE_PX = 512
 
 
 # --------------------------------------------------------------------------- #
@@ -67,12 +74,34 @@ def _radial_gradient_defs(grad_id: str, stops, center, radius: float) -> str:
     )
 
 
-def render_fill(fill: "Fill | None", salt: str) -> tuple[str, str]:
+def _texture_pattern_defs(pattern_id: str, image_bytes: bytes) -> str:
+    """Emit a <pattern> that tiles `image_bytes` at TEXTURE_TILE_PX over a shape fill."""
+    b64 = base64.b64encode(image_bytes).decode("ascii")
+    href = f"data:image/png;base64,{b64}"
+    return (
+        f'<defs><pattern id="{pattern_id}" patternUnits="userSpaceOnUse" '
+        f'width="{TEXTURE_TILE_PX}" height="{TEXTURE_TILE_PX}">'
+        f'<image href="{href}" x="0" y="0" '
+        f'width="{TEXTURE_TILE_PX}" height="{TEXTURE_TILE_PX}" '
+        f'preserveAspectRatio="xMidYMid slice"/></pattern></defs>'
+    )
+
+
+def render_fill(
+    fill: "Fill | None",
+    salt: str,
+    textures: dict[str, bytes] | None = None,
+) -> tuple[str, str]:
     """Return (defs_fragment, fill_attr_value).
 
     Examples:
         ('', '#F7F7F5')                   # solid
         ('<defs>…</defs>', 'url(#grad-…)')  # gradient
+        ('<defs>…</defs>', 'url(#tex-…)')   # texture_slot (tiled pattern)
+
+    When `textures` contains a key matching a `texture_slot` fill's slot, the
+    fill resolves to a tiled <pattern> referencing that image. Otherwise the
+    texture_slot falls through to its `fallback` field.
     """
     if fill is None:
         return "", "none"
@@ -93,8 +122,12 @@ def render_fill(fill: "Fill | None", salt: str) -> tuple[str, str]:
         return defs, f"url(#{gid})"
 
     if kind == "texture_slot":
-        # Phase 1: render fallback only.
-        return render_fill(fill.fallback, salt)  # type: ignore[union-attr]
+        slot = fill.slot  # type: ignore[union-attr]
+        if textures is not None and slot in textures:
+            pid = f"tex-{slot}-{salt}"
+            return _texture_pattern_defs(pid, textures[slot]), f"url(#{pid})"
+        # Fall through to fallback fill
+        return render_fill(fill.fallback, salt, textures)  # type: ignore[union-attr]
 
     return "", "none"
 
@@ -186,10 +219,10 @@ def _rotate_attr(rotation: float, cx: float, cy: float) -> str:
     return f' transform="rotate({rotation} {cx} {cy})"'
 
 
-def render_rect(el: "ShapeElement", salt: str) -> str:
+def render_rect(el: "ShapeElement", salt: str, textures: dict[str, bytes] | None = None) -> str:
     assert el.rect is not None, "rect kind requires `rect`"
     x, y, w, h = el.rect
-    defs, fill_val = render_fill(el.fill, salt)
+    defs, fill_val = render_fill(el.fill, salt, textures)
     fop = _fill_opacity(el.fill)
     stroke = _stroke_attrs(el.stroke)
     rot = _rotate_attr(el.rotation, x + w / 2, y + h / 2)
@@ -201,11 +234,11 @@ def render_rect(el: "ShapeElement", salt: str) -> str:
     return defs + body
 
 
-def render_rounded_rect(el: "ShapeElement", salt: str) -> str:
+def render_rounded_rect(el: "ShapeElement", salt: str, textures: dict[str, bytes] | None = None) -> str:
     assert el.rect is not None, "rounded_rect kind requires `rect`"
     x, y, w, h = el.rect
     corner = float(el.path_params.get("corner_radius", 24.0))
-    defs, fill_val = render_fill(el.fill, salt)
+    defs, fill_val = render_fill(el.fill, salt, textures)
     fop = _fill_opacity(el.fill)
     stroke = _stroke_attrs(el.stroke)
     rot = _rotate_attr(el.rotation, x + w / 2, y + h / 2)
@@ -217,7 +250,7 @@ def render_rounded_rect(el: "ShapeElement", salt: str) -> str:
     return defs + body
 
 
-def render_circle(el: "ShapeElement", salt: str) -> str:
+def render_circle(el: "ShapeElement", salt: str, textures: dict[str, bytes] | None = None) -> str:
     assert el.rect is not None, "circle kind requires `rect`"
     x, y, w, h = el.rect
     # Use the smallest of w/h as diameter; center inside rect.
@@ -225,7 +258,7 @@ def render_circle(el: "ShapeElement", salt: str) -> str:
     cx = x + w / 2
     cy = y + h / 2
     r = diameter / 2
-    defs, fill_val = render_fill(el.fill, salt)
+    defs, fill_val = render_fill(el.fill, salt, textures)
     fop = _fill_opacity(el.fill)
     stroke = _stroke_attrs(el.stroke)
     body = (
@@ -236,12 +269,12 @@ def render_circle(el: "ShapeElement", salt: str) -> str:
     return defs + body
 
 
-def render_ellipse(el: "ShapeElement", salt: str) -> str:
+def render_ellipse(el: "ShapeElement", salt: str, textures: dict[str, bytes] | None = None) -> str:
     assert el.rect is not None, "ellipse kind requires `rect`"
     x, y, w, h = el.rect
     cx = x + w / 2
     cy = y + h / 2
-    defs, fill_val = render_fill(el.fill, salt)
+    defs, fill_val = render_fill(el.fill, salt, textures)
     fop = _fill_opacity(el.fill)
     stroke = _stroke_attrs(el.stroke)
     rot = _rotate_attr(el.rotation, cx, cy)
@@ -253,13 +286,13 @@ def render_ellipse(el: "ShapeElement", salt: str) -> str:
     return defs + body
 
 
-def render_polygon(el: "ShapeElement", salt: str) -> str:
+def render_polygon(el: "ShapeElement", salt: str, textures: dict[str, bytes] | None = None) -> str:
     assert el.points is not None and len(el.points) >= 3, "polygon requires >=3 points"
     points_str = " ".join(f"{x},{y}" for x, y in el.points)
     # Compute rough centroid for rotation
     cx = sum(p[0] for p in el.points) / len(el.points)
     cy = sum(p[1] for p in el.points) / len(el.points)
-    defs, fill_val = render_fill(el.fill, salt)
+    defs, fill_val = render_fill(el.fill, salt, textures)
     fop = _fill_opacity(el.fill)
     stroke = _stroke_attrs(el.stroke)
     rot = _rotate_attr(el.rotation, cx, cy)
@@ -271,7 +304,7 @@ def render_polygon(el: "ShapeElement", salt: str) -> str:
     return defs + body
 
 
-def render_ribbon(el: "ShapeElement", salt: str) -> str:
+def render_ribbon(el: "ShapeElement", salt: str, textures: dict[str, bytes] | None = None) -> str:
     """A parallelogram. `path_params.skew` (pixels to offset top/bottom edges)."""
     assert el.rect is not None, "ribbon kind requires `rect`"
     x, y, w, h = el.rect
@@ -283,7 +316,7 @@ def render_ribbon(el: "ShapeElement", salt: str) -> str:
         (x, y + h),
     ]
     points_str = " ".join(f"{px},{py}" for px, py in pts)
-    defs, fill_val = render_fill(el.fill, salt)
+    defs, fill_val = render_fill(el.fill, salt, textures)
     fop = _fill_opacity(el.fill)
     stroke = _stroke_attrs(el.stroke)
     rot = _rotate_attr(el.rotation, x + w / 2, y + h / 2)
@@ -295,14 +328,14 @@ def render_ribbon(el: "ShapeElement", salt: str) -> str:
     return defs + body
 
 
-def render_triangle(el: "ShapeElement", salt: str) -> str:
+def render_triangle(el: "ShapeElement", salt: str, textures: dict[str, bytes] | None = None) -> str:
     """Triangle: use `points` (3 points) OR derive from `rect` + `path_params.orient`.
 
     orient: 'up' (default), 'down', 'left', 'right' — the pointed vertex direction.
     """
     defs_stroke_frag = ""
     if el.points is not None and len(el.points) == 3:
-        return render_polygon(el, salt)
+        return render_polygon(el, salt, textures)
     assert el.rect is not None, "triangle requires `rect` if no points"
     x, y, w, h = el.rect
     orient = str(el.path_params.get("orient", "up"))
@@ -317,7 +350,7 @@ def render_triangle(el: "ShapeElement", salt: str) -> str:
     else:
         pts = [(x + w / 2, y), (x + w, y + h), (x, y + h)]
     points_str = " ".join(f"{px},{py}" for px, py in pts)
-    defs, fill_val = render_fill(el.fill, salt)
+    defs, fill_val = render_fill(el.fill, salt, textures)
     fop = _fill_opacity(el.fill)
     stroke = _stroke_attrs(el.stroke)
     body = (
@@ -328,7 +361,7 @@ def render_triangle(el: "ShapeElement", salt: str) -> str:
     return defs + defs_stroke_frag + body
 
 
-def render_wave(el: "ShapeElement", salt: str) -> str:
+def render_wave(el: "ShapeElement", salt: str, textures: dict[str, bytes] | None = None) -> str:
     """Filled wave band along the x-axis.
 
     path_params:
@@ -351,7 +384,7 @@ def render_wave(el: "ShapeElement", salt: str) -> str:
         top_pts.append((px, py))
     bot_pts = [(x + w, y + h), (x, y + h)]
     path = "M " + " L ".join(f"{px:.2f},{py:.2f}" for px, py in top_pts + bot_pts) + " Z"
-    defs, fill_val = render_fill(el.fill, salt)
+    defs, fill_val = render_fill(el.fill, salt, textures)
     fop = _fill_opacity(el.fill)
     stroke = _stroke_attrs(el.stroke)
     return defs + (
@@ -361,7 +394,7 @@ def render_wave(el: "ShapeElement", salt: str) -> str:
     )
 
 
-def render_line(el: "ShapeElement", salt: str) -> str:
+def render_line(el: "ShapeElement", salt: str, textures: dict[str, bytes] | None = None) -> str:
     """A simple line between two points in `points` (first two entries).
 
     If `rect` provided instead, draws horizontal line across rect's center.
@@ -403,6 +436,7 @@ def render_shape(
     el: "ShapeElement",
     canvas_rect: tuple[float, float, float, float],
     salt: str,
+    textures: dict[str, bytes] | None = None,
 ) -> str:
     """Render a shape to an SVG fragment, applying bleed if requested."""
     effective = el
@@ -412,4 +446,4 @@ def render_shape(
     renderer = _DISPATCH.get(el.kind)
     if renderer is None:
         raise ValueError(f"Unknown shape kind: {el.kind}")
-    return renderer(effective, salt)
+    return renderer(effective, salt, textures)
