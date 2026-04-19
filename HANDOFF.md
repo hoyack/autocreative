@@ -154,108 +154,58 @@ python -m pytest tests/brochure/schema_renderer/ -q          # 166 tests, ~10s
 | 1 | ✅ shipped | Schema foundation — pure data → SVG, 13 templates, 88+78 tests |
 | 2 | next up | Ollama text-budgeting: given a template's char budgets, LLM writes text that exactly fits |
 | 3 | deferred | Template-library expansion (already 13 — user may want 20+) + authoring docs |
-| 4 | **priority for next session** | Image placeholders + vision gate (see §6) |
+| 4 | ✅ shipped | Image placeholders + vision gate — 4×4 gallery 16/16 green (commits `0ed9939`, `/tmp/phase4-gallery/`) |
 | 5 | deferred | Text-on-image (flyer-pipeline safe-region port) |
 | 6 | deferred | Logo placeholder: embed real SVG/PNG logos (current impl is monogram fallback) |
 
 ---
 
-## 6. Next session — user's stated goal
+## 6. Phase 4 — shipped
 
-> "Another round of test generations across the styles and sample concepts, and I want these to also include the image generation, be it images - or textures and I want it to include any edits to make the images into the geometric boxes if needed, etc."
+**Commits:** `0ed9939 feat(brochure/schema-renderer): Phase 4 — image gate + placeholder embedding`.
 
-**Translation:** Phase 4 — wire ComfyUI image generation into the schema renderer's `image_placeholder` and (stretch) shape `texture_slot` fills. Then re-render the 52-cell gallery with real images, cropped/masked to fit the placeholder bboxes.
+**Gallery:** `/tmp/phase4-gallery/` — 4 templates × 4 contents = 16 cells. **16/16 green, 0 fallbacks.** Vision gate approved every first attempt (40 hero generations). Workflow: `ernie_landscape`, style preset: `photorealistic`. Avg cell time 110s (hero + 1–3 spots sequential hero + parallel spots). Summary at `/tmp/phase4-gallery/index.md`, full JSON at `/tmp/phase4-gallery/results.json`.
 
-### What needs to happen
+Templates exercised: `hero_image_dominant` (4 slots), `layered_depth_stack`, `radial_feature`, `editorial_spread` (2 slots each).
 
-1. **Identify image slots per template**
-   Walk each template, collect every `image_placeholder` element. Group by `slot` name (`hero`, `spot_1`, `spot_2`, `spot_3`).
+### What shipped
+- `flyer_generator/brochure/schema_renderer/image_gate.py` — `generate_template_images(template, content, ...)` walks image_placeholder slots, generates hero via `BrochureCoverPromptBuilder` + vision retry, spots via minimal spot workflow in parallel. Failures are soft (missing slot → renderer falls back to `fallback_fill`). All components injectable (ComfyClient / cover_builder / cover_vision) for tests.
+- `renderer.render_schema_brochure(..., images=)` — embeds PNG bytes as base64 `<image>` with `preserveAspectRatio="xMidYMid slice"` and mask-aware `<clipPath>` (none / rounded / circle).
+- CLI `--generate-images / --workflow / --style-preset` — when set, runs image_gate and writes per-slot PNGs to `<output>/images/`.
+- 23 new tests (16 image_gate + 7 renderer embedding). Full suite 634/634 green.
 
-2. **Generate content image concepts**
-   Content JSONs already carry:
-   - `hero_concept` at the top level
-   - `sections[i].image_concept` per section (may be null)
-   Templates' image slots are mapped to these via the `slot` field:
-   - `slot: "hero"` → `content.hero_concept`
-   - `slot: "spot_1"` → `sections[0].image_concept` (or `icon_hint`)
-   - etc.
+### Gotcha caught during implementation
+- **1×1 fake PNGs + cairo OOM.** Initial renderer tests used a hand-rolled 1×1 PNG; cairo blew up with `CAIRO_STATUS_NO_MEMORY` when upsampling to ~900px. Fix: `Pillow.Image.new((128, 128), ...)` for test fixtures. Real ComfyUI outputs (1472×832) rasterize cleanly.
+- `ImagePlaceholder.corner_radius` is `float` → serializes as `"22.0"`, not `"22"`. Existing Phase 1 fallback had the same behavior, so no change needed — tests match `rx="22`.
 
-3. **Image generation integration**
-   Reuse the existing path in `flyer_generator/brochure/generative/imagery.py`:
-   - Hero: `BrochureCoverPromptBuilder` + `BrochureCoverVisionEvaluator` (vision gate: rejects images with text artifacts) + ComfyUI client
-   - Spots: `_build_spot_workflow` (no vision gate)
-   - Best workflow per last battery: **ernie_landscape** or **flux2_landscape**
-   - Workflow choice is a CLI arg (`--workflow`)
-
-4. **Placeholder → image embedding in renderer**
-   Currently `_render_image_placeholder` in `schema_renderer/renderer.py` emits only the fallback gradient + "[hero]" label. Extend it so when an `images: dict[slot, bytes]` map is passed into `render_schema_brochure()`, the matching slot's bytes are base64-embedded into the placeholder's bbox with correct `preserveAspectRatio`:
-   - `mask: "none"` → embedded `<image>` with `xMidYMid slice` (crop-to-fill)
-   - `mask: "rounded"` → same but clipped to a `<clipPath>` with `rx=corner_radius`
-   - `mask: "circle"` → clipped to a circular clipPath
-   - Fallback stays for when the slot didn't generate successfully
-
-5. **Texture_slot fills** (stretch)
-   `TextureSlotFill` already exists in the schema. Extend `render_fill()` in `shapes.py` to accept a `textures: dict[slot_name, bytes]` map and emit a `<pattern>` referencing the bytes as a tiled image. For now, `texture_slot` falls back to its `fallback: SolidFill | LinearGradientFill | RadialGradientFill`.
-
-6. **New CLI + orchestrator**
-   ```bash
-   python -m flyer_generator.brochure.schema_renderer \
-       --template hero_image_dominant \
-       --content docs/brochure/sample-content/law_firm.json \
-       --workflow ernie_landscape \
-       --generate-images \
-       --output /tmp/out
-   ```
-   When `--generate-images`, the CLI:
-   1. Collects image slots from the template.
-   2. For each slot, runs the imagery pipeline (hero via `generate_imagery` helper, spots via `_build_spot_workflow`).
-   3. Passes the `{slot: bytes}` dict into `render_schema_brochure()`.
-
-7. **Vision gate is non-negotiable for hero**
-   The prior battery showed cloud models produce legible text inside images ~1/3 of the time. `BrochureCoverVisionEvaluator` already rejects those. Keep max attempts = 3; on full rejection, fall back to the placeholder's `fallback_fill` — the design still works.
-
-8. **Second gallery run**
-   After wiring, re-render the 13-template × 4-content gallery *with* image generation. At ~3 min per cell (hero retry + 3 spots) × 52 cells = ~2.5 hours. Probably better to start with:
-   - 4 templates × 4 contents = 16 cells (~50 min) for a first look
-   - Then expand
-
-### Files that will need to change (Phase 4)
-
-| file | change |
-|---|---|
-| `flyer_generator/brochure/schema_renderer/renderer.py` | accept `images: dict[str, bytes]` kwarg, thread to image_placeholder renderer |
-| `flyer_generator/brochure/schema_renderer/image_gate.py` (NEW) | wraps `generate_imagery` for each slot, handles rejection → fallback |
-| `flyer_generator/brochure/schema_renderer/__main__.py` | `--generate-images` + `--workflow` flags |
-| `flyer_generator/brochure/schema_renderer/shapes.py` | `texture_slot` fill → `<pattern>` when texture bytes supplied |
-| `tests/brochure/schema_renderer/test_image_gate.py` (NEW) | mocked ComfyClient + vision; verify retry + fallback |
-
-### Reuse
-- `flyer_generator.brochure.generative.imagery.generate_imagery` — already takes `workflow_name`, does hero retry loop, returns `GeneratedImagery(hero_png_bytes, spot_images)`.
-- `flyer_generator.brochure.stages.vision.BrochureCoverVisionEvaluator` — rejects text-in-image artifacts.
-- `flyer_generator.stages.comfy_client.ComfyClient` — POST workflow / poll / download.
-- `flyer_generator.workflow_loader.load_workflow` — loads any of the 8 workflows.
+### Still deferred
+- **Phase 4 stretch — `texture_slot` → `<pattern>`.** Not shipped. `TextureSlotFill` still falls back to its `fallback:` SolidFill/LinearGradient/RadialGradient. When someone wants real texture generation into shape fills: extend `render_fill()` in `shapes.py` to accept a `textures: dict[slot, bytes]` kwarg and emit a `<pattern>` referencing the bytes.
+- **Phase 5 — text-on-image safe-region detection.** Not started.
+- **Phase 6 — real logo embedding.** Still monogram.
 
 ---
 
 ## 7. Open issues / gotchas
 
-- **No image generation yet in schema renderer.** That's Phase 4 (next session).
-- **`texture_slot` falls back to solid/gradient.** Intentional until Phase 4.
-- **`logo_placeholder` renders a monogram, not a real logo.** Phase 6. For now, all gallery cells use the fallback monogram.
+- **`texture_slot` falls back to solid/gradient.** Not wired to ComfyUI textures yet. Phase 4 stretch, deferred.
+- **`logo_placeholder` renders a monogram, not a real logo.** Phase 6.
 - **Template font families are CSS strings** (`'Playfair Display', serif`). If the rasterizer doesn't have the font installed, it falls back to the next in the stack. `flyer_generator/assets/fonts/` is empty — drop subsetted woff2 files to get exact typography. Not blocking.
-- **`docs/brochure-templates/`** still contains the 10 original JSONs (I copied them into `flyer_generator/brochure/schemas/` rather than moving — docs/brochure-templates/ is the "design reference" directory). No harm; they're identical.
-- **`/tmp/brochure-adversarial/`** — old adversarial battery data. `run_matrix.py` + `build_index.py` + `aggregate.py` are there if we ever want to re-run. Not touched by the schema renderer.
+- **`docs/brochure-templates/`** still contains the 10 original JSONs (copied into `flyer_generator/brochure/schemas/` rather than moved — docs/brochure-templates/ is the "design reference" directory). No harm; identical.
+- **`/tmp/brochure-adversarial/`** — old adversarial battery data. Not touched by the schema renderer.
+- **Gallery PDFs are large** (~17 MB per cell) because each embeds 2–4 real 1472×832 photos base64'd into SVG, then rasterized at 3376×2626 and wrapped in PDF. Acceptable for print; if this grows, downscale embedded PNGs before base64 or cache-dedupe shared slots across sheets.
 
 ---
 
 ## 8. When you come back after `/clear`
 
-1. `git log --oneline | head -10` → confirm tree state (expect `a56d5d6 fix(schemas/bold_diagonal_split)…` at top).
-2. `python -m pytest tests/ -q` → confirm 611/611 pass.
-3. `ls flyer_generator/brochure/schemas/` → confirm 13 templates present.
-4. `ls /tmp/brochure-gallery/` → confirm prior gallery artifacts still there (they may have been purged by /tmp rotation; rerun `python /tmp/brochure-adversarial/render_gallery.py` if needed, ~60s).
-5. Open `HANDOFF.md` (this file) + `~/.claude/plans/lets-continue-testing-various-cheeky-puddle.md` for full context.
-6. Begin Phase 4: image placeholders + texture slots. Start by reading `flyer_generator/brochure/generative/imagery.py` and `flyer_generator/brochure/schema_renderer/renderer.py:_render_image_placeholder`.
+1. `git log --oneline | head -10` → confirm tree state (expect `0ed9939 feat(brochure/schema-renderer): Phase 4 …` at top).
+2. `python -m pytest tests/ -q` → confirm 634/634 pass.
+3. `ls /tmp/phase4-gallery/` → Phase 4 gallery artifacts (may be purged by /tmp rotation; rerun `PYTHONPATH=$PWD python /tmp/phase4-gallery/run.py` if needed, ~30 min).
+4. Open `HANDOFF.md` (this file) + `~/.claude/plans/lets-continue-testing-various-cheeky-puddle.md` for full plan context.
+5. Next candidate phases:
+   - **Phase 2 — Ollama text budgeting** (make the LLM write text that fits char budgets declared in the template).
+   - **Phase 4 stretch — `texture_slot` patterns** (generate textures for shape fills).
+   - **Phase 6 — real logo embedding** (swap monogram for user-supplied PNG/SVG).
 
 ---
 
