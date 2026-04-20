@@ -298,7 +298,9 @@ async def test_hero_falls_back_after_exhausted_attempts() -> None:
 
 
 @pytest.mark.asyncio
-async def test_hero_generation_error_is_soft() -> None:
+async def test_hero_generation_error_triggers_retry_not_abort() -> None:
+    """A transient generate error on attempt 1 should not burn the remaining
+    attempts — we retry rather than give up on the hero slot outright."""
     t = load_template("hero_image_dominant")
     c = _content()
 
@@ -308,11 +310,12 @@ async def test_hero_generation_error_is_soft() -> None:
         call_count["n"] += 1
         if call_count["n"] == 1:
             raise RuntimeError("boom on hero")
-        return (_job(), b"\x89PNG-spot")
+        return (_job(), b"\x89PNG-retry-success")
 
     comfy = AsyncMock()
     comfy.generate = AsyncMock(side_effect=flaky_generate)
     vision = AsyncMock()
+    vision.evaluate = AsyncMock(return_value=_approved())
 
     images = await generate_template_images(
         t,
@@ -321,9 +324,33 @@ async def test_hero_generation_error_is_soft() -> None:
         comfy_client=comfy,
         cover_vision=vision,
     )
-    # Hero exception → skipped; spots still produced
+    # First hero attempt errors, second retry succeeds + vision approves.
+    assert images["hero"] == b"\x89PNG-retry-success"
+
+
+@pytest.mark.asyncio
+async def test_hero_generation_error_all_attempts_is_soft() -> None:
+    """If every attempt errors, hero is simply absent — no exception raised."""
+    t = load_template("hero_image_dominant")
+    c = _content()
+
+    async def always_fail(*_args, **_kwargs):
+        raise RuntimeError("comfy 500")
+
+    comfy = AsyncMock()
+    comfy.generate = AsyncMock(side_effect=always_fail)
+    vision = AsyncMock()
+
+    # Even though hero always fails, spot fallback path never fires because
+    # every comfy call explodes. We just want to confirm there's no raise.
+    images = await generate_template_images(
+        t,
+        c,
+        settings=_settings(max_bg_attempts=3),
+        comfy_client=comfy,
+        cover_vision=vision,
+    )
     assert "hero" not in images
-    assert any(k.startswith("spot_") for k in images)
 
 
 @pytest.mark.asyncio

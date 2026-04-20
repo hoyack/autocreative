@@ -219,12 +219,15 @@ async def generate_template_images(
                     wf = cover_builder.build(brochure_in, attempt, refinement_hint)
                     _, raw = await comfy_client.generate(wf, attempt)
                 except Exception as err:
+                    # Retry rather than abort — one transient download/vision
+                    # parse blip shouldn't burn the remaining attempts.
                     logger.warning(
                         "schema_hero_generate_error",
                         attempt=attempt,
-                        error=str(err),
+                        error_type=type(err).__name__,
+                        error=str(err) or repr(err),
                     )
-                    break
+                    continue
                 verdict = await cover_vision.evaluate(
                     image_bytes=raw,
                     concept=brochure_in.hero_concept,
