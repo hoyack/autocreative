@@ -728,6 +728,7 @@ def render_schema_brochure(
     images: dict[str, bytes] | None = None,
     textures: dict[str, bytes] | None = None,
     logo_bytes: bytes | None = None,
+    accent_override: str | None = None,
 ) -> tuple[str, str]:
     """Render a template + content pair to (outside_svg, inside_svg).
 
@@ -743,7 +744,20 @@ def render_schema_brochure(
     When `logo_bytes` is supplied, every `logo_placeholder` element renders the
     logo (PNG/JPG base64-embedded via `<image>`, or inline SVG) scaled with
     `preserveAspectRatio="xMidYMid meet"`. Absent → monogram fallback.
+
+    When `accent_override` is supplied (a `#RRGGBB` hex string), it replaces
+    `template.palette.accent_default` for this render — lets a brochure ship
+    with the brand's color without forking the template JSON.
     """
+    if accent_override is not None:
+        template = template.model_copy(
+            update={
+                "palette": template.palette.model_copy(
+                    update={"accent_default": accent_override}
+                )
+            }
+        )
+
     layout = compute_panel_layout()
 
     outside_panels = []

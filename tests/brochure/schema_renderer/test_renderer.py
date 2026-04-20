@@ -404,3 +404,30 @@ def test_logo_jpeg_uses_jpeg_mime_type() -> None:
     jpeg_bytes = b"\xff\xd8\xff\xe0" + b"\x00" * 100
     outside, _ = render_schema_brochure(t, c, logo_bytes=jpeg_bytes)
     assert "data:image/jpeg;base64," in outside
+
+
+# --------------------------------------------------------------------------- #
+# Palette accent override
+# --------------------------------------------------------------------------- #
+
+
+def test_accent_override_replaces_template_default() -> None:
+    """--color-accent / accent_override swaps the palette accent_default."""
+    t = load_template("editorial_classic")
+    c = _sample_content()
+    # Default palette accent is some dark blue; force a sage green and assert
+    # it shows up in the output SVG (monogram fallback uses accent_default).
+    override = "#AABBCC"
+    outside, inside = render_schema_brochure(t, c, accent_override=override)
+    combined = outside + inside
+    assert override in combined
+
+
+def test_accent_override_none_preserves_template_default() -> None:
+    t = load_template("editorial_classic")
+    c = _sample_content()
+    # Without override, the template's accent stays in effect
+    outside_default, _ = render_schema_brochure(t, c)
+    # Sanity: accent_override=None is the same render
+    outside_none, _ = render_schema_brochure(t, c, accent_override=None)
+    assert outside_default == outside_none

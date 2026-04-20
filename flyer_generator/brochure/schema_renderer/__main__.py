@@ -111,6 +111,13 @@ def render(
             help="Optional audience/tone hint for --prompt (e.g. 'young professionals, playful').",
         ),
     ] = None,
+    color_accent: Annotated[
+        Optional[str],
+        typer.Option(
+            "--color-accent",
+            help="Override the template's palette.accent_default with this #RRGGBB hex.",
+        ),
+    ] = None,
 ) -> None:
     """Render a brochure from a template schema + content JSON."""
     if list_templates_only:
@@ -223,8 +230,15 @@ def render(
         typer.echo(f"Loaded logo: {logo.name} ({len(logo_bytes)} bytes)")
 
     typer.echo(f"Rendering {tmpl.name} × {content_label}…")
+    if color_accent:
+        typer.echo(f"Palette accent overridden → {color_accent}")
     outside_svg, inside_svg = render_schema_brochure(
-        tmpl, ct, images=images, textures=textures, logo_bytes=logo_bytes
+        tmpl,
+        ct,
+        images=images,
+        textures=textures,
+        logo_bytes=logo_bytes,
+        accent_override=color_accent,
     )
 
     if write_svg:
