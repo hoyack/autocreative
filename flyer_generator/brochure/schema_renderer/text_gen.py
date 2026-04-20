@@ -330,12 +330,26 @@ def _render_budget_prompt(
             )
     lines.append("")
     lines.append(
-        "Also produce these meta fields (not in budgets): "
-        "hero_concept (a vivid 6-12 word image description for the cover photo), "
-        "per-section image_concept (a 4-10 word image description for each "
-        "section's supporting photo — describe a concrete scene that reinforces "
-        "the section's idea; avoid logos, text, UI, or abstract graphics), "
-        f"color_accent (a brand accent hex color, default {color_accent})."
+        "Also produce these meta fields (not in budgets):"
+    )
+    lines.append(
+        "  hero_concept (6-12 words): the COVER photo. Subject must be centered "
+        "in the middle third with clean low-detail areas on the LEFT and RIGHT "
+        "edges where the title/subtitle will be overlaid. Landscape 16:9 "
+        "composition. Soft depth of field, calm atmosphere. Prefer abstract, "
+        "minimal, or wide-establishing scenes over tight detail shots. Avoid "
+        "UI screens, server racks, dense technical detail, crowded foregrounds, "
+        "text/letters/numbers/signage in the image, or any subject that fills "
+        "the frame edge-to-edge."
+    )
+    lines.append(
+        "  per-section image_concept (4-10 words): a CONCRETE SCENE that "
+        "reinforces the section's idea. Avoid logos, UI, and text inside the "
+        "image. These run inside panels so composition is more flexible than "
+        "the cover."
+    )
+    lines.append(
+        f"  color_accent: a brand accent hex color (default {color_accent})."
     )
     lines.append("")
     lines.append("JSON shape:")
