@@ -263,6 +263,9 @@ def _render_budget_prompt(
     lines.append(
         "Also produce these meta fields (not in budgets): "
         "hero_concept (a vivid 6-12 word image description for the cover photo), "
+        "per-section image_concept (a 4-10 word image description for each "
+        "section's supporting photo — describe a concrete scene that reinforces "
+        "the section's idea; avoid logos, text, UI, or abstract graphics), "
         f"color_accent (a brand accent hex color, default {color_accent})."
     )
     lines.append("")

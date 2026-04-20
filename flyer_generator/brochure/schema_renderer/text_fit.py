@@ -143,11 +143,17 @@ def char_budget_for_bbox(
 ) -> int:
     """Max characters a bbox can hold at the given font settings.
 
-    Used by Phase 2 to tell Ollama how many characters to write for a region.
-    Underestimate by ~8% (via chars_per_line's safety factor) so we're never
-    at the literal edge.
+    Used by Phase 2 to tell the LLM how many characters to write for a region.
+    chars_per_line already underestimates by ~8% so we're never at the literal
+    edge.
+
+    Line count uses `round(h / line_height)` rather than `int(...)` so a bbox
+    that fits 1.5+ lines reports 2-line capacity. Floor-int was too aggressive:
+    a 190px-tall title bbox with 108px line_height actually holds 1-2 lines in
+    practice (the renderer wraps both), but `int(1.76) == 1` reported half the
+    real capacity, forcing the LLM to write nonsensically short titles.
     """
     _, _, w, h = bbox
     cpl = chars_per_line(w, font_size, font_family)
-    max_lines = max(1, int(h / line_height))
+    max_lines = max(1, round(h / line_height))
     return cpl * max_lines
