@@ -31,6 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 15: Polish — Shape/Text Collision + Spot-Image Compositing** - constrain decorative shapes to avoid heading zones, composite spot images into inner panels + tuck flap, re-verify end-to-end visual output (completed 2026-04-18)
 - [x] **Phase 16: Quality tuning — section distribution, heading hierarchy, verification teeth** - smarter multi-section panel assignment, accent rules under every heading, cover-title drop-shadow + auto-shrink, verify-loop regen with seed variation (completed 2026-04-18)
 - [x] **Phase 17: Improvements pass (HIGH/MEDIUM/LOW from docs/brochure-improvements.md)** - rubric-driven verification, two-sheet scoring, verdict/lint on BrochureOutput + CLI surfacing, template typography threaded through composer, @font-face data-URI infrastructure, fit optimizer retry loop, tuck-flap tagline for N<4, aspect-aware spot crop, cover_image_concept field, mechanical output linter (completed 2026-04-18)
+- [ ] **Phase 18: Brand Kit System** - scrape website → untracked brand kit (colors/fonts/logos/voice) → apply to any schema_renderer template, WCAG contrast validation + auto-remediation, visual inspection + adversarial audit loop; also increase readable type size across templates
 
 ## Phase Details
 
@@ -151,6 +152,20 @@ Plans:
   4. CLI flags include --title, --subtitle, --concept, --preset, --accent, --org, --sections-json, --brochure-json, --output, --dry-run, --max-attempts; --dry-run prints prompt and panel plan without API calls
   5. Smoke test with mocked ComfyCloud + vision produces three artifacts of correct type and dimensions; existing flyer CLI behaviour is unchanged
 
+### Phase 18: Brand Kit System
+**Goal**: A developer can run `python -m flyer_generator.brand_kit fetch <url> --slug <slug>` to produce an untracked brand kit under `.brand-kits/<slug>/` (palette, typography, logos, voice hints, source artifacts), then render a brochure with `--brand-kit <slug>` that replaces the template's palette/typography/logo while validating every text region meets WCAG AA contrast and auto-remediating failures; a post-render audit flags low-density panels, low-contrast text regions, and under-filled content budgets. Templates also gain a typography-scale pass so inside-panel body/bullet text reads comfortably at print size.
+**Depends on**: Phase 17 (schema_renderer subsystem — templates, renderer, text_gen, image_gate)
+**Requirements**: From HANDOFF.md §8 (BrandKit models, scraper, contrast, applier, audit, storage, CLI, typography uplift)
+**Success Criteria** (what must be TRUE):
+  1. `from flyer_generator.brand_kit import BrandKit, BrandPalette, BrandTypography, BrandLogo, BrandVoice, fetch_brand_kit, load_brand_kit, apply_brand_kit, audit_render` succeeds; all models are Pydantic v2 and round-trip to `brand.json`
+  2. `python -m flyer_generator.brand_kit fetch <url> --slug <slug>` writes `.brand-kits/<slug>/brand.json` + `logos/*` + `source/screenshot.png` using Playwright when available and `httpx + beautifulsoup4` as deterministic fallback; missing fields remain null rather than invented
+  3. `apply_brand_kit(template, kit)` returns a new `TemplateSchema` with palette + typography replaced and typography sizes scaled by `kit.size_multiplier` (default `1.0`), preserving schema validity; `--brand-kit <slug>` in `python -m flyer_generator.brochure.schema_renderer` plumbs through logo + colors + fonts
+  4. A contrast module built on `wcag-contrast-ratio` (+ `coloraide` for tone adjustment) validates every body/heading text region against its background; failing regions are auto-remediated by swapping to the opposite neutral from the kit, and the final `ContrastReport` lists every pair with ratio + AA/AAA verdict
+  5. A `BrandKitError` (+ subclasses for scrape / contrast / audit failure) raises cleanly with typed context; all new deps pinned in `pyproject.toml`; `.brand-kits/` is added to `.gitignore` and `.brand-kit-template.json` is tracked as the schema reference
+  6. Post-render audit (`audit_render`) produces a structured report with per-panel whitespace density, contrast violations, and per-region content-budget fill — plus an iterate loop that regenerates copy / swaps contrast up to 3 cycles when issues are found
+  7. Tests cover: scraper with mocked HTML (Playwright + BS4 paths), models round-trip, contrast ratios (known pairs + remediation), applier (palette + typography + logo merge + size_multiplier), audit (whitespace + contrast + density fixtures), CLI (fetch + list + show), and an end-to-end smoke that applies a seeded kit to `editorial_classic` and confirms AA-clean output
+  8. Templates' inside-panel body/bullet sizes are raised so that default-density content no longer reads thin at print scale; the existing 78-cell schema-renderer gallery still renders without overflow, and the shrubnet v9 sample renders with the kit applied and passes contrast + density audits
+
 ## Progress
 
 **Execution Order:**
@@ -167,3 +182,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 7. Brochure Composition | 0/? | Not Started | - |
 | 8. Brochure PDF Assembly | 0/? | Not Started | - |
 | 9. Brochure CLI & Public API | 0/? | Not Started | - |
+| 18. Brand Kit System | 0/? | Not Started | - |
