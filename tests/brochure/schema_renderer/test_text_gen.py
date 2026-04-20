@@ -309,3 +309,124 @@ async def test_generate_content_fills_defaults_for_missing_fields() -> None:
     assert len(result.sections) >= 1
     assert result.title == "T"
     assert result.org == "O"
+
+
+# --------------------------------------------------------------------------- #
+# BrochureBrief + supplied contact passthrough
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.asyncio
+async def test_brief_is_embedded_in_llm_prompt() -> None:
+    """Intake facts must show up in the user prompt verbatim."""
+    from flyer_generator.brochure.schema_renderer import BrochureBrief, Testimonial
+
+    t = load_template("hero_image_dominant")
+    brief = BrochureBrief(
+        target_audience="solo developers shipping side projects",
+        offerings=["Async workers", "Retry-safe pipelines", "Structured logging"],
+        differentiators=["Zero cold starts", "Sub-5ms p99"],
+        testimonials=[
+            Testimonial(quote="saved us 3 weeks", attribution="— Jane, CTO"),
+        ],
+        awards=["YC S25 Best Infra"],
+        key_stats=["99.99% uptime", "500 customers"],
+        founded_year=2024,
+        hours="24/7 on-call",
+        primary_cta="Start free tier",
+        secondary_cta="Read docs",
+    )
+
+    captured = {}
+
+    async def capture(system, user, response_format):
+        captured["user"] = user
+        return json.dumps({"title": "T", "org": "O"})
+
+    mock_client = AsyncMock()
+    mock_client.complete = AsyncMock(side_effect=capture)
+
+    await generate_content_from_prompt(
+        t, "infra for async workloads", brief=brief, text_client=mock_client
+    )
+
+    user = captured["user"]
+    assert "INTAKE BRIEF" in user
+    assert "Async workers" in user
+    assert "Zero cold starts" in user
+    assert "YC S25 Best Infra" in user
+    assert "Start free tier" in user
+    assert "24/7 on-call" in user
+
+
+@pytest.mark.asyncio
+async def test_brief_is_attached_to_returned_content() -> None:
+    """Brief passed in should round-trip into BrochureContent.brief."""
+    from flyer_generator.brochure.schema_renderer import BrochureBrief
+
+    t = load_template("hero_image_dominant")
+    brief = BrochureBrief(value_proposition="infra for async workloads")
+
+    mock_client = AsyncMock()
+    mock_client.complete = AsyncMock(return_value=json.dumps({"title": "T", "org": "O"}))
+
+    result = await generate_content_from_prompt(
+        t, "x", brief=brief, text_client=mock_client
+    )
+    assert result.brief is not None
+    assert result.brief.value_proposition == "infra for async workloads"
+
+
+@pytest.mark.asyncio
+async def test_supplied_contact_overrides_llm_contact_values() -> None:
+    """Caller-supplied contact fields win over the LLM's choices."""
+    from flyer_generator.brochure.models import ContactBlock
+
+    t = load_template("hero_image_dominant")
+    # LLM invents a phone number we don't want
+    llm_json = {
+        "title": "T",
+        "org": "O",
+        "contact": {"phone": "(555) 000-0000", "email": "bot@example.com"},
+    }
+    mock_client = AsyncMock()
+    mock_client.complete = AsyncMock(return_value=json.dumps(llm_json))
+
+    supplied = ContactBlock(phone="(415) 867-5309", address="1 Real Street")
+    result = await generate_content_from_prompt(
+        t, "x", contact=supplied, text_client=mock_client
+    )
+    # Real phone & address win; LLM's email stays (we didn't supply it)
+    assert result.contact.phone == "(415) 867-5309"
+    assert result.contact.address == "1 Real Street"
+    assert result.contact.email == "bot@example.com"
+
+
+@pytest.mark.asyncio
+async def test_contact_block_is_embedded_in_prompt() -> None:
+    """Supplied contact fields must appear in the user prompt so the LLM sees them."""
+    from flyer_generator.brochure.models import ContactBlock
+
+    t = load_template("hero_image_dominant")
+    supplied = ContactBlock(
+        phone="(415) 867-5309",
+        email="hello@example.com",
+        address="118 Broadway Suite 221, San Antonio, TX 78205",
+    )
+
+    captured = {}
+
+    async def capture(system, user, response_format):
+        captured["user"] = user
+        return json.dumps({"title": "T", "org": "O"})
+
+    mock_client = AsyncMock()
+    mock_client.complete = AsyncMock(side_effect=capture)
+
+    await generate_content_from_prompt(
+        t, "x", contact=supplied, text_client=mock_client
+    )
+    user = captured["user"]
+    assert "CONTACT" in user
+    assert "(415) 867-5309" in user
+    assert "118 Broadway Suite 221" in user

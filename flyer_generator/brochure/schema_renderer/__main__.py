@@ -118,6 +118,31 @@ def render(
             help="Override the template's palette.accent_default with this #RRGGBB hex.",
         ),
     ] = None,
+    brief_json: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--brief-json",
+            help="Path to a JSON BrochureBrief (interrogative intake: offerings, "
+            "differentiators, testimonials, hours, CTAs, etc.). Used as ground "
+            "truth by the LLM when --prompt is set.",
+        ),
+    ] = None,
+    phone: Annotated[
+        Optional[str],
+        typer.Option("--phone", help="Contact phone number (preserved verbatim)."),
+    ] = None,
+    address: Annotated[
+        Optional[str],
+        typer.Option("--address", help="Contact mailing address (preserved verbatim)."),
+    ] = None,
+    email: Annotated[
+        Optional[str],
+        typer.Option("--email", help="Contact email (preserved verbatim)."),
+    ] = None,
+    url: Annotated[
+        Optional[str],
+        typer.Option("--url", help="Contact URL (preserved verbatim)."),
+    ] = None,
 ) -> None:
     """Render a brochure from a template schema + content JSON."""
     if list_templates_only:
@@ -144,11 +169,33 @@ def render(
     tmpl = load_template(template)
 
     if prompt is not None:
+        from flyer_generator.brochure.models import ContactBlock
+        from flyer_generator.brochure.schema_renderer.content_model import (
+            BrochureBrief,
+        )
         from flyer_generator.brochure.schema_renderer.text_gen import (
             collect_text_budgets,
             generate_content_from_prompt,
         )
         from flyer_generator.config import Settings
+
+        brief: BrochureBrief | None = None
+        if brief_json is not None:
+            if not brief_json.is_file():
+                typer.echo(
+                    f"Error: --brief-json {brief_json} is not a file.", err=True
+                )
+                raise typer.Exit(2)
+            brief = BrochureBrief.model_validate_json(
+                brief_json.read_text(encoding="utf-8")
+            )
+            typer.echo(f"Loaded brief: {brief_json.name}")
+
+        supplied_contact: ContactBlock | None = None
+        if any([phone, address, email, url]):
+            supplied_contact = ContactBlock(
+                phone=phone, address=address, email=email, url=url
+            )
 
         budgets = collect_text_budgets(tmpl)
         typer.echo(
@@ -160,6 +207,8 @@ def render(
                 tmpl,
                 prompt,
                 audience=audience,
+                brief=brief,
+                contact=supplied_contact,
                 settings=Settings(),
             )
         )

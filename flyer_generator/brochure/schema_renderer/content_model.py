@@ -41,6 +41,61 @@ class BackPanelContent(BaseModel):
     footer_note: str | None = None
 
 
+class Testimonial(BaseModel):
+    """A single customer quote."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    quote: str
+    attribution: str | None = None  # e.g. "— Jane Doe, CEO at Acme"
+
+
+class BrochureBrief(BaseModel):
+    """Customer intake for brochure content.
+
+    This is the interrogative data you'd collect from a customer before
+    writing a brochure: what they do, who they serve, what sets them apart,
+    what evidence they can show, what action they want the reader to take,
+    what voice they speak in. The LLM consumes this as ground truth when
+    writing copy — anything in here should appear verbatim or nearly so in
+    the final brochure (instead of being invented by the model).
+
+    Intended inputs:
+      * Hand-filled by the caller (CLI or API).
+      * Auto-populated by a future website scraper (firecrawl) — fields map
+        cleanly onto what you'd extract from a landing page + about + services.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Positioning / voice
+    target_audience: str | None = None
+    brand_voice: str | None = None  # "clinical", "warm", "playful", ...
+    value_proposition: str | None = None  # one-sentence "what we do and for whom"
+
+    # What you sell
+    offerings: list[str] = Field(default_factory=list)  # services / products
+    differentiators: list[str] = Field(default_factory=list)  # why us
+
+    # Evidence
+    testimonials: list[Testimonial] = Field(default_factory=list)
+    awards: list[str] = Field(default_factory=list)
+    key_stats: list[str] = Field(default_factory=list)  # "500+ clients", "10 yrs"
+
+    # Operations
+    founded_year: int | None = None
+    hours: str | None = None  # free-form, e.g. "Mon-Fri 9-6 · Sat by appt"
+    locations: list[str] = Field(default_factory=list)  # for multi-location brands
+
+    # CTAs
+    primary_cta: str | None = None  # "Book a free consultation"
+    secondary_cta: str | None = None  # "Read our case studies"
+
+    # Misc
+    keywords: list[str] = Field(default_factory=list)  # SEO-ish hints for tone
+    source_urls: list[str] = Field(default_factory=list)  # provenance
+
+
 class ContentSection(BaseModel):
     """One content section mapped onto tuck_flap or inner_{left,center,right}."""
 
@@ -70,6 +125,9 @@ class BrochureContent(BaseModel):
     contact: ContactBlock | None = None
     sections: list[ContentSection] = Field(min_length=1, max_length=8)
     back_panel: BackPanelContent | None = None
+    # Interrogative intake: what you'd ask a customer. Consumed by the LLM as
+    # ground truth when writing copy (see text_gen.generate_content_from_prompt).
+    brief: BrochureBrief | None = None
     # Arbitrary extra key/value pairs referenceable via content_key (e.g. "extras.promo_code")
     extras: dict[str, str] = Field(default_factory=dict)
 

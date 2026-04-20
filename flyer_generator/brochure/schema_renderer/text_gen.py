@@ -33,6 +33,7 @@ import structlog
 from flyer_generator.brochure.llm_client import TextClient, build_text_client
 from flyer_generator.brochure.schema_renderer.content_model import (
     BackPanelContent,
+    BrochureBrief,
     BrochureContent,
     ContentSection,
 )
@@ -216,16 +217,77 @@ _SYSTEM_PROMPT = """You are a senior brand copywriter filling in a tri-fold broc
 
 You will receive:
   1. A business/event description.
-  2. A list of content fields, each with a role, content_key, and a HARD character budget.
+  2. Optionally, a structured intake brief with target_audience, offerings,
+     differentiators, testimonials, awards, key_stats, hours, CTAs, etc.
+  3. A list of content fields, each with a role, content_key, and a HARD
+     character budget (spaces included).
 
-Write copy for every field that stays under its budget (spaces included).
+Write copy for every field.
 
-Rules:
+Fit rules (in order):
   * Respect every char budget. When a field cannot be said more succinctly, cut — never overflow.
+  * **Aim for 80-95% of the budget on every field** — a half-filled region looks thin and wastes the design. Expand with specific, on-brand detail rather than padding or cliché. If you cannot honestly fill that much, stop earlier, but first try harder: add a concrete noun, a stat, a differentiator, a sensory verb, a specific audience, a named capability.
+  * Bullets: always produce the requested count unless you have fewer than 3 genuine items. Parallel grammar. Start with verbs or concrete nouns when possible.
+  * Body paragraphs / lead_paragraph: aim for 2-4 sentences, not 1.
+
+Substance rules:
+  * If an intake brief is provided, use its facts VERBATIM or nearly so — do not invent different testimonials, differentiators, offerings, awards, stats, hours, or CTAs. Draw heading/body copy from the brief's offerings + differentiators + value_proposition.
+  * Contact: emit user-supplied phone / email / address / url exactly as given. If not supplied, leave null rather than fabricate a plausible value.
   * Keep tone on-brand with the description (warm, clinical, playful, corporate — match the brief).
-  * Bullet arrays: keep items parallel, start with verbs when possible.
-  * Do not include copy you have not been asked for. Do not fabricate phone numbers, emails, or URLs — use realistic placeholders only if the user didn't supply them.
-  * Return one JSON object matching the schema below. No prose, no markdown fences."""
+  * Do not include copy you have not been asked for.
+
+Return one JSON object matching the schema below. No prose, no markdown fences."""
+
+
+def _format_brief(brief: BrochureBrief) -> list[str]:
+    """Serialize a BrochureBrief into a compact bullet block for the LLM."""
+    out: list[str] = ["", "INTAKE BRIEF (ground truth — use verbatim where possible):"]
+    if brief.value_proposition:
+        out.append(f"- Value proposition: {brief.value_proposition}")
+    if brief.target_audience:
+        out.append(f"- Target audience: {brief.target_audience}")
+    if brief.brand_voice:
+        out.append(f"- Brand voice: {brief.brand_voice}")
+    if brief.offerings:
+        out.append(f"- Offerings: {', '.join(brief.offerings)}")
+    if brief.differentiators:
+        out.append(f"- Differentiators: {', '.join(brief.differentiators)}")
+    if brief.key_stats:
+        out.append(f"- Key stats: {', '.join(brief.key_stats)}")
+    if brief.awards:
+        out.append(f"- Awards: {', '.join(brief.awards)}")
+    if brief.testimonials:
+        out.append("- Testimonials:")
+        for t in brief.testimonials:
+            tail = f" — {t.attribution}" if t.attribution else ""
+            out.append(f"    · \"{t.quote}\"{tail}")
+    if brief.founded_year:
+        out.append(f"- Founded: {brief.founded_year}")
+    if brief.hours:
+        out.append(f"- Hours: {brief.hours}")
+    if brief.locations:
+        out.append(f"- Locations: {', '.join(brief.locations)}")
+    if brief.primary_cta:
+        out.append(f"- Primary CTA: {brief.primary_cta}")
+    if brief.secondary_cta:
+        out.append(f"- Secondary CTA: {brief.secondary_cta}")
+    if brief.keywords:
+        out.append(f"- Keywords / tone cues: {', '.join(brief.keywords)}")
+    if brief.source_urls:
+        out.append(f"- Source URLs (provenance): {', '.join(brief.source_urls)}")
+    return out
+
+
+def _format_contact(contact) -> list[str]:
+    """Surface user-supplied contact fields so the LLM copies them verbatim."""
+    if contact is None:
+        return []
+    lines = ["", "CONTACT (use exactly as given — do not invent values):"]
+    for field in ("name", "phone", "email", "url", "address"):
+        val = getattr(contact, field, None)
+        if val:
+            lines.append(f"- {field}: {val}")
+    return lines if len(lines) > 1 else []
 
 
 def _render_budget_prompt(
@@ -234,6 +296,8 @@ def _render_budget_prompt(
     audience: str | None,
     color_accent: str,
     bullets_per_key: dict[str, int],
+    brief: BrochureBrief | None = None,
+    contact=None,
 ) -> str:
     """Render the user-side prompt listing every field + budget."""
     lines = [
@@ -241,9 +305,14 @@ def _render_budget_prompt(
     ]
     if audience:
         lines.append(f"Audience / tone: {audience}")
+    if brief is not None:
+        lines.extend(_format_brief(brief))
+    if contact is not None:
+        lines.extend(_format_contact(contact))
+    lines.append("")
     lines.append(
         "Fill out the following JSON object. Each leaf value has a HARD "
-        "character budget — stay at or below it."
+        "character budget — aim for 80-95% of it; do not under-fill."
     )
     lines.append("")
     lines.append("Budgets (content_key → role, max_chars):")
@@ -378,8 +447,16 @@ def _apply_budgets(
 def _normalize_to_brochure_content(
     data: dict,
     template: TemplateSchema,
+    brief: BrochureBrief | None = None,
+    supplied_contact=None,
 ) -> BrochureContent:
-    """Coerce the LLM JSON into a validated BrochureContent, filling defaults."""
+    """Coerce the LLM JSON into a validated BrochureContent, filling defaults.
+
+    When `supplied_contact` is non-None, its non-null fields override whatever
+    the LLM produced (the brief said "use exactly as given" — this enforces
+    that even if the model drifted). `brief` is attached to the returned
+    BrochureContent so it persists to content.json for reuse.
+    """
     # Ensure required fields exist
     data.setdefault("title", "Untitled")
     data.setdefault("org", "Organization")
@@ -405,8 +482,15 @@ def _normalize_to_brochure_content(
             )
         )
     contact_raw = data.get("contact") or {}
-    contact = ContactBlock(**{k: contact_raw.get(k) for k in
-                              ("name", "phone", "email", "url", "address")})
+    contact_fields = {
+        k: contact_raw.get(k) for k in ("name", "phone", "email", "url", "address")
+    }
+    if supplied_contact is not None:
+        for k in contact_fields:
+            v = getattr(supplied_contact, k, None)
+            if v:
+                contact_fields[k] = v
+    contact = ContactBlock(**contact_fields)
     back_raw = data.get("back_panel") or {}
     back = BackPanelContent(
         kind=str(back_raw.get("kind", "cta")),
@@ -428,6 +512,7 @@ def _normalize_to_brochure_content(
         contact=contact,
         sections=normalized_sections,
         back_panel=back,
+        brief=brief,
         extras={
             k: str(v)
             for k, v in (data.get("extras") or {}).items()
@@ -447,16 +532,24 @@ async def generate_content_from_prompt(
     *,
     audience: str | None = None,
     color_accent: str = "#1E3A5F",
+    brief: BrochureBrief | None = None,
+    contact=None,  # ContactBlock | None
     settings: Settings | None = None,
     text_client: TextClient | None = None,
 ) -> BrochureContent:
     """Ask the configured LLM to write a full BrochureContent that fits
     `template`'s char budgets.
 
-    The LLM is given the user's business/event description plus every content
-    field's role and hard char limit. Fields that come back over budget are
-    automatically truncated at word boundaries; on the first occurrence of
-    *any* overflow we issue one tighter retry before falling back to truncation.
+    `brief` (BrochureBrief) and `contact` (ContactBlock) are ground-truth
+    inputs the LLM is instructed to use verbatim. The brief embeds the
+    interrogative intake (offerings, differentiators, testimonials, awards,
+    hours, CTAs, …) so the model anchors copy on real facts instead of
+    inventing. `contact` is surfaced the same way so phone/address/email
+    never get fabricated.
+
+    Fields that come back over budget are automatically truncated at word
+    boundaries; on the first occurrence of any overflow we issue one tighter
+    retry before falling back to truncation.
     """
     if settings is None:
         settings = Settings()
@@ -469,7 +562,8 @@ async def generate_content_from_prompt(
     bullets_per_key = _infer_bullets_per_key(template)
 
     user_prompt = _render_budget_prompt(
-        budgets, prompt, audience, color_accent, bullets_per_key
+        budgets, prompt, audience, color_accent, bullets_per_key,
+        brief=brief, contact=contact,
     )
 
     try:
@@ -501,7 +595,9 @@ async def generate_content_from_prompt(
                 logger.warning("text_gen_retry_failed", error=str(err))
                 # Keep the truncated first response
 
-        return _normalize_to_brochure_content(data, template)
+        return _normalize_to_brochure_content(
+            data, template, brief=brief, supplied_contact=contact
+        )
     finally:
         if _owns_client and hasattr(text_client, "aclose"):
             await text_client.aclose()  # type: ignore[attr-defined]

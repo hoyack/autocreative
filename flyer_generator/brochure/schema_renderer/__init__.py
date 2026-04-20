@@ -23,8 +23,11 @@ Public API:
 from __future__ import annotations
 
 from flyer_generator.brochure.schema_renderer.content_model import (
+    BackPanelContent,
+    BrochureBrief,
     BrochureContent,
     ContentSection,
+    Testimonial,
 )
 from flyer_generator.brochure.schema_renderer.image_gate import (
     collect_image_slots,
@@ -44,9 +47,12 @@ from flyer_generator.brochure.schema_renderer.text_gen import (
 )
 
 __all__ = [
+    "BackPanelContent",
+    "BrochureBrief",
     "BrochureContent",
     "ContentSection",
     "TemplateSchema",
+    "Testimonial",
     "TextBudget",
     "collect_image_slots",
     "collect_text_budgets",
