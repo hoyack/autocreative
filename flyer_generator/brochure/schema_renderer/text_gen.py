@@ -566,13 +566,31 @@ async def generate_content_from_prompt(
         brief=brief, contact=contact,
     )
 
-    try:
-        raw = await text_client.complete(
+    async def _ask(user: str) -> dict:
+        """Single LLM round with JSON-decode + parse-error handling."""
+        raw_text = await text_client.complete(
             system=_SYSTEM_PROMPT,
-            user=user_prompt,
+            user=user,
             response_format="json",
         )
-        data = json.loads(raw)
+        return json.loads(raw_text)
+
+    try:
+        try:
+            data = await _ask(user_prompt)
+        except (VisionResponseParseError, json.JSONDecodeError) as err:
+            logger.warning("text_gen_initial_json_invalid", error=str(err)[:200])
+            try:
+                data = await _ask(
+                    user_prompt
+                    + "\n\nYour previous response was not valid JSON. "
+                    "Return only a single valid JSON object with no prose, "
+                    "no markdown fences, no trailing commas, and every string "
+                    "double-quoted and properly escaped."
+                )
+            except (VisionResponseParseError, json.JSONDecodeError) as err2:
+                logger.warning("text_gen_second_json_invalid", error=str(err2)[:200])
+                data = {"title": "Untitled", "org": "Organization"}
         data, overflow = _apply_budgets(data, budgets, bullets_per_key)
 
         if overflow and _MAX_RETRIES > 0:

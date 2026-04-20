@@ -42,7 +42,9 @@ class TextClient(Protocol):
 def _extract_json(raw: str) -> str:
     """Strip markdown fences and return the first {...} JSON object as text.
 
-    Raises VisionResponseParseError if no balanced object is present.
+    Raises VisionResponseParseError if no balanced object is present *or* the
+    extracted candidate fails to parse. Parse failures are wrapped so callers
+    need only catch VisionResponseParseError.
     """
     cleaned = re.sub(r"```json\s*", "", raw, flags=re.IGNORECASE)
     cleaned = re.sub(r"```\s*$", "", cleaned).strip()
@@ -51,8 +53,13 @@ def _extract_json(raw: str) -> str:
     if first < 0 or last <= first:
         raise VisionResponseParseError(f"No JSON object found in: {raw[:200]}")
     candidate = cleaned[first : last + 1]
-    # Validate parseability; raise otherwise.
-    json.loads(candidate)
+    # Validate parseability; raise a wrapped error so callers can retry uniformly.
+    try:
+        json.loads(candidate)
+    except json.JSONDecodeError as exc:
+        raise VisionResponseParseError(
+            f"Malformed JSON from model: {exc}. Preview: {candidate[:200]}"
+        ) from exc
     return candidate
 
 
@@ -95,7 +102,7 @@ class OllamaTextClient:
     async def _call(self, *, system: str, user: str) -> str:
         payload = {
             "model": self._settings.ollama_text_model,
-            "max_tokens": self._settings.vision_max_tokens,
+            "max_tokens": self._settings.text_max_tokens,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
@@ -156,7 +163,7 @@ class AnthropicTextClient:
         try:
             response = await self._client.messages.create(
                 model=self._settings.vision_model,
-                max_tokens=self._settings.vision_max_tokens,
+                max_tokens=self._settings.text_max_tokens,
                 system=system,
                 messages=[{"role": "user", "content": user}],
             )

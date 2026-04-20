@@ -26,7 +26,11 @@ class Settings(BaseSettings):
 
     # Vision model (Anthropic)
     vision_model: str = "claude-sonnet-4-5"
-    vision_max_tokens: int = 1024
+    vision_max_tokens: int = 1024  # vision verdicts are compact JSON
+    # Text completions (outline, text_gen) benefit from a larger budget — the
+    # brochure schema-renderer asks the LLM to produce ~20 structured fields
+    # which regularly exceeds 1024 tokens and gets truncated mid-JSON.
+    text_max_tokens: int = 8192
     vision_timeout_seconds: int = 60
 
     # Ollama / OpenAI-compatible provider
