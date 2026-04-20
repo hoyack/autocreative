@@ -9,20 +9,20 @@ Prior handoff (pre-schema era): `docs/brochure-improvement-v2.md`.
 ## 1. Quick orientation
 
 - **Branch:** `master`, clean working tree
-- **Tests:** `python -m pytest tests/ -q` → 658/658 pass in ~35s
+- **Tests:** `python -m pytest tests/ -q` → 665/665 pass in ~35s
 - **Latest commits (newest first):**
   ```
+  0bcb02e fix(brochure): close back-panel whitespace + 180s httpx timeout
+  3512a35 fix(brochure/image_gate): retry on generate error instead of aborting
+  b82521d fix(brochure/text_gen): tighter hero_concept hint so vision gate approves
+  fead116 fix(brochure/llm): separate text_max_tokens from vision_max_tokens + wrap JSON errors
+  6822bde feat(brochure/schema-renderer): BrochureBrief intake model + brief-aware LLM
+  e6c0769 fix(brochure/schema-renderer): loosen char-budget line count + prompt for per-section image_concept
+  bb52f65 feat(brochure/schema-renderer): --color-accent CLI override for palette
+  4a68382 docs: reflect shipped deferred phases (2 / 4-stretch / 6) in HANDOFF + README
   e1896f8 feat(brochure/schema-renderer): Phase 2 — LLM text budgeting
   0ddd85d feat(brochure/schema-renderer): Phase 6 — real logo embedding
   a08fe18 feat(brochure/schema-renderer): Phase 4 stretch — texture_slot → <pattern>
-  1992c80 docs: refresh HANDOFF staleness — test count, commits, file index, TL;DR
-  0ad3744 docs: write README covering flyer + brochure (v1/v2/schema-driven) paths
-  1e84991 docs: mark Phase 4 shipped in HANDOFF, retarget §6-§8 to current state
-  0ed9939 feat(brochure/schema-renderer): Phase 4 — image gate + placeholder embedding
-  2a533a6 docs: session handoff — schema-renderer subsystem state + Phase 4 plan
-  a56d5d6 fix(schemas/bold_diagonal_split): front cover text wrapping + negative leading
-  d539b37 feat(brochure/schemas): adopt 10 user-contributed templates + 3 new content samples
-  806b68e feat(brochure/schema-renderer): Phase 1 — schema-driven design-first rendering
   ```
 - **.env:** `FLYER_ANTHROPIC_API_KEY`, `FLYER_COMFYCLOUD_API_KEY`, `FLYER_OLLAMA_API_KEY` all live.
 - **Plan file:** `~/.claude/plans/lets-continue-testing-various-cheeky-puddle.md` — full phase plan (Phases 1–6).
@@ -152,11 +152,13 @@ python -m pytest tests/brochure/schema_renderer/ -q          # 166 tests, ~10s
 |---|---|---|
 | 1 | ✅ shipped | Schema foundation — pure data → SVG, 13 templates |
 | 2 | ✅ shipped | LLM text-budgeting: `--prompt` → Ollama/Anthropic writes copy fitting every region (commit `e1896f8`) |
+| 2a | ✅ shipped | `BrochureBrief` intake model + brief-aware LLM + verbatim contact overrides (commit `6822bde`) |
 | 3 | deferred | Template-library expansion (already 13 — user may want 20+) + authoring docs |
 | 4 | ✅ shipped | Image placeholders + vision gate — 4×4 gallery 16/16 green (commit `0ed9939`) |
 | 4 stretch | ✅ shipped | `texture_slot` → `<pattern>` tile on shape fills (commit `a08fe18`) |
 | 5 | deferred | Text-on-image (flyer-pipeline safe-region port) |
 | 6 | ✅ shipped | Real logo embedding — PNG/JPG/SVG via `--logo` (commit `0ddd85d`) |
+| **7** | **next up** | **Brand Kit system — scrape website → untracked brand schema → apply to any template. See §8.** |
 
 ---
 
@@ -176,47 +178,147 @@ Gallery `/tmp/phase4-gallery/` — 4 templates × 4 contents = 16 cells. **16/16
 ### Phase 2 — LLM text budgeting (`e1896f8`)
 `text_gen.generate_content_from_prompt(template, prompt, audience=)` collects every TextElement + BulletsElement's tightest char budget per content_key, then asks the configured TextClient (Ollama or Anthropic, via `settings.vision_provider`) for a JSON object shaped to those limits. Overflow fields get one retry with a stricter instruction; word-boundary truncation is the final fallback. CLI: `--prompt <text>` mutually exclusive with `--content`, persists LLM output to `<output>/content.json`.
 
-Live smoke (editorial_classic × Anthropic): 21 budgeted fields filled in one call, cogent on-tone copy; 0 overflow retries needed for this prompt.
+### Phase 2a — `BrochureBrief` intake model (`6822bde`)
+Structured interrogative intake: `target_audience`, `brand_voice`, `value_proposition`, `offerings[]`, `differentiators[]`, `testimonials[]`, `awards[]`, `key_stats[]`, `founded_year`, `hours`, `locations[]`, `primary_cta`, `secondary_cta`, `keywords[]`, `source_urls[]`. Attaches to `BrochureContent.brief` and serializes into the LLM user prompt as *INTAKE BRIEF* ground-truth block so the model draws copy from real facts instead of inventing.
 
-### Gotchas caught
+`generate_content_from_prompt(..., brief=, contact=)` accepts both. Supplied contact fields override whatever the LLM produces (verbatim phone/address/email preservation). System prompt now pushes "aim for 80-95% of each budget — a half-filled region looks thin" and explicitly bans inventing contact values / testimonials when brief data is available.
+
+CLI: `--brief-json <path>`, `--phone`, `--address`, `--email`, `--url`, `--color-accent #RRGGBB`.
+
+### Live shrubnet one-shot (v7–v9)
+End-to-end run against shrubnet.com: WebFetch → brief → `editorial_classic` with `--generate-images --logo --brief-json --email --address --color-accent`. After iteration (v4 → v9 over ~6 rebuilds), every inner-panel region now hits ≥60% of budget. Final commit `0bcb02e` closed the remaining back-sheet whitespace by:
+  - Raising bullets `max_chars_per_item` from 60 → 100 so items wrap to 2 lines.
+  - Adding a pull-quote region (y=2000 h=340) + attribution (y=2360 h=34) to each inner panel of `editorial_classic`, filling the 440px dead zone between bullets and `org_name`.
+  - `_per_item_char_limit` now accounts for bullets-bbox vertical allowance (`lines_per_item = total_lines // max_items`).
+  - `text_gen` system prompt now demands specific role-based quote attributions, not org-name repeats.
+
+### Gotchas caught (cumulative)
 - **1×1 fake PNGs + cairo OOM.** Initial renderer tests used a hand-rolled 1×1 PNG; cairo OOM'd upsampling to ~900px. Fix: `Pillow.Image.new((128, 128), ...)` for test fixtures.
 - **Nested `<?xml?>`** inside another SVG breaks cairosvg. `_strip_svg_prolog()` removes the XML declaration + DOCTYPE before inlining SVG logos.
 - `ImagePlaceholder.corner_radius` is `float` → serializes as `"22.0"`; asserts match `rx="22`.
+- **`vision_max_tokens=1024` starved text completions** at ~21 fields (truncates JSON mid-response, same spot twice). Split into `text_max_tokens=8192` in `fead116`. Vision calls keep 1024.
+- **`_extract_json` leaked `JSONDecodeError`** instead of wrapping in `VisionResponseParseError` — retry path never triggered. Fixed in `fead116`.
+- **`httpx.AsyncClient()` default timeout is 5s** — every ComfyCloud hero submit `ReadTimeout`'d before execution. `0bcb02e` sets `timeout=180.0` in `image_gate`.
+- **`image_gate` `break` on transient errors** burned remaining hero retries. Changed to `continue` in `3512a35`.
+- **Hero vision gate rejects tech-dense imagery** (server racks, UI screens, tight framing) because its rubric demands clean edges for title overlay. `b82521d` tightened the `hero_concept` hint to require landscape composition + low-detail edges.
+- **`int(h / line_height)` floored tall title bboxes to 1 line** when they actually fit 1.5–2 lines. Changed to `round()` in `e6c0769`.
+- **`content.color_accent` was dead** — renderer only read `template.palette.accent_default`. Added `accent_override` kwarg + `--color-accent` CLI in `bb52f65`.
 
 ---
 
 ## 7. Open issues / gotchas
 
-- **Phase 3** — template library expansion is still open; 13 templates today. Adding templates requires no code changes, just JSON.
+- **Fonts read a bit small on the rendered brochure** — particularly inside-panel bullet text and lead paragraphs. Likely a mix of (a) template `body_size`/`bullet_size` set conservatively, (b) `text_fit` `_DEFAULT_EM=0.55` + `safety=0.92` underestimates width, encouraging tighter sizes than needed. Worth revisiting after the brand-kit phase: either bump template typography sizes, or re-calibrate the char-width table so budgets allow larger type for the same region. Not an actual blocker — just worth fixing before calling outputs "production-ready."
+- **Phase 3** — template library expansion still open; 13 templates today. Adding templates is JSON-only, no Python.
 - **Phase 5** — text-on-image safe-region detection (flyer-pipeline port). Not started.
-- **Template font families are CSS strings** (`'Playfair Display', serif`). If the rasterizer doesn't have the font installed, it falls back to the next in the stack. `flyer_generator/assets/fonts/` is empty — drop subsetted woff2 files to get exact typography. Not blocking.
+- **Template font families are CSS strings** (`'Playfair Display', serif`). If the rasterizer doesn't have the font installed, it falls back to the next in the stack. `flyer_generator/assets/fonts/` is empty — drop subsetted woff2 files to get exact typography. Not blocking but looks less polished without.
 - **`docs/brochure-templates/`** still contains the 10 original JSONs (copied into `flyer_generator/brochure/schemas/` rather than moved — docs/brochure-templates/ is the "design reference" directory). No harm; identical.
-- **`/tmp/brochure-adversarial/`** — old adversarial battery data. Not touched by the schema renderer.
 - **Gallery PDFs are large** (~17 MB per cell) because each embeds 2–4 real 1472×832 photos base64'd into SVG, then rasterized at 3376×2626 and wrapped in PDF. Acceptable for print; if this grows, downscale embedded PNGs before base64 or cache-dedupe shared slots across sheets.
 - **Texture generation** — `--textures-dir` is fed by the user today. There is no LLM/ComfyUI orchestrator that generates textures to match a template's needs; that's a future iteration (could piggyback on `image_gate`).
+- **Hero vision gate rejects tech-dense imagery for text-forward templates.** For brand-kit demos where the business is explicitly technical, prefer landscape-oriented abstractions (bokeh, mesh-fade horizons) rather than literal server rooms / screens.
 
 ---
 
-## 8. When you come back after `/clear`
+## 8. Next up — Phase 7: Brand Kit system
 
-1. `git log --oneline | head -10` → expect `e1896f8 feat(brochure/schema-renderer): Phase 2 …` at top.
-2. `python -m pytest tests/ -q` → confirm 658/658 pass.
-3. `ls /tmp/phase4-gallery/` → Phase 4 gallery artifacts (may be purged by /tmp rotation; rerun `PYTHONPATH=$PWD python /tmp/phase4-gallery/run.py` if needed, ~30 min).
-4. Open `HANDOFF.md` (this file) + `README.md` for full context.
-5. Try the end-to-end path, one sentence → finished brochure with photos + logo:
-   ```bash
-   python -m flyer_generator.brochure.schema_renderer \
-       --template hero_image_dominant \
-       --prompt "a boutique estate-planning law firm for young families" \
-       --audience "parents under 45, warm tone" \
-       --generate-images --workflow ernie_landscape \
-       --logo path/to/logo.png \
-       --output /tmp/oneshot
-   ```
-6. Remaining candidates:
-   - **Phase 3** — 5–9 more templates (JSON-only, no Python).
-   - **Phase 5** — text-on-image safe-region detection (port from flyer pipeline).
-   - **Auto-texture** — wire an LLM concept generator + ComfyUI into `--textures-dir` so textures are generated per template rather than fed by hand.
+User spec (verbatim intent, paraphrased for clarity):
+
+> Store untracked brand schemas defined from a tracked template schema. Generate a brand-kit schema from a website — headless Playwright likely, simple `requests` as fallback. Capture brand colors, fonts, styles, logo, plus everything you'd have in a professional brand kit. Apply the kit to the brochure template so it injects colors. Use a library that checks safe color combos. Watch for contrast across shapes. Build a visual inspection + adversarial testing loop. (Fonts often read a bit small — worth addressing at the same time.)
+
+### Architecture sketch (for `/gsd-plan-phase`)
+
+**Data model** (new `flyer_generator/brand_kit/`):
+- `BrandKit` Pydantic:
+  - `name: str` + `source_url: str | None` + `fetched_at: datetime`
+  - `palette: BrandPalette` — primary, secondary, accent, neutral_dark, neutral_light, extras (dict); each color also carries `usage_hint` ("primary CTA", "heading", etc.)
+  - `typography: BrandTypography` — heading_family (CSS stack), body_family, size_scale (hero, display, heading, subheading, body, caption), font_sources (urls to woff2 if fetchable)
+  - `logos: list[BrandLogo]` — each with path/url, variant ("primary", "mono-dark", "mono-light", "mark-only"), format, aspect_ratio
+  - `voice: BrandVoice | None` — tone, example_phrases, banned_words
+  - `photography: BrandPhotoHints | None` — preferred style_preset, color grade notes
+  - `source_artifacts: list[str]` — screenshot paths, html dumps, css files captured during scrape
+
+**Storage**:
+- Tracked: `.brand-kit-template.json` (shape reference; live in-repo so schema stays in sync with code)
+- Untracked: `.brand-kits/<slug>/` with `brand.json`, `logos/*.png`, `source/*.html`, `source/*.css`, `source/screenshot.png`. User-configurable via env var `FLYER_BRAND_KITS_DIR` (default `.brand-kits/` relative to cwd). Add to `.gitignore`.
+
+**Scraper** (`brand_kit/scraper.py`):
+- Primary: Playwright async, headless, navigates → waits for network idle → extracts:
+  - Dominant colors (from screenshot via `Pillow` + `scikit-image` quantization, OR from computed CSS of `:root`, `body`, known selectors)
+  - Font families (scrape `<link>` to Google Fonts / self-hosted, `@font-face` from CSS, computed `font-family` on H1/body)
+  - Logo candidates (`<img>` in header with "logo" in class/alt/filename; `<svg>` inline with "logo" in class)
+  - Meta: `og:site_name`, `title`, description, first H1
+- Fallback: `httpx` + `beautifulsoup4` for no-JS sites; loses dynamic CSS but grabs enough for a minimum-viable kit.
+- Output: `BrandKit` with everything the scrape could infer. Missing fields stay null — brand-kit editing pass fills them in.
+
+**Color safety / contrast**:
+- Library candidates:
+  - `wcag-contrast-ratio` (simple; WCAG 2.1 AA/AAA ratio calc)
+  - `colour-science` (full CIE-level analysis, overkill for just contrast)
+  - `coloraide` (Pydantic-friendly; handles OKLCH / CAM16)
+  - Probably `wcag-contrast-ratio` + `coloraide` pair: first for pass/fail AA, second for contrast-preserving tone adjustments.
+- Validation rules:
+  - Body text on panel background ≥ 4.5 (AA) / 7.0 (AAA)
+  - Large text (≥ 24pt) ≥ 3.0
+  - Shape fill over shape fill: track every shape and its immediate children in `_render_panel`, compute the contrast ratio of text placed over each, flag if below threshold.
+- Auto-remediation: if a text color on a shape-filled bbox fails contrast, swap to the opposite neutral (dark ↔ light) from the palette.
+
+**Applying a kit to a template** (`brand_kit/applier.py`):
+- `apply_brand_kit(template: TemplateSchema, kit: BrandKit) -> TemplateSchema` returns a new template with:
+  - `palette` swapped from kit palette (with contrast validation against known text roles)
+  - `typography.heading_family` and `body_family` replaced by kit stacks
+  - `typography.*_size` optionally scaled by a kit-level `size_multiplier` to fix the "fonts are small" observation
+- Also pass `logo_bytes` directly to `render_schema_brochure` from the kit's primary logo.
+- CLI: `--brand-kit <slug>` loads and applies the kit; orchestrates logo + color + font + photography style.
+
+**Visual inspection + adversarial loop**:
+- `brand_kit/audit.py` — after render, run:
+  - PIL-based whitespace detector per panel (histogram of pixel density in grid cells; flag cells below threshold)
+  - Contrast audit of every text region over its measured background
+  - Same budget-fill audit I ran inline this session (formalize it into `audit_content_density(content, template)`)
+- Each audit returns structured findings; the orchestrator iterates: fix → re-render → re-audit until clean or max iterations (~3).
+
+### Phase 7 CLI target
+
+```bash
+# 1. Create / refresh a brand kit from a website
+python -m flyer_generator.brand_kit fetch https://shrubnet.com --slug shrubnet
+
+# 2. Render a brochure with the kit applied
+python -m flyer_generator.brochure.schema_renderer \
+    --template editorial_classic \
+    --prompt "..." \
+    --brand-kit shrubnet \
+    --generate-images --workflow ernie_landscape \
+    --output /tmp/out
+```
+
+### Files to create (non-binding — `/gsd-plan-phase` will firm it up)
+
+- `flyer_generator/brand_kit/__init__.py`
+- `flyer_generator/brand_kit/models.py` — `BrandKit`, `BrandPalette`, `BrandTypography`, `BrandLogo`, `BrandVoice`
+- `flyer_generator/brand_kit/scraper.py` — Playwright-backed, requests fallback
+- `flyer_generator/brand_kit/contrast.py` — WCAG checker + remediation
+- `flyer_generator/brand_kit/applier.py` — merge a kit into a `TemplateSchema`
+- `flyer_generator/brand_kit/storage.py` — read/write `.brand-kits/<slug>/`
+- `flyer_generator/brand_kit/audit.py` — post-render visual adversarial loop
+- `flyer_generator/brand_kit/__main__.py` — `fetch`, `list`, `show`, `edit` subcommands
+- `flyer_generator/brochure/schema_renderer/__main__.py` — accept `--brand-kit <slug>`
+- `tests/brand_kit/` — scraper (mocked HTML), models, contrast, applier, audit
+
+### Dependencies to add (`pyproject.toml`)
+- `playwright>=1.50` + `playwright install chromium` step in CI
+- `wcag-contrast-ratio>=0.9`
+- `coloraide>=4.0` (OKLCH + CAM16 color science)
+- `beautifulsoup4>=4.13` (requests-fallback scraper)
+
+### When you come back after `/clear`
+
+1. `git log --oneline | head -10` → expect `0bcb02e fix(brochure): close back-panel whitespace …` at top.
+2. `python -m pytest tests/ -q` → confirm 665/665 pass.
+3. Read this HANDOFF + `README.md`.
+4. Run `/gsd-plan-phase` to create a full PLAN.md for Phase 7 Brand Kit, using §8 here as the spec source.
+5. Execute the plan with `/gsd-execute-phase`.
+6. Live test with `/tmp/shrubnet-brief.json` + `/tmp/shrubnet-e2e/logo.png` as baseline inputs — they're still on disk.
 
 ---
 
@@ -224,23 +326,25 @@ Live smoke (editorial_classic × Anthropic): 21 budgeted fields filled in one ca
 
 ```
 flyer_generator/brochure/
-├── schema_renderer/          ← Phases 1, 2, 4 (+ stretch), 6 subsystem
+├── schema_renderer/          ← Phases 1, 2, 2a, 4 (+ stretch), 6 subsystem
 │   ├── __init__.py           load_template, list_templates, render_schema_brochure,
-│   │                         BrochureContent, TemplateSchema, TextBudget,
-│   │                         generate_template_images, generate_content_from_prompt,
-│   │                         collect_image_slots, collect_text_budgets, resolve_concept_for_slot
+│   │                         BrochureContent, BrochureBrief, Testimonial, TemplateSchema,
+│   │                         TextBudget, generate_template_images,
+│   │                         generate_content_from_prompt, collect_image_slots,
+│   │                         collect_text_budgets, resolve_concept_for_slot
 │   ├── __main__.py           CLI — accepts --content OR --prompt; flags
 │   │                         --generate-images, --workflow, --style-preset,
-│   │                         --logo, --textures-dir, --audience
-│   ├── content_model.py      BrochureContent + adapter from BrochureInput
-│   ├── image_gate.py         Phase 4: ComfyUI image fill for image_placeholder slots (hero vision gate + parallel spots)
+│   │                         --logo, --textures-dir, --audience, --brief-json,
+│   │                         --phone, --address, --email, --url, --color-accent
+│   ├── content_model.py      BrochureContent + BrochureBrief + Testimonial + adapter
+│   ├── image_gate.py         Phase 4: ComfyUI image fill (hero vision gate, 180s httpx timeout, retry-on-error)
 │   ├── loader.py             load_template + list_templates
-│   ├── renderer.py           render_schema_brochure(images=, textures=, logo_bytes=) — CORE
+│   ├── renderer.py           render_schema_brochure(images=, textures=, logo_bytes=, accent_override=) — CORE
 │   ├── schema_model.py       TemplateSchema + every element Pydantic type
 │   ├── shapes.py             SVG primitive emitters + texture_slot → <pattern>
-│   ├── text_fit.py           text measurement + wrap + char budget
-│   └── text_gen.py           Phase 2: LLM text budgeting (Ollama / Anthropic)
-├── schemas/                  ← 13 template JSONs
+│   ├── text_fit.py           text measurement + wrap + char budget (line-count via round())
+│   └── text_gen.py           Phase 2 + 2a: LLM text budgeting, brief-aware, contact-verbatim
+├── schemas/                  ← 13 template JSONs (editorial_classic enhanced with inner-panel pull-quote regions)
 ├── generative/               ← LLM-driven legacy path (untouched)
 ├── stages/                   ← shared stages (composer, layout, pdf, vision, prompt_builder)
 └── pipeline.py               v1 BrochureGenerator (layout_choice-aware)
@@ -250,16 +354,21 @@ docs/brochure/
 
 tests/brochure/schema_renderer/
 ├── test_schema_model.py      20 tests
-├── test_shapes.py            23 tests (Phase 4 stretch added 4 texture_slot tests)
+├── test_shapes.py            23 tests (+4 texture_slot)
 ├── test_text_fit.py          11 tests
 ├── test_content_model.py     13 tests
 ├── test_loader.py            7 tests
-├── test_renderer.py          38 tests (Phase 4 + 4-stretch + Phase 6 additions)
-├── test_image_gate.py        16 tests (Phase 4)
-├── test_text_gen.py          14 tests (Phase 2)
-└── test_gallery.py           78 dynamic tests (grows with schemas + content)
+├── test_renderer.py          40 tests (Phase 4 + 4-stretch + Phase 6 + accent override)
+├── test_image_gate.py        17 tests (+1 retry-on-transient-error)
+├── test_text_gen.py          18 tests (Phase 2 + 2a brief/contact passthrough)
+└── test_gallery.py           78 dynamic tests
+
+One-shot inputs still on disk for Phase 7 seeding:
+  /tmp/shrubnet-brief.json    — BrochureBrief JSON from scraped shrubnet.com
+  /tmp/shrubnet-e2e/logo.png  — 1024×1024 RGBA logo
+  /tmp/shrubnet-v9/           — final v9 brochure artifacts (front/back/PDF/content)
 ```
 
 ---
 
-**TL;DR for next session:** Phases 1, 2, 4 (+ stretch), 6 all shipped. One CLI command turns a single sentence into a print-ready tri-fold brochure with LLM-budgeted copy, ComfyUI hero + spot photos (vision-gated), embedded logo, and optional tiled textures. 658/658 tests. 16/16 live gallery cells green. Deferred: Phase 3 template expansion, Phase 5 text-on-image.
+**TL;DR for next session:** Phases 1, 2 (+ 2a brief), 4 (+ stretch), 6 all shipped. One CLI command turns `(--prompt + --brief-json + --email/--address + --logo + --color-accent)` into a dense, brand-verbatim tri-fold brochure with vision-gated hero photo. Iterated adversarial audits this session produced a near-final shrubnet example (`/tmp/shrubnet-v9/brochure_print.pdf`) with every inner-panel region ≥60% of budget. 665/665 tests. Next up: **Phase 7 — Brand Kit system** (scrape site → untracked kit → apply to template → WCAG-validated colors + visual audit loop); spec in §8. Run `/gsd-plan-phase` to kick it off.
