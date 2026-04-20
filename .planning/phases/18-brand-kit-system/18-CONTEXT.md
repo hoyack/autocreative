@@ -45,13 +45,13 @@
   - `name: str` (required)
   - `source_url: str | None`
   - `fetched_at: datetime`
-  - `palette: BrandPalette`
-  - `typography: BrandTypography`
-  - `logos: list[BrandLogo]`
+  - `palette: BrandPalette | None` — **Optional** so partially-populated scrapes round-trip; applier substitutes template defaults when null.
+  - `typography: BrandTypography | None` — **Optional** for the same reason.
+  - `logos: list[BrandLogo]` — empty list when scraper finds none.
   - `voice: BrandVoice | None`
   - `photography: BrandPhotoHints | None`
   - `source_artifacts: list[str]` — relative paths to screenshot/html/css captured during scrape
-  - `size_multiplier: float = 1.0` — applied by `apply_brand_kit` to scale `typography.*_size` in the template
+  - `size_multiplier: float = 1.0` — applied by `apply_brand_kit` to scale `typography.*_size` in the template; default `1.0` is a no-op.
 - `BrandPalette`: `primary: ColorUsage`, `secondary: ColorUsage`, `accent: ColorUsage`, `neutral_dark: ColorUsage`, `neutral_light: ColorUsage`, `extras: dict[str, ColorUsage]`. Each `ColorUsage` = `{hex: str, usage_hint: str | None}` (e.g. "primary CTA", "heading").
 - `BrandTypography`: `heading_family: str` (CSS stack), `body_family: str` (CSS stack), `size_scale: dict[str, int]` (keys: `hero`, `display`, `heading`, `subheading`, `body`, `caption`), `font_sources: list[str]` (URLs to woff2 if fetchable).
 - `BrandLogo`: `path: str` (relative to kit dir), `variant: Literal["primary", "mono_dark", "mono_light", "mark_only"]`, `format: Literal["png", "jpg", "svg"]`, `aspect_ratio: float`.
@@ -113,15 +113,28 @@
 - Orchestrator loop: `fix (text regen / contrast swap) → re-render → re-audit` up to 3 cycles; short-circuit on clean pass.
 
 ### Dependencies to add (`pyproject.toml`)
-- `playwright>=1.50` — dev-optional group, pure-Python wheels not enough; CI will need `playwright install chromium`.
-- `beautifulsoup4>=4.13`.
-- `wcag-contrast-ratio>=0.9`.
-- `coloraide>=4.0`.
-- Optionally `colorthief` for palette quantization (decide in research).
+- `playwright>=1.58` — dev-optional group (pure-Python wheel, but bundled Chromium needed via `playwright install chromium` in CI).
+- `beautifulsoup4>=4.14`.
+- `tinycss2>=1.5` (for `@font-face` + custom-property parsing in the fallback scraper).
+- `wcag-contrast-ratio>=0.9` — pinned at 0.9 because it's stable API and hasn't released since 2015; wrap all calls in a helper that normalizes hex → float triples (the lib takes floats 0.0-1.0, NOT 0-255 ints; this is a known pitfall).
+- `coloraide>=8,<9` — **corrected from stale >=4.0 in original draft.** Current major is 8.x (8.8.1 as of 2026-03). API for `Color.contrast()` and OKLCH traversal is the target; any remediation lightness search uses `Color(hex).convert("oklch")`.
+- Do NOT add `colorthief` (abandoned 2017, Python-2 only). Use `Pillow.Image.quantize(colors=5, method=MEDIANCUT)` for palette extraction instead.
 
 ### Typography uplift
 - Separate from runtime `size_multiplier`: bump baseline sizes in the 13 templates so default-density content reads comfortably at print scale. Touch `typography.body_size`, `typography.bullet_size`, potentially `typography.lead_paragraph_size` where present.
 - **Guardrail:** the existing 78-cell schema_renderer gallery tests must still render without text overflow (fit-retry may trigger, but no hard clipping).
+
+### Error hierarchy
+- `BrandKitError` lives in `flyer_generator/errors.py` (matches `ComfyError`/`VisionError` convention). Subclasses:
+  - `BrandKitScrapeError` — scraper failed in both primary and fallback paths.
+  - `BrandKitContrastError` — contrast remediation exhausted options with no passing swap.
+  - `BrandKitAuditError` — audit loop hit max cycles without clean pass (non-fatal by default; raise only when caller requested strict mode).
+
+### Audit loop remediation scope (Phase 18 only)
+- Iteration remediations are limited to:
+  - **Contrast swap** (text color → opposite neutral) — cheap, deterministic.
+  - **Tighter-budget retry for text_gen** — re-prompt with stricter char budgets for under-filled regions.
+- **Edit-in-place text rewrites** (passing prior generated content back to the LLM for targeted edit) are OUT OF SCOPE in Phase 18 — deferred to a later phase. The locked behavior is regenerate-from-scratch with tighter budgets.
 
 ### Claude's Discretion
 - Exact palette quantization algorithm (ColorThief vs. KMeans vs. `Pillow.Image.quantize()`).
