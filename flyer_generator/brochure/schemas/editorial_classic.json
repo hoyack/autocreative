@@ -79,7 +79,10 @@
         { "type": "text", "bbox": [80, 180, 940, 220], "role": "section_heading", "content_key": "sections[0].heading", "section_index": 0, "color": "#1A1A1A", "font_size": 64, "line_height": 72, "z": 10 },
         { "type": "shape", "kind": "rect", "rect": [80, 430, 140, 3], "fill": { "type": "solid", "color": "#1E3A5F" }, "z": 6 },
         { "type": "text", "bbox": [80, 470, 940, 360], "role": "lead_paragraph", "content_key": "sections[0].lead_paragraph", "section_index": 0, "color": "#1A1A1A", "font_size": 32, "line_height": 46, "italic": true, "z": 10 },
-        { "type": "bullets", "bbox": [80, 860, 940, 1100], "content_key": "sections[0].bullets", "section_index": 0, "max_items": 6, "max_chars_per_item": 60, "bullet_style": "dash", "font_size": 28, "line_height": 40, "text_color": "#1A1A1A", "bullet_color": "#1E3A5F", "item_spacing": 22, "z": 10 },
+        { "type": "bullets", "bbox": [80, 860, 940, 1060], "content_key": "sections[0].bullets", "section_index": 0, "max_items": 6, "max_chars_per_item": 100, "bullet_style": "dash", "font_size": 28, "line_height": 40, "text_color": "#1A1A1A", "bullet_color": "#1E3A5F", "item_spacing": 22, "z": 10 },
+        { "type": "shape", "kind": "rect", "rect": [80, 1970, 140, 3], "fill": { "type": "solid", "color": "#1E3A5F" }, "z": 6 },
+        { "type": "text", "bbox": [80, 2000, 940, 340], "role": "quote", "content_key": "sections[0].quote", "section_index": 0, "color": "#1E3A5F", "font_size": 34, "line_height": 46, "italic": true, "z": 10 },
+        { "type": "text", "bbox": [80, 2360, 940, 34], "role": "contact_name", "content_key": "sections[0].quote_attribution", "section_index": 0, "color": "#1E3A5F", "font_size": 20, "weight": "semibold", "uppercase": true, "letter_spacing": 2, "z": 10 },
         { "type": "shape", "kind": "rect", "rect": [80, 2400, 940, 1], "fill": { "type": "solid", "color": "#1E3A5F", "opacity": 0.25 }, "z": 6 },
         { "type": "text", "bbox": [80, 2430, 940, 50], "role": "org_name", "content_key": "org", "font_size": 20, "uppercase": true, "letter_spacing": 4, "color": "#1E3A5F", "z": 10 }
       ]
@@ -93,7 +96,10 @@
         { "type": "text", "bbox": [80, 180, 940, 220], "role": "section_heading", "content_key": "sections[1].heading", "section_index": 1, "color": "#1A1A1A", "font_size": 64, "line_height": 72, "z": 10 },
         { "type": "shape", "kind": "rect", "rect": [80, 430, 140, 3], "fill": { "type": "solid", "color": "#1E3A5F" }, "z": 6 },
         { "type": "text", "bbox": [80, 470, 940, 360], "role": "lead_paragraph", "content_key": "sections[1].lead_paragraph", "section_index": 1, "color": "#1A1A1A", "font_size": 32, "line_height": 46, "italic": true, "z": 10 },
-        { "type": "bullets", "bbox": [80, 860, 940, 1100], "content_key": "sections[1].bullets", "section_index": 1, "max_items": 6, "max_chars_per_item": 60, "bullet_style": "dash", "font_size": 28, "line_height": 40, "text_color": "#1A1A1A", "bullet_color": "#1E3A5F", "item_spacing": 22, "z": 10 },
+        { "type": "bullets", "bbox": [80, 860, 940, 1060], "content_key": "sections[1].bullets", "section_index": 1, "max_items": 6, "max_chars_per_item": 100, "bullet_style": "dash", "font_size": 28, "line_height": 40, "text_color": "#1A1A1A", "bullet_color": "#1E3A5F", "item_spacing": 22, "z": 10 },
+        { "type": "shape", "kind": "rect", "rect": [80, 1970, 140, 3], "fill": { "type": "solid", "color": "#1E3A5F" }, "z": 6 },
+        { "type": "text", "bbox": [80, 2000, 940, 340], "role": "quote", "content_key": "sections[1].quote", "section_index": 1, "color": "#1E3A5F", "font_size": 34, "line_height": 46, "italic": true, "z": 10 },
+        { "type": "text", "bbox": [80, 2360, 940, 34], "role": "contact_name", "content_key": "sections[1].quote_attribution", "section_index": 1, "color": "#1E3A5F", "font_size": 20, "weight": "semibold", "uppercase": true, "letter_spacing": 2, "z": 10 },
         { "type": "shape", "kind": "rect", "rect": [80, 2400, 940, 1], "fill": { "type": "solid", "color": "#1E3A5F", "opacity": 0.25 }, "z": 6 },
         { "type": "text", "bbox": [80, 2430, 940, 50], "role": "org_name", "content_key": "org", "font_size": 20, "uppercase": true, "letter_spacing": 4, "color": "#1E3A5F", "z": 10 }
       ]
@@ -107,7 +113,10 @@
         { "type": "text", "bbox": [80, 180, 940, 220], "role": "section_heading", "content_key": "sections[2].heading", "section_index": 2, "color": "#1A1A1A", "font_size": 64, "line_height": 72, "z": 10 },
         { "type": "shape", "kind": "rect", "rect": [80, 430, 140, 3], "fill": { "type": "solid", "color": "#1E3A5F" }, "z": 6 },
         { "type": "text", "bbox": [80, 470, 940, 360], "role": "lead_paragraph", "content_key": "sections[2].lead_paragraph", "section_index": 2, "color": "#1A1A1A", "font_size": 32, "line_height": 46, "italic": true, "z": 10 },
-        { "type": "bullets", "bbox": [80, 860, 940, 1100], "content_key": "sections[2].bullets", "section_index": 2, "max_items": 6, "max_chars_per_item": 60, "bullet_style": "dash", "font_size": 28, "line_height": 40, "text_color": "#1A1A1A", "bullet_color": "#1E3A5F", "item_spacing": 22, "z": 10 },
+        { "type": "bullets", "bbox": [80, 860, 940, 1060], "content_key": "sections[2].bullets", "section_index": 2, "max_items": 6, "max_chars_per_item": 100, "bullet_style": "dash", "font_size": 28, "line_height": 40, "text_color": "#1A1A1A", "bullet_color": "#1E3A5F", "item_spacing": 22, "z": 10 },
+        { "type": "shape", "kind": "rect", "rect": [80, 1970, 140, 3], "fill": { "type": "solid", "color": "#1E3A5F" }, "z": 6 },
+        { "type": "text", "bbox": [80, 2000, 940, 340], "role": "quote", "content_key": "sections[2].quote", "section_index": 2, "color": "#1E3A5F", "font_size": 34, "line_height": 46, "italic": true, "z": 10 },
+        { "type": "text", "bbox": [80, 2360, 940, 34], "role": "contact_name", "content_key": "sections[2].quote_attribution", "section_index": 2, "color": "#1E3A5F", "font_size": 20, "weight": "semibold", "uppercase": true, "letter_spacing": 2, "z": 10 },
         { "type": "shape", "kind": "rect", "rect": [80, 2400, 940, 1], "fill": { "type": "solid", "color": "#1E3A5F", "opacity": 0.25 }, "z": 6 },
         { "type": "text", "bbox": [80, 2430, 940, 50], "role": "org_name", "content_key": "org", "font_size": 20, "uppercase": true, "letter_spacing": 4, "color": "#1E3A5F", "z": 10 }
       ]

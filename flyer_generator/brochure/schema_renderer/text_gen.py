@@ -147,17 +147,28 @@ def _element_budget(
 def _per_item_char_limit(
     el: BulletsElement, schema: TemplateSchema
 ) -> int:
-    """How many chars each individual bullet can hold."""
+    """How many chars each individual bullet can hold.
+
+    Accounts for vertical bbox space: when the bullets bbox is taller than
+    max_items × line_height, each item can wrap to multiple lines. Previously
+    this returned chars-per-line only, which under-budgeted bullets in tall
+    bboxes (they rendered as a single line each, leaving huge empty space
+    below the last bullet).
+    """
     if getattr(el, "font_family", None):
         family = el.font_family  # type: ignore[assignment]
     else:
         family = schema.typography.body_family
     size = int(el.font_size or schema.typography.bullet_size)
-    _, _, w, _ = el.bbox
+    line_height = int(el.line_height or schema.typography.bullet_line_height)
+    _, _, w, h = el.bbox
     # Account for bullet marker indent
     usable = max(10.0, w - size * 1.2)
-    limit = chars_per_line(usable, size, family)
-    return min(limit, el.max_chars_per_item)
+    cpl = chars_per_line(usable, size, family)
+    # Vertical allowance: how many lines each bullet gets
+    total_lines = max(1, int(h / line_height))
+    lines_per_item = max(1, total_lines // max(1, el.max_items))
+    return min(el.max_chars_per_item, cpl * lines_per_item)
 
 
 def collect_text_budgets(template: TemplateSchema) -> list[TextBudget]:
@@ -235,6 +246,7 @@ Substance rules:
   * Contact: emit user-supplied phone / email / address / url exactly as given. If not supplied, leave null rather than fabricate a plausible value.
   * Keep tone on-brand with the description (warm, clinical, playful, corporate — match the brief).
   * Do not include copy you have not been asked for.
+  * **Per-section quote/quote_attribution**: if the template references sections[i].quote, write a genuine 1-3 sentence pull-quote that *restates one of the section's differentiators or value_proposition phrases* in the customer's voice (still fits char budget). quote_attribution should be a specific role + team ("— Engineering partner, 2024 data-platform build") or a first-name + title ("— Maya R., VP Engineering"). Never just repeat the org name in the attribution. If the brief lists real testimonials, use those verbatim first.
 
 Return one JSON object matching the schema below. No prose, no markdown fences."""
 

@@ -187,7 +187,9 @@ async def generate_template_images(
 
     _owns_http = False
     if http_client is None and comfy_client is None:
-        http_client = httpx.AsyncClient(follow_redirects=True)
+        # ComfyCloud jobs regularly take 30-90s; default 5s httpx timeout
+        # would ReadTimeout on every attempt. Generous 180s per request.
+        http_client = httpx.AsyncClient(follow_redirects=True, timeout=180.0)
         _owns_http = True
 
     wf_config = load_workflow(workflow_name)
