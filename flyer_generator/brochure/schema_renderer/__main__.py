@@ -118,6 +118,16 @@ def render(
             help="Override the template's palette.accent_default with this #RRGGBB hex.",
         ),
     ] = None,
+    brand_kit: Annotated[
+        Optional[str],
+        typer.Option(
+            "--brand-kit",
+            help=(
+                "Apply a brand kit by slug (loaded from `.brand-kits/<slug>/brand.json`). "
+                "Overrides --color-accent. Explicit --logo overrides the kit's logo."
+            ),
+        ),
+    ] = None,
     brief_json: Annotated[
         Optional[Path],
         typer.Option(
@@ -167,6 +177,26 @@ def render(
         raise typer.Exit(2)
 
     tmpl = load_template(template)
+
+    # --- Brand kit integration (Phase 18) ---
+    logo_bytes_from_kit: bytes | None = None
+    if brand_kit is not None:
+        from flyer_generator.brand_kit.applier import apply_brand_kit
+        from flyer_generator.brand_kit.storage import load_brand_kit
+        try:
+            kit = load_brand_kit(brand_kit)
+        except FileNotFoundError as err:
+            typer.echo(f"Error: --brand-kit {brand_kit!r} not found: {err}", err=True)
+            raise typer.Exit(2) from err
+        if color_accent is not None:
+            typer.echo(
+                f"Warning: --brand-kit overrides --color-accent "
+                f"({color_accent} ignored in favor of kit palette).",
+                err=True,
+            )
+            color_accent = None
+        tmpl, logo_bytes_from_kit = apply_brand_kit(tmpl, kit, slug=brand_kit)
+        typer.echo(f"Applied brand kit: {brand_kit}")
 
     if prompt is not None:
         from flyer_generator.brochure.models import ContactBlock
@@ -277,6 +307,9 @@ def render(
             raise typer.Exit(2)
         logo_bytes = logo.read_bytes()
         typer.echo(f"Loaded logo: {logo.name} ({len(logo_bytes)} bytes)")
+    elif logo_bytes_from_kit is not None:
+        logo_bytes = logo_bytes_from_kit
+        typer.echo(f"Using brand-kit logo ({len(logo_bytes)} bytes)")
 
     typer.echo(f"Rendering {tmpl.name} × {content_label}…")
     if color_accent:
