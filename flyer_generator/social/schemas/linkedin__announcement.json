@@ -1,0 +1,65 @@
+{
+  "schema_version": "1",
+  "name": "linkedin__announcement",
+  "platform": "linkedin",
+  "intent": "announcement",
+  "description": "LinkedIn feed-square (1200x1200) announcement card. Full-bleed hero image with a bottom scrim band hosting title + CTA; brand logo anchored bottom-right. Brand kit drives palette + typography at render time.",
+  "canvas": { "width": 1200, "height": 1200 },
+  "palette": null,
+  "typography": null,
+  "text_budgets": {
+    "copy.title": 90,
+    "copy.body": 2000,
+    "copy.cta": 40,
+    "copy.hashtags": 140
+  },
+  "image_slot": {
+    "bbox": [0, 0, 1200, 1200],
+    "aspect": "1:1",
+    "slot_name": "hero"
+  },
+  "shapes": [
+    {
+      "type": "shape",
+      "kind": "rect",
+      "rect": [0, 820, 1200, 380],
+      "fill": { "type": "linear_gradient", "stops": [{ "offset": 0.0, "color": "#000000", "opacity": 0.0 }, { "offset": 0.35, "color": "#000000", "opacity": 0.55 }, { "offset": 1.0, "color": "#000000", "opacity": 0.75 }], "angle": 0 },
+      "z": 5
+    }
+  ],
+  "text_slots": [
+    {
+      "bbox": [80, 880, 1040, 180],
+      "role": "title",
+      "content_key": "copy.title",
+      "max_chars": 90,
+      "color_role": "neutral_light",
+      "font_role": "heading",
+      "font_size": 72,
+      "font_weight": "semibold",
+      "align": "left",
+      "valign": "top"
+    },
+    {
+      "bbox": [80, 1080, 700, 60],
+      "role": "cta",
+      "content_key": "copy.cta",
+      "max_chars": 40,
+      "color_role": "accent",
+      "font_role": "body",
+      "font_size": 30,
+      "font_weight": "semibold",
+      "align": "left",
+      "valign": "top",
+      "uppercase": true
+    }
+  ],
+  "logo_slot": {
+    "type": "logo_placeholder",
+    "bbox": [980, 1060, 140, 140],
+    "align": "center",
+    "valign": "middle",
+    "fallback_style": "monogram_circle",
+    "z": 20
+  }
+}

@@ -1,7 +1,18 @@
 """Post template schemas and loader (Phase 19 Plan 05).
 
-Direct-module imports only per checker B1: consumers should import from
-``flyer_generator.social.schemas.loader`` or
-``flyer_generator.social.schemas.schema_model`` rather than this package
-namespace.
+The package re-exports the canonical loader entry points so that callers can
+write::
+
+    from flyer_generator.social.schemas import load_post_template
+
+Template schema classes live in :mod:`schema_model`; the filesystem loader and
+name-parsing helpers live in :mod:`loader`. Deep imports remain valid.
 """
+
+from flyer_generator.social.schemas.loader import (
+    list_post_templates,
+    load_post_template,
+    parse_template_name,
+)
+
+__all__ = ["list_post_templates", "load_post_template", "parse_template_name"]

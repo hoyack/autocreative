@@ -1,0 +1,65 @@
+{
+  "schema_version": "1",
+  "name": "facebook__announcement",
+  "platform": "facebook",
+  "intent": "announcement",
+  "description": "Facebook feed-square (1080x1080) announcement card. Full-bleed hero with a bottom scrim band carrying title + CTA; brand logo anchored bottom-right. Palette + typography injected from the brand kit at render time.",
+  "canvas": { "width": 1080, "height": 1080 },
+  "palette": null,
+  "typography": null,
+  "text_budgets": {
+    "copy.title": 80,
+    "copy.body": 400,
+    "copy.cta": 40,
+    "copy.hashtags": 60
+  },
+  "image_slot": {
+    "bbox": [0, 0, 1080, 1080],
+    "aspect": "1:1",
+    "slot_name": "hero"
+  },
+  "shapes": [
+    {
+      "type": "shape",
+      "kind": "rect",
+      "rect": [0, 720, 1080, 360],
+      "fill": { "type": "linear_gradient", "stops": [{ "offset": 0.0, "color": "#000000", "opacity": 0.0 }, { "offset": 1.0, "color": "#000000", "opacity": 0.75 }], "angle": 0 },
+      "z": 5
+    }
+  ],
+  "text_slots": [
+    {
+      "bbox": [60, 780, 960, 180],
+      "role": "title",
+      "content_key": "copy.title",
+      "max_chars": 80,
+      "color_role": "neutral_light",
+      "font_role": "heading",
+      "font_size": 60,
+      "font_weight": "semibold",
+      "align": "left",
+      "valign": "top"
+    },
+    {
+      "bbox": [60, 980, 640, 60],
+      "role": "cta",
+      "content_key": "copy.cta",
+      "max_chars": 40,
+      "color_role": "accent",
+      "font_role": "body",
+      "font_size": 26,
+      "font_weight": "semibold",
+      "align": "left",
+      "valign": "top",
+      "uppercase": true
+    }
+  ],
+  "logo_slot": {
+    "type": "logo_placeholder",
+    "bbox": [900, 940, 120, 120],
+    "align": "center",
+    "valign": "middle",
+    "fallback_style": "monogram_circle",
+    "z": 20
+  }
+}

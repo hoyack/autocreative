@@ -1,0 +1,69 @@
+{
+  "schema_version": "1",
+  "name": "twitter__value-prop",
+  "platform": "twitter",
+  "intent": "value-prop",
+  "description": "Twitter/X 16:9 (1200x675) value-prop card. Full-bleed hero with a left-aligned scrim band hosting headline + CTA; body copy remains in the 280-char tweet text.",
+  "canvas": { "width": 1200, "height": 675 },
+  "palette": null,
+  "typography": null,
+  "text_budgets": {
+    "copy.title": 60,
+    "copy.body": 240,
+    "copy.cta": 30,
+    "copy.hashtags": 40
+  },
+  "image_slot": {
+    "bbox": [0, 0, 1200, 675],
+    "aspect": "16:9",
+    "slot_name": "hero"
+  },
+  "shapes": [
+    {
+      "type": "shape",
+      "kind": "rect",
+      "rect": [0, 0, 720, 675],
+      "fill": { "type": "linear_gradient", "stops": [{ "offset": 0.0, "color": "#000000", "opacity": 0.75 }, { "offset": 1.0, "color": "#000000", "opacity": 0.0 }], "angle": 90 },
+      "z": 5
+    }
+  ],
+  "text_slots": [
+    {
+      "bbox": [60, 220, 620, 220],
+      "role": "title",
+      "content_key": "copy.title",
+      "max_chars": 60,
+      "color_role": "neutral_light",
+      "font_role": "heading",
+      "font_size": 56,
+      "font_weight": "semibold",
+      "align": "left",
+      "valign": "top"
+    },
+    {
+      "bbox": [60, 470, 620, 50],
+      "role": "cta",
+      "content_key": "copy.cta",
+      "max_chars": 30,
+      "color_role": "accent",
+      "font_role": "body",
+      "font_size": 26,
+      "font_weight": "semibold",
+      "align": "left",
+      "valign": "top",
+      "uppercase": true
+    },
+    {
+      "bbox": [60, 600, 620, 40],
+      "role": "org_mark",
+      "content_key": "copy.hashtags",
+      "max_chars": 40,
+      "color_role": "neutral_light",
+      "font_role": "body",
+      "font_size": 20,
+      "font_weight": "medium",
+      "align": "left",
+      "valign": "top"
+    }
+  ]
+}

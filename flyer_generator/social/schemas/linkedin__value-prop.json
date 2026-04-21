@@ -1,0 +1,44 @@
+{
+  "schema_version": "1",
+  "name": "linkedin__value-prop",
+  "platform": "linkedin",
+  "intent": "value-prop",
+  "description": "LinkedIn link-preview (1200x627) hero with overlay title band. The value proposition body lives in the caption, not on the image; palette and typography are injected from the applied brand kit at render time.",
+  "canvas": { "width": 1200, "height": 627 },
+  "palette": null,
+  "typography": null,
+  "text_budgets": {
+    "copy.title": 80,
+    "copy.body": 1400,
+    "copy.cta": 40,
+    "copy.hashtags": 140
+  },
+  "image_slot": {
+    "bbox": [0, 0, 1200, 627],
+    "aspect": "1.91:1",
+    "slot_name": "hero"
+  },
+  "shapes": [
+    {
+      "type": "shape",
+      "kind": "rect",
+      "rect": [0, 400, 1200, 227],
+      "fill": { "type": "solid", "color": "#000000", "opacity": 0.55 },
+      "z": 5
+    }
+  ],
+  "text_slots": [
+    {
+      "bbox": [60, 440, 1080, 140],
+      "role": "title",
+      "content_key": "copy.title",
+      "max_chars": 80,
+      "color_role": "neutral_light",
+      "font_role": "heading",
+      "font_size": 64,
+      "font_weight": "semibold",
+      "align": "left",
+      "valign": "top"
+    }
+  ]
+}

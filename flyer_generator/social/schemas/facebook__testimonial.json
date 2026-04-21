@@ -1,0 +1,84 @@
+{
+  "schema_version": "1",
+  "name": "facebook__testimonial",
+  "platform": "facebook",
+  "intent": "testimonial",
+  "description": "Facebook feed-square (1080x1080) testimonial card. Portrait image left half, quote + attribution right half against a brand-driven flat background.",
+  "canvas": { "width": 1080, "height": 1080 },
+  "palette": null,
+  "typography": null,
+  "text_budgets": {
+    "copy.title": 60,
+    "copy.body": 400,
+    "copy.cta": 40,
+    "copy.hashtags": 60
+  },
+  "image_slot": {
+    "bbox": [0, 0, 540, 1080],
+    "aspect": "1:1",
+    "slot_name": "hero"
+  },
+  "shapes": [
+    {
+      "type": "shape",
+      "kind": "rect",
+      "rect": [540, 0, 540, 1080],
+      "fill": { "type": "solid", "color": "#FFFFFF", "opacity": 1.0 },
+      "z": 2
+    },
+    {
+      "type": "shape",
+      "kind": "rect",
+      "rect": [580, 220, 80, 6],
+      "fill": { "type": "solid", "color": "#000000", "opacity": 0.85 },
+      "z": 6
+    }
+  ],
+  "text_slots": [
+    {
+      "bbox": [600, 260, 440, 500],
+      "role": "body",
+      "content_key": "copy.body",
+      "max_chars": 240,
+      "color_role": "neutral_dark",
+      "font_role": "body",
+      "font_size": 28,
+      "font_weight": "medium",
+      "align": "left",
+      "valign": "top"
+    },
+    {
+      "bbox": [600, 800, 440, 60],
+      "role": "title",
+      "content_key": "copy.title",
+      "max_chars": 60,
+      "color_role": "primary",
+      "font_role": "heading",
+      "font_size": 26,
+      "font_weight": "semibold",
+      "align": "left",
+      "valign": "top"
+    },
+    {
+      "bbox": [600, 960, 440, 40],
+      "role": "org_mark",
+      "content_key": "copy.cta",
+      "max_chars": 40,
+      "color_role": "accent",
+      "font_role": "body",
+      "font_size": 22,
+      "font_weight": "semibold",
+      "align": "left",
+      "valign": "top",
+      "uppercase": true
+    }
+  ],
+  "logo_slot": {
+    "type": "logo_placeholder",
+    "bbox": [600, 100, 120, 120],
+    "align": "left",
+    "valign": "middle",
+    "fallback_style": "monogram_square",
+    "z": 20
+  }
+}

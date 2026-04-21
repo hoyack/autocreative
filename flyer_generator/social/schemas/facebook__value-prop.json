@@ -1,0 +1,44 @@
+{
+  "schema_version": "1",
+  "name": "facebook__value-prop",
+  "platform": "facebook",
+  "intent": "value-prop",
+  "description": "Facebook link-preview (1200x630) value-prop hero. Full-bleed image with a bottom title band; caption body remains in the Facebook post text (<500 char recommended).",
+  "canvas": { "width": 1200, "height": 630 },
+  "palette": null,
+  "typography": null,
+  "text_budgets": {
+    "copy.title": 80,
+    "copy.body": 400,
+    "copy.cta": 40,
+    "copy.hashtags": 60
+  },
+  "image_slot": {
+    "bbox": [0, 0, 1200, 630],
+    "aspect": "1.91:1",
+    "slot_name": "hero"
+  },
+  "shapes": [
+    {
+      "type": "shape",
+      "kind": "rect",
+      "rect": [0, 400, 1200, 230],
+      "fill": { "type": "solid", "color": "#000000", "opacity": 0.55 },
+      "z": 5
+    }
+  ],
+  "text_slots": [
+    {
+      "bbox": [60, 440, 1080, 140],
+      "role": "title",
+      "content_key": "copy.title",
+      "max_chars": 80,
+      "color_role": "neutral_light",
+      "font_role": "heading",
+      "font_size": 60,
+      "font_weight": "semibold",
+      "align": "left",
+      "valign": "top"
+    }
+  ]
+}

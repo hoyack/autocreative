@@ -1,0 +1,72 @@
+{
+  "schema_version": "1",
+  "name": "instagram__value-prop",
+  "platform": "instagram",
+  "intent": "value-prop",
+  "description": "Instagram feed-portrait (1080x1350) value-prop card. Top two-thirds carry the hero image; bottom third holds a solid band with brand-driven title + CTA.",
+  "canvas": { "width": 1080, "height": 1350 },
+  "palette": null,
+  "typography": null,
+  "text_budgets": {
+    "copy.title": 80,
+    "copy.body": 1500,
+    "copy.cta": 40,
+    "copy.hashtags": 250
+  },
+  "image_slot": {
+    "bbox": [0, 0, 1080, 900],
+    "aspect": "4:5",
+    "slot_name": "hero"
+  },
+  "shapes": [
+    {
+      "type": "shape",
+      "kind": "rect",
+      "rect": [0, 900, 1080, 450],
+      "fill": { "type": "solid", "color": "#FFFFFF", "opacity": 1.0 },
+      "z": 2
+    },
+    {
+      "type": "shape",
+      "kind": "rect",
+      "rect": [80, 960, 100, 6],
+      "fill": { "type": "solid", "color": "#000000", "opacity": 0.85 },
+      "z": 6
+    }
+  ],
+  "text_slots": [
+    {
+      "bbox": [80, 1000, 920, 200],
+      "role": "title",
+      "content_key": "copy.title",
+      "max_chars": 80,
+      "color_role": "neutral_dark",
+      "font_role": "heading",
+      "font_size": 56,
+      "font_weight": "semibold",
+      "align": "left",
+      "valign": "top"
+    },
+    {
+      "bbox": [80, 1240, 920, 60],
+      "role": "cta",
+      "content_key": "copy.cta",
+      "max_chars": 40,
+      "color_role": "accent",
+      "font_role": "body",
+      "font_size": 26,
+      "font_weight": "semibold",
+      "align": "left",
+      "valign": "top",
+      "uppercase": true
+    }
+  ],
+  "logo_slot": {
+    "type": "logo_placeholder",
+    "bbox": [920, 1220, 120, 120],
+    "align": "center",
+    "valign": "middle",
+    "fallback_style": "monogram_circle",
+    "z": 20
+  }
+}

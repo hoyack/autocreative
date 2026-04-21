@@ -1,0 +1,84 @@
+{
+  "schema_version": "1",
+  "name": "linkedin__testimonial",
+  "platform": "linkedin",
+  "intent": "testimonial",
+  "description": "LinkedIn feed-square (1200x1200) testimonial card. Portrait image on the left half; quote and attribution occupy the right half against a flat brand-driven background. Palette + typography arrive from the brand kit at render time.",
+  "canvas": { "width": 1200, "height": 1200 },
+  "palette": null,
+  "typography": null,
+  "text_budgets": {
+    "copy.title": 60,
+    "copy.body": 2500,
+    "copy.cta": 40,
+    "copy.hashtags": 140
+  },
+  "image_slot": {
+    "bbox": [0, 0, 600, 1200],
+    "aspect": "1:1",
+    "slot_name": "hero"
+  },
+  "shapes": [
+    {
+      "type": "shape",
+      "kind": "rect",
+      "rect": [600, 0, 600, 1200],
+      "fill": { "type": "solid", "color": "#FFFFFF", "opacity": 1.0 },
+      "z": 2
+    },
+    {
+      "type": "shape",
+      "kind": "rect",
+      "rect": [640, 280, 8, 80],
+      "fill": { "type": "solid", "color": "#000000", "opacity": 0.85 },
+      "z": 6
+    }
+  ],
+  "text_slots": [
+    {
+      "bbox": [680, 280, 460, 520],
+      "role": "body",
+      "content_key": "copy.body",
+      "max_chars": 240,
+      "color_role": "neutral_dark",
+      "font_role": "body",
+      "font_size": 30,
+      "font_weight": "medium",
+      "align": "left",
+      "valign": "top"
+    },
+    {
+      "bbox": [680, 820, 460, 60],
+      "role": "title",
+      "content_key": "copy.title",
+      "max_chars": 60,
+      "color_role": "primary",
+      "font_role": "heading",
+      "font_size": 28,
+      "font_weight": "semibold",
+      "align": "left",
+      "valign": "top"
+    },
+    {
+      "bbox": [680, 1080, 460, 40],
+      "role": "org_mark",
+      "content_key": "copy.cta",
+      "max_chars": 40,
+      "color_role": "accent",
+      "font_role": "body",
+      "font_size": 22,
+      "font_weight": "semibold",
+      "align": "left",
+      "valign": "top",
+      "uppercase": true
+    }
+  ],
+  "logo_slot": {
+    "type": "logo_placeholder",
+    "bbox": [680, 140, 120, 120],
+    "align": "left",
+    "valign": "middle",
+    "fallback_style": "monogram_square",
+    "z": 20
+  }
+}

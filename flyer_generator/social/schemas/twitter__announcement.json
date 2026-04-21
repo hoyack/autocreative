@@ -1,0 +1,56 @@
+{
+  "schema_version": "1",
+  "name": "twitter__announcement",
+  "platform": "twitter",
+  "intent": "announcement",
+  "description": "Twitter/X text-only announcement (canvas 1200x675, image_slot=null). The whole signal lives in the 280-char body; the canvas is reserved for potential future preview rendering. Exercises the text-only code path required by 19-RESEARCH.md Open Risks #8.",
+  "canvas": { "width": 1200, "height": 675 },
+  "palette": null,
+  "typography": null,
+  "text_budgets": {
+    "copy.title": 60,
+    "copy.body": 240,
+    "copy.cta": 30,
+    "copy.hashtags": 40
+  },
+  "image_slot": null,
+  "shapes": [],
+  "text_slots": [
+    {
+      "bbox": [60, 60, 1080, 100],
+      "role": "title",
+      "content_key": "copy.title",
+      "max_chars": 60,
+      "color_role": "neutral_dark",
+      "font_role": "heading",
+      "font_size": 44,
+      "font_weight": "semibold",
+      "align": "left",
+      "valign": "top"
+    },
+    {
+      "bbox": [60, 180, 1080, 380],
+      "role": "body",
+      "content_key": "copy.body",
+      "max_chars": 240,
+      "color_role": "neutral_dark",
+      "font_role": "body",
+      "font_size": 30,
+      "font_weight": "normal",
+      "align": "left",
+      "valign": "top"
+    },
+    {
+      "bbox": [60, 590, 1080, 40],
+      "role": "hashtag_strip",
+      "content_key": "copy.hashtags",
+      "max_chars": 40,
+      "color_role": "accent",
+      "font_role": "body",
+      "font_size": 22,
+      "font_weight": "medium",
+      "align": "left",
+      "valign": "top"
+    }
+  ]
+}

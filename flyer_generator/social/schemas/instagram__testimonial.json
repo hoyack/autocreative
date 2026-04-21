@@ -1,0 +1,76 @@
+{
+  "schema_version": "1",
+  "name": "instagram__testimonial",
+  "platform": "instagram",
+  "intent": "testimonial",
+  "description": "Instagram feed-square (1080x1080) testimonial. Soft-tinted background with a centered quote block and portrait inset at the top; author attribution anchored bottom.",
+  "canvas": { "width": 1080, "height": 1080 },
+  "palette": null,
+  "typography": null,
+  "text_budgets": {
+    "copy.title": 60,
+    "copy.body": 1500,
+    "copy.cta": 40,
+    "copy.hashtags": 250
+  },
+  "image_slot": {
+    "bbox": [420, 80, 240, 240],
+    "aspect": "1:1",
+    "slot_name": "hero"
+  },
+  "shapes": [
+    {
+      "type": "shape",
+      "kind": "rect",
+      "rect": [0, 0, 1080, 1080],
+      "fill": { "type": "solid", "color": "#FFFFFF", "opacity": 1.0 },
+      "z": 1
+    },
+    {
+      "type": "shape",
+      "kind": "rect",
+      "rect": [490, 360, 100, 6],
+      "fill": { "type": "solid", "color": "#000000", "opacity": 0.85 },
+      "z": 6
+    }
+  ],
+  "text_slots": [
+    {
+      "bbox": [120, 400, 840, 440],
+      "role": "body",
+      "content_key": "copy.title",
+      "max_chars": 60,
+      "color_role": "neutral_dark",
+      "font_role": "heading",
+      "font_size": 48,
+      "font_weight": "semibold",
+      "align": "center",
+      "valign": "top"
+    },
+    {
+      "bbox": [120, 880, 840, 50],
+      "role": "org_mark",
+      "content_key": "copy.cta",
+      "max_chars": 40,
+      "color_role": "primary",
+      "font_role": "body",
+      "font_size": 26,
+      "font_weight": "semibold",
+      "align": "center",
+      "valign": "top",
+      "uppercase": true
+    },
+    {
+      "bbox": [120, 960, 840, 40],
+      "role": "hashtag_strip",
+      "content_key": "copy.hashtags",
+      "max_chars": 60,
+      "color_role": "accent",
+      "font_role": "body",
+      "font_size": 20,
+      "font_weight": "medium",
+      "align": "center",
+      "valign": "top"
+    }
+  ]
+}
