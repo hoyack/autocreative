@@ -53,5 +53,7 @@ class Settings(BaseSettings):
 
     # Output
     output_dir: Path = Path("./output")
+    # Brand kit storage (Phase 18). Configurable via FLYER_BRAND_KITS_DIR env var.
+    brand_kits_dir: Path = Path(".brand-kits")
     log_level: str = "INFO"
     log_format: Literal["json", "text"] = "text"
