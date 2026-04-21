@@ -193,7 +193,7 @@ Plans:
   9. Untracked storage: `.social-campaigns/<slug>/<campaign-id>/` per-post JSON + image bytes + audit sidecar; `.social-campaigns/` in `.gitignore`; `.social-template.json` tracked as schema reference; `FLYER_SOCIAL_CAMPAIGNS_DIR` env var honored
  10. Tests cover platform validators (all 4 platforms × pass/fail cases), BrandVoice wiring (tone injection, banned-word filter), post templates (≥12 templates validate shape + produce rendered output), generator (mocked LLM + Comfy, end-to-end Post), campaign (shared hero cropped correctly per-platform), audit (platform-rule coverage), CLI (post + campaign + list + show) — all net-new tests green in < 5 min
  11. Publishing/scheduling is EXPLICITLY out of scope — phase 19 produces artifacts only. No LinkedIn API, Twitter API, Meta Graph, or scheduler integration; defer to a future phase
-**Plans:** 7/9 plans executed
+**Plans:** 8/9 plans executed
 Plans:
 - [x] 19-01-PLAN.md -- BrandVoice wiring in text_gen + BrandVoiceViolationError
 - [x] 19-02-PLAN.md -- Errors tree + Pydantic models + storage + .gitignore + .social-template.json + pyproject dep bump
@@ -201,7 +201,7 @@ Plans:
 - [x] 19-04-PLAN.md -- Workflow-aspect map + Pillow crop helpers (PLATFORM_CROP_SIZES)
 - [x] 19-05-PLAN.md -- Post template schema + loader + 12 JSON templates (3 intents x 4 platforms)
 - [x] 19-06-PLAN.md -- Renderer (SVG build + CairoSVG rasterize + brand-kit apply)
-- [ ] 19-07-PLAN.md -- Voice-aware social copy generator + single-post orchestrator (generate_post)
+- [x] 19-07-PLAN.md -- Voice-aware social copy generator + single-post orchestrator (generate_post)
 - [x] 19-08-PLAN.md -- Audit extension (SocialAuditReport wrapping AuditReport + platform_compliance + link_policy + readability)
 - [ ] 19-09-PLAN.md -- Campaign orchestrator (shared hero) + typer CLI + barrel __init__ + e2e integration
 
@@ -222,4 +222,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 8. Brochure PDF Assembly | 0/? | Not Started | - |
 | 9. Brochure CLI & Public API | 0/? | Not Started | - |
 | 18. Brand Kit System | 8/8 | Complete   | 2026-04-21 |
-| 19. Social Media Posting System | 7/9 | In Progress|  |
+| 19. Social Media Posting System | 8/9 | In Progress|  |
