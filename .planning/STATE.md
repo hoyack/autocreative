@@ -96,6 +96,12 @@ None yet.
 - Research flag: ComfyCloud API is experimental -- verify response formats during Phase 2 implementation
 - Research flag: Claude structured outputs for vision endpoint should be confirmed during Phase 2
 
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260421-c1n | Resilient Ollama LLM client: retry/backoff/fallback models | 2026-04-21 | 38361bf | [260421-c1n-resilient-ollama-llm-client-retry-backof](./quick/260421-c1n-resilient-ollama-llm-client-retry-backof/) |
+
 ## Deferred Items
 
 Items acknowledged and carried forward from previous milestone close:
