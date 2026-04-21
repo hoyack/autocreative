@@ -23,11 +23,11 @@
     "cover_title_size": 128,
     "cover_subtitle_size": 34,
     "heading_size": 48,
-    "body_size": 28,
-    "body_line_height": 40,
+    "body_size": 34,
+    "body_line_height": 44,
     "body_max_chars_per_line": 31,
-    "bullet_size": 26,
-    "bullet_line_height": 36
+    "bullet_size": 32,
+    "bullet_line_height": 42
   },
   "panels": {
     "front_cover": {
