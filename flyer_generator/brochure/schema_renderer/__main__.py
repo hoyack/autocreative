@@ -18,7 +18,8 @@ Usage:
 
 Writes `outside.svg`, `inside.svg`, `brochure_front.png`, `brochure_back.png`,
 and `brochure_print.pdf` into the output directory. With `--generate-images`,
-also writes per-slot PNGs to `<output>/images/`.
+also writes per-slot PNGs to `<output>/images/`. By default also writes
+`audit.json` (disable with `--no-audit`).
 """
 
 from __future__ import annotations
@@ -152,6 +153,27 @@ def render(
     url: Annotated[
         Optional[str],
         typer.Option("--url", help="Contact URL (preserved verbatim)."),
+    ] = None,
+    audit: Annotated[
+        bool,
+        typer.Option(
+            "--audit/--no-audit",
+            help="Run audit_render on both sheets after rasterize and write audit.json sidecar.",
+        ),
+    ] = True,
+    iterate_audit: Annotated[
+        int,
+        typer.Option(
+            "--iterate-audit",
+            help="Max remediation cycles when audit finds warn/error issues (capped at 3).",
+        ),
+    ] = 0,
+    audit_json: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--audit-json",
+            help="Explicit audit.json output path. Defaults to <output>/audit.json.",
+        ),
     ] = None,
 ) -> None:
     """Render a brochure from a template schema + content JSON."""
@@ -335,6 +357,153 @@ def render(
 
     pdf = assemble_brochure_pdf(front_png, back_png)
     (output / "brochure_print.pdf").write_bytes(pdf)
+
+    # --- Auto-audit (Phase 18 closure: render → audit.json sidecar) ---
+    if audit:
+        # Import inside the flag guard: keeps --no-audit fast and avoids pulling
+        # the audit module into unrelated test imports of this CLI.
+        from flyer_generator.brand_kit import audit as _audit_mod
+
+        final_template = tmpl  # already post-brand-kit-apply if --brand-kit used
+
+        def _summarize(side_name: str, report) -> str:
+            fails = report.contrast.fails() if hasattr(report.contrast, "fails") else []
+            n_fail = len(fails)
+            n_total = len(report.contrast.pairs)
+            density_min = min(report.density.values()) if report.density else 1.0
+            whitespace_max = (
+                max(report.whitespace.values()) if report.whitespace else 0.0
+            )
+            n_warn = sum(1 for i in report.issues if i.severity == "warn")
+            n_err = sum(1 for i in report.issues if i.severity == "error")
+            n_info = sum(1 for i in report.issues if i.severity == "info")
+            return (
+                f"Audit [{side_name}]: AA pass={report.contrast.overall_aa_pass} "
+                f"({n_fail}/{n_total} fail), density_min={density_min:.2f}, "
+                f"whitespace_max={whitespace_max:.2f}, "
+                f"issues={len(report.issues)} ({n_warn + n_err} warn, {n_info} info)"
+            )
+
+        report_outside = _audit_mod.audit_render(
+            ct, final_template, front_png, side="outside"
+        )
+        report_inside = _audit_mod.audit_render(
+            ct, final_template, back_png, side="inside"
+        )
+
+        # Stderr summary only when warn/error issues OR AA fails exist (info-only is silent).
+        for _side_name, _rep in (("outside", report_outside), ("inside", report_inside)):
+            _has_warnplus = any(
+                i.severity in ("warn", "error") for i in _rep.issues
+            )
+            if _has_warnplus or not _rep.contrast.overall_aa_pass:
+                typer.echo(_summarize(_side_name, _rep), err=True)
+
+        # Optional iterate loop: only when requested AND actionable issues exist.
+        _needs_iterate = (
+            iterate_audit > 0
+            and any(
+                i.severity in ("warn", "error")
+                for r in (report_outside, report_inside)
+                for i in r.issues
+            )
+        )
+        if _needs_iterate:
+            max_cycles = min(iterate_audit, 3)
+
+            async def _render(c, t):
+                out_svg, in_svg = render_schema_brochure(
+                    t,
+                    c,
+                    images=images,
+                    textures=textures,
+                    logo_bytes=logo_bytes,
+                    accent_override=color_accent,
+                )
+                _f = rasterizer.rasterize(out_svg)
+                _b = rasterizer.rasterize(in_svg)
+                return _f, _b
+
+            kit_for_iter = None
+            if brand_kit is not None:
+                from flyer_generator.brand_kit.storage import (
+                    load_brand_kit as _lbk,
+                )
+                try:
+                    kit_for_iter = _lbk(brand_kit)
+                except Exception:
+                    kit_for_iter = None
+
+            # SCOPE DECISION: density regen needs per-key budget-override plumbing
+            # that generate_content_from_prompt does not yet support. Passing
+            # regenerate_fn=None means the loop will not regenerate copy; contrast
+            # remediation still works when a kit is available. Next caller to
+            # need density regen should extend generate_content_from_prompt with
+            # a tighter_budgets kwarg and wire it here.
+            _final_report_outside, _final_content, _final_template_iter = (
+                asyncio.run(
+                    _audit_mod.iterate_audit_loop(
+                        ct,
+                        final_template,
+                        render=_render,
+                        kit=kit_for_iter,
+                        regenerate_fn=None,
+                        max_cycles=max_cycles,
+                        side="outside",
+                    )
+                )
+            )
+
+            # Re-render + re-rasterize with the iterated state so on-disk PNGs
+            # match the final audit report.
+            out_svg2, in_svg2 = render_schema_brochure(
+                _final_template_iter,
+                _final_content,
+                images=images,
+                textures=textures,
+                logo_bytes=logo_bytes,
+                accent_override=color_accent,
+            )
+            front_png = rasterizer.rasterize(out_svg2)
+            back_png = rasterizer.rasterize(in_svg2)
+            (output / "brochure_front.png").write_bytes(front_png)
+            (output / "brochure_back.png").write_bytes(back_png)
+            if write_svg:
+                (output / "outside.svg").write_text(out_svg2, encoding="utf-8")
+                (output / "inside.svg").write_text(in_svg2, encoding="utf-8")
+            pdf = assemble_brochure_pdf(front_png, back_png)
+            (output / "brochure_print.pdf").write_bytes(pdf)
+
+            # Re-audit both sides post-iteration.
+            report_outside = _audit_mod.audit_render(
+                _final_content, _final_template_iter, front_png, side="outside"
+            )
+            report_inside = _audit_mod.audit_render(
+                _final_content, _final_template_iter, back_png, side="inside"
+            )
+            typer.echo(
+                f"Audit iteration complete (max_cycles={max_cycles}).",
+                err=True,
+            )
+            for _side_name, _rep in (
+                ("outside", report_outside),
+                ("inside", report_inside),
+            ):
+                typer.echo(_summarize(_side_name, _rep), err=True)
+
+        # Write audit.json sidecar (always, when --audit).
+        combined = {
+            "outside": report_outside.model_dump(),
+            "inside": report_inside.model_dump(),
+            "is_clean_overall": bool(
+                report_outside.is_clean and report_inside.is_clean
+            ),
+        }
+        sidecar_path = audit_json if audit_json is not None else (output / "audit.json")
+        sidecar_path.parent.mkdir(parents=True, exist_ok=True)
+        sidecar_path.write_text(
+            json.dumps(combined, indent=2, default=str), encoding="utf-8"
+        )
 
     typer.echo(f"Wrote outputs to {output}")
     typer.echo(f"  front={len(front_png)} bytes  back={len(back_png)} bytes  pdf={len(pdf)} bytes")
