@@ -26,10 +26,12 @@ constraints (hard char budgets, no narrative outline).
 from __future__ import annotations
 
 import json
+import re
 from typing import NamedTuple
 
 import structlog
 
+from flyer_generator.brand_kit.models import BrandVoice
 from flyer_generator.brochure.llm_client import TextClient, build_text_client
 from flyer_generator.brochure.schema_renderer.content_model import (
     BackPanelContent,
@@ -47,7 +49,11 @@ from flyer_generator.brochure.schema_renderer.text_fit import (
     chars_per_line,
 )
 from flyer_generator.config import Settings
-from flyer_generator.errors import VisionAPIError, VisionResponseParseError
+from flyer_generator.errors import (
+    BrandVoiceViolationError,
+    VisionAPIError,
+    VisionResponseParseError,
+)
 from flyer_generator.brochure.models import ContactBlock
 
 logger = structlog.get_logger()
@@ -548,6 +554,78 @@ def _normalize_to_brochure_content(
 
 
 # --------------------------------------------------------------------------- #
+# Brand-voice helpers (wiring BrandVoice → LLM system prompt + banned-word guard)
+# --------------------------------------------------------------------------- #
+
+
+def _enforce_banned_words(text: str, banned: list[str]) -> list[str]:
+    """Return banned matches found in text (case-insensitive, word-boundary).
+
+    Fast-path: when ``banned`` is empty, returns ``[]`` without compiling a
+    regex. ``re.escape`` is applied to every banned token so a crafted brand
+    kit cannot inject regex metacharacters (threat T-19-01-01).
+    """
+    if not banned:
+        return []
+    pattern = re.compile(
+        r"\b(" + "|".join(re.escape(w) for w in banned) + r")\b",
+        re.IGNORECASE,
+    )
+    return pattern.findall(text)
+
+
+def _assemble_system_prompt(brand_voice: BrandVoice | None, base: str) -> str:
+    """Prepend a VOICE DIRECTIVE block to the system prompt when brand_voice is provided.
+
+    Returns ``base`` unchanged when ``brand_voice is None`` (backwards-compatible).
+    The module-level ``_SYSTEM_PROMPT`` constant is never mutated — a new string
+    is produced on every call.
+    """
+    if brand_voice is None:
+        return base
+    tone = (brand_voice.tone or "").strip() or "(none)"
+    phrases = brand_voice.example_phrases or []
+    phrases_block = (
+        "\n".join(f'    - "{p}"' for p in phrases) if phrases else "    - (none)"
+    )
+    banned = brand_voice.banned_words or []
+    banned_block = (
+        "\n".join(f'    - "{w}"' for w in banned) if banned else "    - (none)"
+    )
+    directive = (
+        "VOICE DIRECTIVE (copy must sound like this brand):\n"
+        f"  Tone: {tone}\n"
+        "  Exemplar phrases (match cadence, do not quote verbatim):\n"
+        f"{phrases_block}\n"
+        "  Banned words / phrases (NEVER use these — find a synonym):\n"
+        f"{banned_block}\n\n"
+    )
+    return directive + base
+
+
+def _scan_banned(
+    obj: object, banned: list[str], _path: str = ""
+) -> list[tuple[str, str]]:
+    """Walk a nested JSON-shaped structure and collect (key_path, match) pairs.
+
+    Case-insensitive + word-boundary matching via ``_enforce_banned_words``.
+    """
+    hits: list[tuple[str, str]] = []
+    if isinstance(obj, str):
+        for m in _enforce_banned_words(obj, banned):
+            hits.append((_path or "(root)", m))
+    elif isinstance(obj, dict):
+        for k, v in obj.items():
+            hits.extend(
+                _scan_banned(v, banned, f"{_path}.{k}" if _path else str(k))
+            )
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            hits.extend(_scan_banned(v, banned, f"{_path}[{i}]"))
+    return hits
+
+
+# --------------------------------------------------------------------------- #
 # Public entry point
 # --------------------------------------------------------------------------- #
 
@@ -562,6 +640,8 @@ async def generate_content_from_prompt(
     contact=None,  # ContactBlock | None
     settings: Settings | None = None,
     text_client: TextClient | None = None,
+    brand_voice: BrandVoice | None = None,
+    tighter_budgets: dict[str, int] | None = None,
 ) -> BrochureContent:
     """Ask the configured LLM to write a full BrochureContent that fits
     `template`'s char budgets.
@@ -573,10 +653,23 @@ async def generate_content_from_prompt(
     inventing. `contact` is surfaced the same way so phone/address/email
     never get fabricated.
 
+    ``brand_voice`` (Phase 19) injects a VOICE DIRECTIVE block at the top of
+    the system prompt listing tone, exemplar phrases, and banned words. When
+    the LLM response contains a banned word, one retry is issued with a
+    stricter user prompt; if the retry still contains a banned word,
+    ``BrandVoiceViolationError`` is raised.
+
+    ``tighter_budgets`` is accepted for forward compatibility with Plan 19-08
+    and is currently unused.
+
     Fields that come back over budget are automatically truncated at word
     boundaries; on the first occurrence of any overflow we issue one tighter
     retry before falling back to truncation.
     """
+    # `tighter_budgets` is accepted for forward-compat (Plan 19-08) but
+    # deliberately not consumed yet — ignore explicitly to silence linters.
+    _ = tighter_budgets
+
     if settings is None:
         settings = Settings()
     _owns_client = False
@@ -591,11 +684,12 @@ async def generate_content_from_prompt(
         budgets, prompt, audience, color_accent, bullets_per_key,
         brief=brief, contact=contact,
     )
+    system_prompt = _assemble_system_prompt(brand_voice, _SYSTEM_PROMPT)
 
     async def _ask(user: str) -> dict:
         """Single LLM round with JSON-decode + parse-error handling."""
         raw_text = await text_client.complete(
-            system=_SYSTEM_PROMPT,
+            system=system_prompt,
             user=user,
             response_format="json",
         )
@@ -617,6 +711,48 @@ async def generate_content_from_prompt(
             except (VisionResponseParseError, json.JSONDecodeError) as err2:
                 logger.warning("text_gen_second_json_invalid", error=str(err2)[:200])
                 data = {"title": "Untitled", "org": "Organization"}
+
+        # Voice guard: scan for banned words BEFORE the budget retry so voice
+        # and overflow retries do not compose or collide (19-RESEARCH.md
+        # Open Risk #4). Only runs when brand_voice has non-empty banned_words.
+        banned_words = brand_voice.banned_words if brand_voice else []
+        if banned_words:
+            hits = _scan_banned(data, banned_words)
+            if hits:
+                match_list = sorted({m for _, m in hits})
+                key_list = sorted({k for k, _ in hits})
+                logger.info(
+                    "text_gen_banned_word_violation",
+                    keys=key_list,
+                    matches=match_list,
+                )
+                retry_user = (
+                    user_prompt
+                    + "\n\nYour previous response used banned words: "
+                    + ", ".join(match_list)
+                    + ". Rewrite the copy without these words and return the full JSON again."
+                )
+                try:
+                    raw2 = await text_client.complete(
+                        system=system_prompt,
+                        user=retry_user,
+                        response_format="json",
+                    )
+                    data = json.loads(raw2)
+                except (VisionResponseParseError, json.JSONDecodeError) as err:
+                    logger.warning(
+                        "text_gen_voice_retry_parse_failed", error=str(err)[:200]
+                    )
+                hits2 = _scan_banned(data, banned_words)
+                if hits2:
+                    match_list2 = sorted({m for _, m in hits2})
+                    key_list2 = sorted({k for k, _ in hits2})
+                    raise BrandVoiceViolationError(
+                        f"copy contained banned words after retry: {match_list2}",
+                        banned_matches=match_list2,
+                        keys=key_list2,
+                    )
+
         data, overflow = _apply_budgets(data, budgets, bullets_per_key)
 
         if overflow and _MAX_RETRIES > 0:
@@ -629,7 +765,7 @@ async def generate_content_from_prompt(
             )
             try:
                 raw2 = await text_client.complete(
-                    system=_SYSTEM_PROMPT,
+                    system=system_prompt,
                     user=retry_user,
                     response_format="json",
                 )
