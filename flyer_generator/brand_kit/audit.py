@@ -56,6 +56,7 @@ from flyer_generator.brand_kit.contrast import (
 )
 from flyer_generator.brand_kit.models import (
     BrandKit,
+    BrandPalette,
     ColorUsage,
 )
 from flyer_generator.brochure.schema_renderer.content_model import BrochureContent
@@ -241,6 +242,112 @@ def _estimate_char_budget(
     cpl = chars_per_line(w, font_size)
     max_lines = max(1, int(h / max(1, line_height)))
     return cpl * max_lines
+
+
+# ---- Shared primitives (B-04) -------------------------------------------
+
+
+def scan_text_contrast(
+    palette: BrandPalette,
+    text_over_bg_pairs: list[tuple[str, str]],
+) -> ContrastReport:
+    """Produce a ContrastReport from a list of (fg_hex, bg_hex) pairs.
+
+    Pure function: no template/panel knowledge, no I/O. Callers (brochure
+    ``audit_render``, social ``audit_post``) derive the pair list from their
+    own layout + palette mapping and pass it in.
+
+    Classifies each pair as body-text (large_text=False). Callers who need
+    large-text classification should pre-filter and call ``classify_level``
+    directly; this primitive is kept minimal for reuse.
+
+    Args:
+        palette: The brand palette (unused by the primitive itself but
+            accepted in the signature so callers can't forget to supply
+            a palette-consistent pair list; keeps the primitive traceable).
+        text_over_bg_pairs: [(fg_hex, bg_hex), ...] -- every pair is scanned.
+
+    Returns:
+        ContrastReport with one ContrastPair per input pair.
+    """
+    del palette  # accepted for traceability; primitive itself does not use it
+    pairs: list[ContrastPair] = []
+    for fg_hex, bg_hex in text_over_bg_pairs:
+        try:
+            ratio = wcag_ratio(fg_hex, bg_hex)
+            level = classify_level(fg_hex, bg_hex, large_text=False)
+        except Exception as err:  # noqa: BLE001 -- soft-fail per pair (matches audit_render semantics)
+            logger.warning(
+                "scan_text_contrast_error",
+                fg=fg_hex,
+                bg=bg_hex,
+                error=str(err),
+            )
+            continue
+        pairs.append(
+            ContrastPair(
+                fg=fg_hex,
+                bg=bg_hex,
+                ratio=max(1.0, min(21.0, ratio)),
+                level=level,
+            )
+        )
+    return ContrastReport(pairs=pairs)
+
+
+def scan_image_density(
+    png_bytes: bytes,
+    regions: list[tuple[int, int, int, int]],
+) -> dict[str, float]:
+    """Compute a per-region fill fraction (1.0 - whitespace_ratio against neutral bg).
+
+    Args:
+        png_bytes: PNG bytes. Subject to the 50 MP safety cap (T-18-AUDIT-01).
+        regions: [(x, y, w, h), ...]. Returned dict keys are ``f"region_{i}"``.
+
+    Returns:
+        dict mapping region key to fill fraction in [0.0, 1.0]. 1.0 = fully
+        filled (no whitespace). 0.0 = effectively empty.
+
+    Raises:
+        BrandKitAuditError: unreadable PNG or > 50 MP.
+    """
+    if not regions:
+        return {}
+    try:
+        img = Image.open(io.BytesIO(png_bytes)).convert("RGB")
+    except Exception as err:  # noqa: BLE001 -- untrusted bytes
+        raise BrandKitAuditError(
+            "could not open rendered PNG",
+            error=str(err),
+        ) from err
+    w_img, h_img = img.size
+    if w_img * h_img > _MAX_IMAGE_MP:
+        raise BrandKitAuditError(
+            "rendered PNG exceeds 50 MP cap",
+            width=w_img,
+            height=h_img,
+        )
+    # Use the neutral_light approximation as "background" since scan_image_density
+    # lives outside the template context. Callers wanting template-aware bg should
+    # call _panel_whitespace_ratio directly.
+    bg_hex = "#FAFAF7"
+    out: dict[str, float] = {}
+    for i, (x, y, rw, rh) in enumerate(regions):
+        if rw <= 0 or rh <= 0:
+            out[f"region_{i}"] = 0.0
+            continue
+        # Clamp region to image bounds
+        rx = max(0, min(int(x), w_img))
+        ry = max(0, min(int(y), h_img))
+        rw_c = max(0, min(int(rw), w_img - rx))
+        rh_c = max(0, min(int(rh), h_img - ry))
+        if rw_c <= 0 or rh_c <= 0:
+            out[f"region_{i}"] = 0.0
+            continue
+        whitespace_ratio = _panel_whitespace_ratio(img, (rx, ry, rw_c, rh_c), bg_hex)
+        out[f"region_{i}"] = max(0.0, min(1.0, 1.0 - whitespace_ratio))
+    return out
 
 
 # ---- audit_render -------------------------------------------------------
