@@ -116,15 +116,27 @@ def _build_palette(template_palette: Palette, kit: BrandKit) -> Palette:
         return template_palette
 
 
+def _normalize_font_stack(stack: str) -> str:
+    """Replace any embedded double quotes with single quotes so the value can
+    be inlined into an SVG ``font-family="..."`` attribute without breaking XML.
+
+    CSS font stacks commonly ship as ``"Open Sans", sans-serif`` (double-quoted
+    family names), but that form is invalid inside a double-quoted SVG
+    attribute. Single quotes are equally valid per CSS/SVG for family names
+    containing spaces.
+    """
+    return stack.replace('"', "'")
+
+
 def _build_typography(template_typ: Typography, kit: BrandKit) -> Typography:
     """Return a new Typography with kit font families + sizes scaled by size_multiplier."""
     updates: dict[str, object] = {}
 
     if kit.typography is not None:
         if kit.typography.heading_family:
-            updates["heading_family"] = kit.typography.heading_family
+            updates["heading_family"] = _normalize_font_stack(kit.typography.heading_family)
         if kit.typography.body_family:
-            updates["body_family"] = kit.typography.body_family
+            updates["body_family"] = _normalize_font_stack(kit.typography.body_family)
 
     multiplier = kit.size_multiplier
     # Use a tiny epsilon so size_multiplier=1.0 is a strict no-op (avoids
