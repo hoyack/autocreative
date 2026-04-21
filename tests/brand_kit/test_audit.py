@@ -443,3 +443,84 @@ def test_audit_rejects_oversized_png() -> None:
     png = buf.getvalue()
     with pytest.raises(BrandKitAuditError):
         audit_render(_minimal_content(), t, png, side="outside")
+
+
+# ---- B-04 primitives: scan_text_contrast + scan_image_density -------------
+
+from flyer_generator.brand_kit.audit import (
+    scan_image_density,
+    scan_text_contrast,
+)
+
+
+def _palette_5() -> BrandPalette:
+    return BrandPalette(
+        primary=ColorUsage(hex="#1E3A5F"),
+        secondary=ColorUsage(hex="#C4A269"),
+        accent=ColorUsage(hex="#E8F1F2"),
+        neutral_dark=ColorUsage(hex="#1A1A1A"),
+        neutral_light=ColorUsage(hex="#FAFAF7"),
+    )
+
+
+def test_scan_text_contrast_empty_pairs_returns_empty_report() -> None:
+    report = scan_text_contrast(_palette_5(), [])
+    assert report.pairs == []
+    assert report.overall_aa_pass is True  # vacuously
+
+
+def test_scan_text_contrast_high_contrast_passes_aa() -> None:
+    pairs = [("#000000", "#FFFFFF")]  # 21:1
+    report = scan_text_contrast(_palette_5(), pairs)
+    assert len(report.pairs) == 1
+    assert report.pairs[0].level in ("AA", "AAA")
+    assert report.overall_aa_pass is True
+
+
+def test_scan_text_contrast_low_contrast_fails() -> None:
+    pairs = [("#CCCCCC", "#DDDDDD")]  # ~1.3:1
+    report = scan_text_contrast(_palette_5(), pairs)
+    assert len(report.pairs) == 1
+    assert report.pairs[0].level == "FAIL"
+    assert report.overall_aa_pass is False
+
+
+def test_scan_image_density_empty_regions_returns_empty_dict() -> None:
+    img = Image.new("RGB", (100, 100), (255, 255, 255))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    out = scan_image_density(buf.getvalue(), [])
+    assert out == {}
+
+
+def test_scan_image_density_full_region_on_white_canvas_low_fill() -> None:
+    """A solid-white canvas should have fill ~ 0.0 (everything = bg)."""
+    img = Image.new("RGB", (200, 200), (250, 250, 247))  # ~neutral_light
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    out = scan_image_density(buf.getvalue(), [(0, 0, 200, 200)])
+    assert "region_0" in out
+    assert out["region_0"] < 0.1  # mostly whitespace
+
+
+def test_scan_image_density_full_region_on_dark_canvas_high_fill() -> None:
+    """A solid-dark canvas is all non-bg pixels -- fill ~ 1.0."""
+    img = Image.new("RGB", (200, 200), (20, 20, 20))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    out = scan_image_density(buf.getvalue(), [(0, 0, 200, 200)])
+    assert out["region_0"] > 0.9  # almost zero whitespace -> ~1.0 fill
+
+
+def test_scan_image_density_corrupt_png_raises() -> None:
+    """Corrupt bytes raise BrandKitAuditError; valid tiny PNG succeeds."""
+    # Valid tiny PNG -- exercises the non-raising path (cap not exceeded)
+    img = Image.new("RGB", (10, 10), (0, 0, 0))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    out = scan_image_density(buf.getvalue(), [(0, 0, 10, 10)])
+    assert "region_0" in out
+
+    # Corrupt bytes raise BrandKitAuditError
+    with pytest.raises(BrandKitAuditError):
+        scan_image_density(b"not a png", [(0, 0, 10, 10)])
