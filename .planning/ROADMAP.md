@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 16: Quality tuning — section distribution, heading hierarchy, verification teeth** - smarter multi-section panel assignment, accent rules under every heading, cover-title drop-shadow + auto-shrink, verify-loop regen with seed variation (completed 2026-04-18)
 - [x] **Phase 17: Improvements pass (HIGH/MEDIUM/LOW from docs/brochure-improvements.md)** - rubric-driven verification, two-sheet scoring, verdict/lint on BrochureOutput + CLI surfacing, template typography threaded through composer, @font-face data-URI infrastructure, fit optimizer retry loop, tuck-flap tagline for N<4, aspect-aware spot crop, cover_image_concept field, mechanical output linter (completed 2026-04-18)
 - [x] **Phase 18: Brand Kit System** - scrape website → untracked brand kit (colors/fonts/logos/voice) → apply to any schema_renderer template, WCAG contrast validation + auto-remediation, visual inspection + adversarial audit loop; also increase readable type size across templates (completed 2026-04-21)
-- [ ] **Phase 19: Social Media Posting System** - given a brand kit slug + a post brief (topic/intent/CTA), generate platform-specific social posts (LinkedIn, Twitter/X, Instagram, Facebook) with platform-appropriate copy, aspect-correct imagery, brand-kit-aware palette/typography, and adversarial audit against each platform's constraints (char limits, hashtag caps, aspect ratios, readability)
+- [x] **Phase 19: Social Media Posting System** - given a brand kit slug + a post brief (topic/intent/CTA), generate platform-specific social posts (LinkedIn, Twitter/X, Instagram, Facebook) with platform-appropriate copy, aspect-correct imagery, brand-kit-aware palette/typography, and adversarial audit against each platform's constraints (char limits, hashtag caps, aspect ratios, readability) (completed 2026-04-21)
 
 ## Phase Details
 
@@ -193,7 +193,7 @@ Plans:
   9. Untracked storage: `.social-campaigns/<slug>/<campaign-id>/` per-post JSON + image bytes + audit sidecar; `.social-campaigns/` in `.gitignore`; `.social-template.json` tracked as schema reference; `FLYER_SOCIAL_CAMPAIGNS_DIR` env var honored
  10. Tests cover platform validators (all 4 platforms × pass/fail cases), BrandVoice wiring (tone injection, banned-word filter), post templates (≥12 templates validate shape + produce rendered output), generator (mocked LLM + Comfy, end-to-end Post), campaign (shared hero cropped correctly per-platform), audit (platform-rule coverage), CLI (post + campaign + list + show) — all net-new tests green in < 5 min
  11. Publishing/scheduling is EXPLICITLY out of scope — phase 19 produces artifacts only. No LinkedIn API, Twitter API, Meta Graph, or scheduler integration; defer to a future phase
-**Plans:** 8/9 plans executed
+**Plans:** 9/9 plans complete
 Plans:
 - [x] 19-01-PLAN.md -- BrandVoice wiring in text_gen + BrandVoiceViolationError
 - [x] 19-02-PLAN.md -- Errors tree + Pydantic models + storage + .gitignore + .social-template.json + pyproject dep bump
@@ -203,7 +203,7 @@ Plans:
 - [x] 19-06-PLAN.md -- Renderer (SVG build + CairoSVG rasterize + brand-kit apply)
 - [x] 19-07-PLAN.md -- Voice-aware social copy generator + single-post orchestrator (generate_post)
 - [x] 19-08-PLAN.md -- Audit extension (SocialAuditReport wrapping AuditReport + platform_compliance + link_policy + readability)
-- [ ] 19-09-PLAN.md -- Campaign orchestrator (shared hero) + typer CLI + barrel __init__ + e2e integration
+- [x] 19-09-PLAN.md -- Campaign orchestrator (shared hero) + typer CLI + barrel __init__ + e2e integration
 
 ## Progress
 
@@ -222,4 +222,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 8. Brochure PDF Assembly | 0/? | Not Started | - |
 | 9. Brochure CLI & Public API | 0/? | Not Started | - |
 | 18. Brand Kit System | 8/8 | Complete   | 2026-04-21 |
-| 19. Social Media Posting System | 8/9 | In Progress|  |
+| 19. Social Media Posting System | 9/9 | Complete   | 2026-04-21 |
