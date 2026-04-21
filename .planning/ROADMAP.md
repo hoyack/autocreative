@@ -180,7 +180,7 @@ Plans:
 ### Phase 19: Social Media Posting System
 **Goal**: A developer can run `python -m flyer_generator.social post --brand-kit <slug> --platform <linkedin|twitter|instagram|facebook> --intent <value-prop|announcement|testimonial|faq|carousel> --topic "<topic>" --output <dir>` to produce a platform-compliant post (copy + image bytes + audit sidecar) that respects the brand kit's palette/typography/voice, passes all platform rule validators (char limits, hashtag caps, image aspect + size), and passes WCAG AA contrast + brand-color compliance on any rendered imagery. A campaign mode generates one cohesive set of posts across multiple platforms from a single topic using shared source imagery cropped per-platform.
 **Depends on**: Phase 18 (brand_kit subsystem), Phase 14 (prompt-driven public API + text_gen), Phase 13 (imagery orchestration via ComfyCloud)
-**Requirements**: From HANDOFF.md §7 (platform catalog, post templates, generator orchestrator, campaign concept, CLI)
+**Requirements**: SOC-01, SOC-02, SOC-03, SOC-04, SOC-05, SOC-06, SOC-07, SOC-08, SOC-09, SOC-10, SOC-11
 **Success Criteria** (what must be TRUE):
   1. `from flyer_generator.social import PostSpec, Post, Platform, generate_post, generate_campaign, load_platform_rules, validate_post` succeeds; all models are Pydantic v2 and round-trip to JSON
   2. Four platforms implemented with typed `PlatformRules`: LinkedIn (3000-char body, 1200×627 or 1200×1200 image), Twitter/X (280 char, up to 4 images 1200×675, optional threading), Instagram (2200-char caption, ≤30 hashtags, 1080×1080 or 1080×1350, optional 1080×1920 story), Facebook (text + image, link preview). Each ships a `validate(post)` function returning `ValidationReport` with per-rule pass/fail
@@ -193,7 +193,17 @@ Plans:
   9. Untracked storage: `.social-campaigns/<slug>/<campaign-id>/` per-post JSON + image bytes + audit sidecar; `.social-campaigns/` in `.gitignore`; `.social-template.json` tracked as schema reference; `FLYER_SOCIAL_CAMPAIGNS_DIR` env var honored
  10. Tests cover platform validators (all 4 platforms × pass/fail cases), BrandVoice wiring (tone injection, banned-word filter), post templates (≥12 templates validate shape + produce rendered output), generator (mocked LLM + Comfy, end-to-end Post), campaign (shared hero cropped correctly per-platform), audit (platform-rule coverage), CLI (post + campaign + list + show) — all net-new tests green in < 5 min
  11. Publishing/scheduling is EXPLICITLY out of scope — phase 19 produces artifacts only. No LinkedIn API, Twitter API, Meta Graph, or scheduler integration; defer to a future phase
-**Plans:** TBD plans
+**Plans:** 9 plans
+Plans:
+- [ ] 19-01-PLAN.md -- BrandVoice wiring in text_gen + BrandVoiceViolationError
+- [ ] 19-02-PLAN.md -- Errors tree + Pydantic models + storage + .gitignore + .social-template.json + pyproject dep bump
+- [ ] 19-03-PLAN.md -- Platform rules registry (4 platforms) + shared validators + Flesch-Kincaid readability
+- [ ] 19-04-PLAN.md -- Workflow-aspect map + Pillow crop helpers (PLATFORM_CROP_SIZES)
+- [ ] 19-05-PLAN.md -- Post template schema + loader + 12 JSON templates (3 intents x 4 platforms)
+- [ ] 19-06-PLAN.md -- Renderer (SVG build + CairoSVG rasterize + brand-kit apply)
+- [ ] 19-07-PLAN.md -- Voice-aware social copy generator + single-post orchestrator (generate_post)
+- [ ] 19-08-PLAN.md -- Audit extension (SocialAuditReport wrapping AuditReport + platform_compliance + link_policy + readability)
+- [ ] 19-09-PLAN.md -- Campaign orchestrator (shared hero) + typer CLI + barrel __init__ + e2e integration
 
 ## Progress
 

@@ -57,6 +57,20 @@
 - [x] **CLI-05**: Public API exports generate_flyer(), FlyerGenerator, EventInput, FlyerOutput, PresetRegistry, StylePreset, and key exceptions
 - [x] **CLI-06**: Custom preset registration via PresetRegistry before calling generate_flyer()
 
+### Social Media Posting (Phase 19)
+
+- [ ] **SOC-01**: `from flyer_generator.social import PostSpec, Post, Platform, generate_post, generate_campaign, load_platform_rules, validate_post` succeeds; all models Pydantic v2 and JSON round-trip
+- [ ] **SOC-02**: Four platform rule registries implemented with typed `PlatformRules` — LinkedIn (3000-char body, 1200×627 or 1200×1200 image), Twitter/X (280-char text, up to 4 images 1200×675), Instagram (2200-char caption, ≤30 hashtags, 1080×1080/1080×1350/1080×1920), Facebook (text + 1200×630 link preview / 1080×1080 feed); each ships `validate(post) → ValidationReport` with per-rule pass/fail
+- [ ] **SOC-03**: ≥12 post templates (3 intents × 4 platforms) under `flyer_generator/social/schemas/`; each declares `{platform, intent, aspect, text_budgets, image_slots, layout}` mirroring `schema_renderer` template shape; SVG rasterization reuses `schema_renderer` pipeline
+- [ ] **SOC-04**: `BrandVoice` (tone, example_phrases, banned_words) from Phase 18 wired into `text_gen.generate_content_from_prompt` as `brand_voice: BrandVoice | None = None`; prompt injects tone + banned-word constraint; generated copy validated against `banned_words` (case-insensitive word-boundary) with one retry then raises `BrandVoiceViolationError`
+- [ ] **SOC-05**: `generate_post(brand_kit_slug, PostBrief) → Post` orchestrates: select template → generate copy via voice-aware text_gen → (if image slot) generate hero via ComfyCloud using brand palette + aspect → render SVG → rasterize → audit; returns `Post(platform, intent, copy, hashtags, image_bytes|None, validation_report, audit_report)`
+- [ ] **SOC-06**: `generate_campaign(brand_kit_slug, topic, platforms) → Campaign` generates ONE source hero at largest-requested resolution (2048×2048 after Pillow-LANCZOS upscale), crops per-platform via `ImageOps.fit`; copy regenerated per-platform (not truncated) to respect per-platform voice/budget
+- [ ] **SOC-07**: `audit_post` extends Phase 18's `audit_render` with platform-specific dimensions: char-count vs budget, hashtag count/length, image aspect match (±2%), image file size vs platform cap, link presence vs link-support (Instagram warn on URL in caption), Flesch-Kincaid-ish readability warn at grade > 12, plus all existing contrast + density + whitespace checks
+- [ ] **SOC-08**: CLI `python -m flyer_generator.social {post,campaign,list-platforms,list-intents,show-rules}` works end-to-end against existing brand kits (shrubnet, hoyack, thunderstaff)
+- [ ] **SOC-09**: Untracked storage `.social-campaigns/<slug>/<campaign-id>/` — per-post JSON + image bytes + audit sidecar; `.social-campaigns/` in `.gitignore`; `.social-template.json` tracked as schema reference; `FLYER_SOCIAL_CAMPAIGNS_DIR` env var honored with path-traversal containment
+- [ ] **SOC-10**: Tests cover platform validators (all 4 × pass/fail), BrandVoice wiring (tone injection, banned-word filter + retry + raise), post templates (≥12 validate shape + render), generator (mocked LLM + Comfy), campaign (shared hero cropped correctly per-platform), audit (platform-rule coverage), CLI (post + campaign + list + show); all net-new tests green in < 5 min
+- [ ] **SOC-11**: Publishing/scheduling EXPLICITLY out of scope — Phase 19 produces artifacts only; no LinkedIn API / Twitter API / Meta Graph / scheduler integration
+
 ## v2 Requirements
 
 ### Extensibility
@@ -122,12 +136,23 @@
 | CLI-04 | Phase 4 | Complete |
 | CLI-05 | Phase 4 | Complete |
 | CLI-06 | Phase 4 | Complete |
+| SOC-01 | Phase 19 | Not Started |
+| SOC-02 | Phase 19 | Not Started |
+| SOC-03 | Phase 19 | Not Started |
+| SOC-04 | Phase 19 | Not Started |
+| SOC-05 | Phase 19 | Not Started |
+| SOC-06 | Phase 19 | Not Started |
+| SOC-07 | Phase 19 | Not Started |
+| SOC-08 | Phase 19 | Not Started |
+| SOC-09 | Phase 19 | Not Started |
+| SOC-10 | Phase 19 | Not Started |
+| SOC-11 | Phase 19 | Not Started |
 
 **Coverage:**
-- v1 requirements: 34 total
-- Mapped to phases: 34
+- v1 requirements: 34 total + 11 Phase 19 = 45 total
+- Mapped to phases: 45
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-16*
-*Last updated: 2026-04-16 after roadmap creation*
+*Last updated: 2026-04-21 after Phase 19 SOC-* additions*
