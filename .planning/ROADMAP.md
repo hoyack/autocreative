@@ -165,14 +165,14 @@ Plans:
   6. Post-render audit (`audit_render`) produces a structured report with per-panel whitespace density, contrast violations, and per-region content-budget fill — plus an iterate loop that regenerates copy / swaps contrast up to 3 cycles when issues are found
   7. Tests cover: scraper with mocked HTML (Playwright + BS4 paths), models round-trip, contrast ratios (known pairs + remediation), applier (palette + typography + logo merge + size_multiplier), audit (whitespace + contrast + density fixtures), CLI (fetch + list + show), and an end-to-end smoke that applies a seeded kit to `editorial_classic` and confirms AA-clean output
   8. Templates' inside-panel body/bullet sizes are raised so that default-density content no longer reads thin at print scale; the existing 78-cell schema-renderer gallery still renders without overflow, and the shrubnet v9 sample renders with the kit applied and passes contrast + density audits
-**Plans:** 5/8 plans executed
+**Plans:** 6/8 plans executed
 Plans:
 - [x] 18-01-PLAN.md -- Dependencies + errors + storage scaffold + `.brand-kit-template.json` + `.gitignore`
 - [x] 18-02-PLAN.md -- Pydantic v2 data models (BrandKit, BrandPalette, BrandTypography, BrandLogo, BrandVoice, BrandPhotoHints, ColorUsage)
 - [x] 18-03-PLAN.md -- Contrast module (wcag_ratio + AA/AAA classification + opposite-neutral swap + OKLCH remediation)
 - [x] 18-04-PLAN.md -- Scraper (Playwright primary + httpx/BS4/tinycss2 fallback + SSRF gating + palette extraction)
 - [x] 18-05-PLAN.md -- Applier (apply_brand_kit immutable transform with palette/typography swap + size_multiplier scaling + AA guardrail)
-- [ ] 18-06-PLAN.md -- Audit module (whitespace density + contrast + content-budget fill + iterate_audit_loop)
+- [x] 18-06-PLAN.md -- Audit module (whitespace density + contrast + content-budget fill + iterate_audit_loop)
 - [ ] 18-07-PLAN.md -- CLI (fetch/list/show) + --brand-kit flag in schema_renderer + end-to-end integration smoke
 - [ ] 18-08-PLAN.md -- Typography uplift across 13 templates (body_size, bullet_size baseline bumps)
 
@@ -192,4 +192,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 7. Brochure Composition | 0/? | Not Started | - |
 | 8. Brochure PDF Assembly | 0/? | Not Started | - |
 | 9. Brochure CLI & Public API | 0/? | Not Started | - |
-| 18. Brand Kit System | 5/8 | In Progress|  |
+| 18. Brand Kit System | 6/8 | In Progress|  |
