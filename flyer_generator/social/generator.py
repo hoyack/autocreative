@@ -79,6 +79,7 @@ async def _generate_hero_image(
                 prompt=prompt,
                 settings=settings,
                 http_client=http,
+                style_preset="social_graphic",
             )
     except ComfySubmitError as err:
         # Wrap as SocialError so callers catch a single family. Preserve the

@@ -8,8 +8,8 @@
   "palette": null,
   "typography": null,
   "text_budgets": {
-    "copy.title": 80,
-    "copy.body": 1400,
+    "copy.title": 36,
+    "copy.body": 500,
     "copy.cta": 40,
     "copy.hashtags": 140
   },
@@ -32,7 +32,7 @@
       "bbox": [60, 440, 1080, 140],
       "role": "title",
       "content_key": "copy.title",
-      "max_chars": 80,
+      "max_chars": 36,
       "color_role": "neutral_light",
       "font_role": "heading",
       "font_size": 64,

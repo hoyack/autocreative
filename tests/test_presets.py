@@ -14,9 +14,9 @@ from flyer_generator.workflow_loader import list_workflows, load_workflow
 
 
 class TestPresetRegistry:
-    def test_default_registry_has_six_presets(self):
+    def test_default_registry_has_seven_presets(self):
         reg = build_default_registry()
-        assert len(reg.list_names()) == 6
+        assert len(reg.list_names()) == 7
 
     def test_default_registry_preset_names(self):
         reg = build_default_registry()
@@ -25,6 +25,7 @@ class TestPresetRegistry:
             "photorealistic",
             "retro_poster",
             "scifi",
+            "social_graphic",
             "watercolor",
             "western_cartoon",
         ]

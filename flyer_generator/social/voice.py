@@ -52,11 +52,20 @@ def format_voice_directive(brand_voice: BrandVoice | None) -> str:
 def _build_system_prompt(brand_voice: BrandVoice | None) -> str:
     voice = format_voice_directive(brand_voice)
     base = (
-        "You are a social-media copywriter. Return a single JSON object with exactly "
-        "these keys: copy.title (short headline), copy.body (main text), copy.cta "
-        "(call to action), copy.hashtags (list of strings, each starting with #). "
-        "Honor the per-key character budgets and the platform constraints given in "
-        "the user message. Return ONLY the JSON object with no commentary."
+        "You are a social-media copywriter writing posts that stop the scroll. "
+        "Return a single JSON object with exactly these keys: copy.title, copy.body, "
+        "copy.cta, copy.hashtags. Return ONLY the JSON object with no commentary.\n\n"
+        "QUALITY BAR:\n"
+        "- copy.title: punchy, concrete, ideally <=35 chars. No nested quotes or "
+        "  special punctuation that breaks overlay rendering. Stand alone without body.\n"
+        "- copy.body: optimized for FEED SKIM — lead with the hook sentence. Prefer "
+        "  short paragraphs (1-2 sentences each) separated by blank lines. Concrete "
+        "  numbers or specific pain points beat abstractions. Strict character budget.\n"
+        "- copy.cta: <=30 chars. Specific over generic ('See case studies' > 'Learn more').\n"
+        "- copy.hashtags: NICHE over broad. Avoid top-10 saturated tags like "
+        "  #SoftwareEngineering, #Leadership, #Tech — pick audience-specific ones a "
+        "  CTO would actually filter on. Seed keywords in the user message are the "
+        "  strongest signal; use at least 2 of them when provided."
     )
     return voice + base
 
@@ -87,9 +96,9 @@ def _build_user_prompt(
         lines.append(f"IMAGE HINT: {brief.image_hint}")
     lines.extend([
         "",
-        "BUDGETS (hard max in characters):",
-        f"  copy.title: {title_budget}",
-        f"  copy.body: {body_budget}",
+        "BUDGETS (HARD MAX in characters — truncation happens at render time):",
+        f"  copy.title: {title_budget}  (title renders as image overlay — over-budget = clipped)",
+        f"  copy.body: {body_budget}  (aim for 60-80% of budget; feed readers skim)",
         f"  copy.cta: {cta_budget}",
         "",
         f"HASHTAGS FOR {platform_rules.platform.upper()}:",

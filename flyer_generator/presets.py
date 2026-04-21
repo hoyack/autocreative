@@ -116,6 +116,27 @@ def build_default_registry() -> PresetRegistry:
             negative_fragment="photorealistic, photograph, 3d render, anime, hyper-detailed",
             description="Vintage mid-century poster with screen-print texture",
         ),
+        "social_graphic": StylePreset(
+            name="social_graphic",
+            positive_fragments=[
+                "Clean modern B2B SaaS background graphic, zero text: {concept}.",
+                "Flat minimalist design, strong visual hierarchy, high contrast, "
+                "abstract geometric composition (shapes, gradients, flowing curves).",
+                "Modern tech-startup aesthetic, no people or stock photography, "
+                "data-viz-forward, professional palette of deep navy, electric blue, "
+                "teal, white. CRITICAL: the image has NO text, NO letters, NO words, "
+                "NO logos, NO typography of any kind — text is overlaid later.",
+            ],
+            negative_fragment=(
+                "text, letters, words, typography, captions, labels, signs, "
+                "logos, watermarks, writing, handwriting, numbers, "
+                "cinematic photograph, film grain, golden hour, warm tones, "
+                "people, faces, hands, stock photo, generic office, monitors, "
+                "keyboard, coffee cup, 3d render, cgi, cluttered, busy composition, "
+                "cartoon characters, mascots, childish shapes"
+            ),
+            description="Clean modern B2B SaaS background graphic — flat, minimal, no text, no people",
+        ),
     }
 
     for preset in builtins.values():
