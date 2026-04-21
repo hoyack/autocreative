@@ -10,6 +10,7 @@ from flyer_generator.errors import (
     ConfigurationError,
     FlyerGeneratorError,
     InputValidationError,
+    LLMAPIError,
     MaxAttemptsExceededError,
     RasterizationError,
     UnknownPresetError,
@@ -26,9 +27,14 @@ class TestErrorHierarchy:
             assert issubclass(cls, FlyerGeneratorError)
 
     def test_hierarchy_vision_errors(self):
-        for cls in [VisionAPIError, VisionResponseParseError]:
-            assert issubclass(cls, VisionError)
-            assert issubclass(cls, FlyerGeneratorError)
+        # VisionResponseParseError remains a VisionError subclass. VisionAPIError
+        # was migrated to an alias for LLMAPIError (quick task 260421-c1n) so
+        # the retry helper can raise typed subclasses; it still inherits from
+        # FlyerGeneratorError for baseline compatibility.
+        assert issubclass(VisionResponseParseError, VisionError)
+        assert issubclass(VisionResponseParseError, FlyerGeneratorError)
+        assert VisionAPIError is LLMAPIError
+        assert issubclass(VisionAPIError, FlyerGeneratorError)
 
     def test_hierarchy_other_errors(self):
         for cls in [

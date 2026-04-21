@@ -378,6 +378,13 @@ def ollama_settings() -> Settings:
         vision_max_tokens=1024,
         vision_timeout_seconds=30,
         vision_confidence_threshold=0.6,
+        # Keep these tests fast: single attempt, no fallbacks, tiny backoff.
+        # Retry/fallback behavior is covered comprehensively in
+        # tests/test_llm_resilience.py.
+        llm_retry_max_attempts=1,
+        llm_retry_base_delay=0.01,
+        llm_retry_max_delay=0.01,
+        ollama_vision_model_fallbacks=[],
     )
 
 

@@ -100,29 +100,32 @@ class OllamaTextClient:
         return raw.strip()
 
     async def _call(self, *, system: str, user: str) -> str:
+        from flyer_generator.errors import LLMAPIError
+        from flyer_generator.stages.llm_retry import _call_with_retry
+
         payload = {
-            "model": self._settings.ollama_text_model,
             "max_tokens": self._settings.text_max_tokens,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
         }
+        primary = self._settings.ollama_text_model
+        chain = [primary, *self._settings.ollama_text_model_fallbacks]
+        data = await _call_with_retry(
+            self._http,
+            "/v1/chat/completions",
+            payload,
+            model_chain=chain,
+            max_attempts=self._settings.llm_retry_max_attempts,
+            base_delay=self._settings.llm_retry_base_delay,
+            max_delay=self._settings.llm_retry_max_delay,
+        )
         try:
-            resp = await self._http.post("/v1/chat/completions", json=payload)
-            resp.raise_for_status()
-        except httpx.HTTPStatusError as exc:
-            raise VisionAPIError(
-                f"Ollama API error {exc.response.status_code}: {exc.response.text[:200]}"
-            ) from exc
-        except httpx.HTTPError as exc:
-            raise VisionAPIError(str(exc)) from exc
-        try:
-            data = resp.json()
             return data["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, json.JSONDecodeError) as exc:
-            raise VisionAPIError(
-                f"Unexpected Ollama response format: {resp.text[:200]}"
+        except (KeyError, IndexError, TypeError) as exc:
+            raise LLMAPIError(
+                f"Unexpected Ollama response format: {json.dumps(data)[:200]}"
             ) from exc
 
     async def aclose(self) -> None:

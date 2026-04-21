@@ -1,4 +1,11 @@
-"""Vision evaluation stage — sends backgrounds to an LLM for approval and zone placement."""
+"""Vision evaluation stage — sends backgrounds to an LLM for approval and zone placement.
+
+Resilience behavior (see flyer_generator.stages.llm_retry):
+Ollama calls retry transient failures (429/500/502/503/timeouts) with exponential
+backoff + jitter, honor Retry-After on 429, and fall through to
+`settings.ollama_vision_model_fallbacks` on 404/model-unavailable. 4xx client
+errors (400/401/403) raise immediately without retry or fallback.
+"""
 
 from __future__ import annotations
 
@@ -262,25 +269,28 @@ class VisionEvaluator:
         return await self._post_ollama(payload)
 
     async def _post_ollama(self, payload: dict) -> str:
-        """Send a request to the Ollama OpenAI-compatible endpoint."""
-        assert self._httpx_client is not None
-        try:
-            resp = await self._httpx_client.post("/v1/chat/completions", json=payload)
-            resp.raise_for_status()
-        except httpx.HTTPStatusError as exc:
-            raise VisionAPIError(
-                f"Ollama API error {exc.response.status_code}: "
-                f"{exc.response.text[:200]}"
-            ) from exc
-        except httpx.HTTPError as exc:
-            raise VisionAPIError(str(exc)) from exc
+        """Send a request to the Ollama OpenAI-compatible endpoint with retry + model-fallback."""
+        from flyer_generator.errors import LLMAPIError
+        from flyer_generator.stages.llm_retry import _call_with_retry
 
+        assert self._httpx_client is not None
+        primary = self._settings.ollama_vision_model
+        chain = [primary, *self._settings.ollama_vision_model_fallbacks]
+        data = await _call_with_retry(
+            self._httpx_client,
+            "/v1/chat/completions",
+            payload,
+            model_chain=chain,
+            max_attempts=self._settings.llm_retry_max_attempts,
+            base_delay=self._settings.llm_retry_base_delay,
+            max_delay=self._settings.llm_retry_max_delay,
+            log=logger,
+        )
         try:
-            data = resp.json()
             return data["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, json.JSONDecodeError) as exc:
-            raise VisionAPIError(
-                f"Unexpected Ollama response format: {resp.text[:200]}"
+        except (KeyError, IndexError, TypeError) as exc:
+            raise LLMAPIError(
+                f"Unexpected Ollama response format: {json.dumps(data)[:200]}"
             ) from exc
 
     # ── Shared parsing ──
