@@ -118,6 +118,27 @@ Conventions not yet established. Will populate as patterns emerge during develop
 Architecture not yet mapped. Follow existing patterns found in the codebase.
 <!-- GSD:architecture-end -->
 
+## LLM Resilience
+
+Ollama-backed calls (vision + text) are wrapped by `flyer_generator/stages/llm_retry.py::_call_with_retry`. Behavior:
+
+- **Retryable** (exponential backoff + jitter, `llm_retry_max_attempts` per model): timeouts, connect errors, HTTP 429 (honors `Retry-After`), 500/502/503.
+- **Model fallthrough** (no retry on same model, advance to next in chain): HTTP 404 or response body indicating the model is not loaded.
+- **Fatal** (raise immediately, no retry, no fallback): HTTP 400/401/403.
+- **Model chain:** primary from `settings.ollama_vision_model` / `settings.ollama_text_model`, then `settings.ollama_vision_model_fallbacks` / `settings.ollama_text_model_fallbacks`.
+
+Env var knobs (all `FLYER_`-prefixed):
+
+| Env var | Default | Meaning |
+|---|---|---|
+| `FLYER_LLM_RETRY_MAX_ATTEMPTS` | `3` | Attempts per model before advancing chain. |
+| `FLYER_LLM_RETRY_BASE_DELAY` | `1.0` | Base backoff seconds; delay = min(max, base × 2^(n-1)) + jitter. |
+| `FLYER_LLM_RETRY_MAX_DELAY` | `10.0` | Upper clamp for backoff and Retry-After. |
+| `FLYER_OLLAMA_TEXT_MODEL_FALLBACKS` | `kimi-k2.6:cloud,qwen3.6:35b` | Comma-separated fallback text models. |
+| `FLYER_OLLAMA_VISION_MODEL_FALLBACKS` | `kimi-k2.6:cloud,qwen3.6:35b` | Comma-separated fallback vision models. |
+
+Typed errors: `LLMAPIError` (base), `LLMRateLimitError`, `LLMServiceUnavailableError`, `LLMTimeoutError`, `LLMModelUnavailableError` — all in `flyer_generator/errors.py`. `VisionAPIError` is preserved as an alias for `LLMAPIError` for backwards compatibility with existing `except VisionAPIError` sites.
+
 <!-- GSD:skills-start source:skills/ -->
 ## Project Skills
 
