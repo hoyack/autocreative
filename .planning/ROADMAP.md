@@ -32,6 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 16: Quality tuning — section distribution, heading hierarchy, verification teeth** - smarter multi-section panel assignment, accent rules under every heading, cover-title drop-shadow + auto-shrink, verify-loop regen with seed variation (completed 2026-04-18)
 - [x] **Phase 17: Improvements pass (HIGH/MEDIUM/LOW from docs/brochure-improvements.md)** - rubric-driven verification, two-sheet scoring, verdict/lint on BrochureOutput + CLI surfacing, template typography threaded through composer, @font-face data-URI infrastructure, fit optimizer retry loop, tuck-flap tagline for N<4, aspect-aware spot crop, cover_image_concept field, mechanical output linter (completed 2026-04-18)
 - [x] **Phase 18: Brand Kit System** - scrape website → untracked brand kit (colors/fonts/logos/voice) → apply to any schema_renderer template, WCAG contrast validation + auto-remediation, visual inspection + adversarial audit loop; also increase readable type size across templates (completed 2026-04-21)
+- [ ] **Phase 19: Social Media Posting System** - given a brand kit slug + a post brief (topic/intent/CTA), generate platform-specific social posts (LinkedIn, Twitter/X, Instagram, Facebook) with platform-appropriate copy, aspect-correct imagery, brand-kit-aware palette/typography, and adversarial audit against each platform's constraints (char limits, hashtag caps, aspect ratios, readability)
 
 ## Phase Details
 
@@ -176,6 +177,24 @@ Plans:
 - [x] 18-07-PLAN.md -- CLI (fetch/list/show) + --brand-kit flag in schema_renderer + end-to-end integration smoke
 - [x] 18-08-PLAN.md -- Typography uplift across 13 templates (body_size, bullet_size baseline bumps)
 
+### Phase 19: Social Media Posting System
+**Goal**: A developer can run `python -m flyer_generator.social post --brand-kit <slug> --platform <linkedin|twitter|instagram|facebook> --intent <value-prop|announcement|testimonial|faq|carousel> --topic "<topic>" --output <dir>` to produce a platform-compliant post (copy + image bytes + audit sidecar) that respects the brand kit's palette/typography/voice, passes all platform rule validators (char limits, hashtag caps, image aspect + size), and passes WCAG AA contrast + brand-color compliance on any rendered imagery. A campaign mode generates one cohesive set of posts across multiple platforms from a single topic using shared source imagery cropped per-platform.
+**Depends on**: Phase 18 (brand_kit subsystem), Phase 14 (prompt-driven public API + text_gen), Phase 13 (imagery orchestration via ComfyCloud)
+**Requirements**: From HANDOFF.md §7 (platform catalog, post templates, generator orchestrator, campaign concept, CLI)
+**Success Criteria** (what must be TRUE):
+  1. `from flyer_generator.social import PostSpec, Post, Platform, generate_post, generate_campaign, load_platform_rules, validate_post` succeeds; all models are Pydantic v2 and round-trip to JSON
+  2. Four platforms implemented with typed `PlatformRules`: LinkedIn (3000-char body, 1200×627 or 1200×1200 image), Twitter/X (280 char, up to 4 images 1200×675, optional threading), Instagram (2200-char caption, ≤30 hashtags, 1080×1080 or 1080×1350, optional 1080×1920 story), Facebook (text + image, link preview). Each ships a `validate(post)` function returning `ValidationReport` with per-rule pass/fail
+  3. At least 3 post intents × 4 platforms (≥12 post templates) under `flyer_generator/social/schemas/` — each template declares `{platform, intent, aspect, text_budgets, image_slots, layout}` mirroring the schema_renderer template pattern; SVG rasterization reuses `schema_renderer` rendering pipeline for image posts
+  4. `BrandVoice` (tone, example_phrases, banned_words) from Phase 18 is actually wired into text generation: `text_gen.generate_content_from_prompt` accepts a `BrandVoice` parameter and the prompt injects tone guidance + banned-word filter; generated copy is validated against banned_words before returning
+  5. `generate_post(brand_kit_slug, PostBrief) → Post` orchestrates: select template → generate copy via text_gen (voice-aware) → (if image slot) generate hero via ComfyCloud using brand palette + aspect → render SVG → rasterize → audit. Output is `Post(platform, intent, copy, hashtags, image_bytes|None, validation_report, audit_report)`
+  6. `generate_campaign(brand_kit_slug, topic, platforms) → Campaign` generates one source hero image at the largest required resolution (e.g. 2048×2048), then crops per-platform aspects; copy is re-generated per-platform (not merely truncated) to respect platform voice
+  7. Audit extends Phase 18's `audit_render` to include platform-specific dimensions: char-count vs budget, hashtag count/length, image aspect match, image file size (platforms cap image bytes), link presence vs link-support, plus all existing contrast + density + whitespace checks
+  8. CLI: `python -m flyer_generator.social post …` and `python -m flyer_generator.social campaign …` work end-to-end against the three existing brand kits (shrubnet, hoyack, thunderstaff); `list-platforms`, `list-intents`, `show-rules <platform>` CLI subcommands exist for inspection
+  9. Untracked storage: `.social-campaigns/<slug>/<campaign-id>/` per-post JSON + image bytes + audit sidecar; `.social-campaigns/` in `.gitignore`; `.social-template.json` tracked as schema reference; `FLYER_SOCIAL_CAMPAIGNS_DIR` env var honored
+ 10. Tests cover platform validators (all 4 platforms × pass/fail cases), BrandVoice wiring (tone injection, banned-word filter), post templates (≥12 templates validate shape + produce rendered output), generator (mocked LLM + Comfy, end-to-end Post), campaign (shared hero cropped correctly per-platform), audit (platform-rule coverage), CLI (post + campaign + list + show) — all net-new tests green in < 5 min
+ 11. Publishing/scheduling is EXPLICITLY out of scope — phase 19 produces artifacts only. No LinkedIn API, Twitter API, Meta Graph, or scheduler integration; defer to a future phase
+**Plans:** TBD plans
+
 ## Progress
 
 **Execution Order:**
@@ -193,3 +212,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 8. Brochure PDF Assembly | 0/? | Not Started | - |
 | 9. Brochure CLI & Public API | 0/? | Not Started | - |
 | 18. Brand Kit System | 8/8 | Complete   | 2026-04-21 |
+| 19. Social Media Posting System | 0/? | Not Started | - |
