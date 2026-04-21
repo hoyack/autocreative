@@ -242,3 +242,18 @@ def _pillow_dims(image_bytes: bytes) -> tuple[int, int]:
             "image exceeds 50 MP cap", width=w, height=h
         )
     return (w, h)
+
+
+# Convenience re-export so callers can do
+# ``from flyer_generator.social.validation import validate_post``
+# without reaching into the platforms package (Plan 19-03 success_criteria).
+def validate_post(post: "Post") -> "ValidationReport":  # type: ignore[name-defined]  # noqa: F821
+    """Dispatch ``post`` to its per-platform validator via the platforms registry.
+
+    Thin wrapper over :func:`flyer_generator.social.platforms.validate_post`.
+    Kept here so that the shared primitives module exposes the public API
+    alongside the ``check_*`` helpers.
+    """
+    from flyer_generator.social.platforms import validate_post as _dispatch  # noqa: PLC0415
+
+    return _dispatch(post)
