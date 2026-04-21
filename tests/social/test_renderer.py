@@ -98,16 +98,19 @@ def test_render_post_all_twelve_templates_produce_pngs() -> None:
         assert img.size == (template.canvas.width, template.canvas.height), name
 
 
-def test_render_post_non_rect_shape_logs_skip_warning(caplog) -> None:
+def test_render_post_non_rect_shape_logs_skip_warning(capsys) -> None:
     """Non-rect ShapeElement kinds (circle/polygon/etc.) are skipped with a warning in v1.
 
     Plan 06 v1 supports only `kind: "rect"` shapes (documented limitation;
     templates in Plan 05 use rect only). A template carrying a non-rect shape
     must render successfully with the shape omitted and a structured warning
     logged -- NOT crash.
-    """
-    import logging
 
+    Note: structlog in this project ships with its default ConsoleRenderer
+    stdout sink; it is NOT wired into the stdlib ``logging`` module, so
+    ``caplog`` sees nothing. The warning lands on stdout as a structured
+    key=value line. Assert against stdout via ``capsys``.
+    """
     from flyer_generator.brochure.schema_renderer.schema_model import (
         ShapeElement,
         SolidFill,
@@ -128,23 +131,18 @@ def test_render_post_non_rect_shape_logs_skip_warning(caplog) -> None:
     copy = _make_copy()
     hero = _make_tiny_png()
 
-    with caplog.at_level(logging.WARNING):
-        png = render_post(mutated, copy, kit, hero_image_bytes=hero)
+    png = render_post(mutated, copy, kit, hero_image_bytes=hero)
 
     # Render still produces correctly-sized output
     img = Image.open(io.BytesIO(png))
     assert img.size == (template.canvas.width, template.canvas.height)
 
-    # Warning emitted (structlog routes through stdlib logger when configured;
-    # the structured event key is also embedded via _log_record.msg on
-    # stdlib-level loggers). We accept either the event-name or the "circle"
-    # kind in the log stream.
-    warning_texts = [rec.getMessage() for rec in caplog.records]
-    combined = " ".join(warning_texts)
+    captured = capsys.readouterr()
+    combined = captured.out + captured.err
     assert (
         "social_renderer_shape_kind_unsupported_in_v1" in combined
         or "circle" in combined
-    ), f"expected non-rect warning in logs; got: {warning_texts}"
+    ), f"expected non-rect warning in stdout/stderr; got: {combined!r}"
 
 
 def test_render_post_xml_escapes_user_content() -> None:
