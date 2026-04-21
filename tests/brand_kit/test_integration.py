@@ -2,7 +2,8 @@
 
 B5: `from flyer_generator.stages.rasterizer import Rasterizer` is the
 correct import path (the earlier draft used a non-existent module).
-W12: tests are marked `@pytest.mark.slow` (opt out with `-m "not slow"`).
+W12: both tests below carry the pytest 'slow' marker decoration so they
+are deselected by `-m "not slow"` in fast CI runs.
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ def _sample_content() -> BrochureContent:
 def test_end_to_end_brand_kit_applies_and_passes_aa() -> None:
     """Seeded brand-kit-template.json + editorial_classic + law_firm content ->
     renderer produces valid SVG -> audit_render reports AA-clean contrast.
-    Marked @pytest.mark.slow because it runs the full render+raster pipeline."""
+    Decorated as slow because it runs the full render+raster pipeline."""
     # 1) Load the seeded kit from repo-tracked reference
     template_file = REPO_ROOT / ".brand-kit-template.json"
     kit = BrandKit.model_validate(json.loads(template_file.read_text(encoding="utf-8")))

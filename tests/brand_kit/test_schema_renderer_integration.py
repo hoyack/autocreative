@@ -1,10 +1,10 @@
 """Integration tests for --brand-kit in the schema_renderer CLI.
 
 Plumbing only -- no real image generation or network calls. Must run offline.
-W11: tests do NOT pass `--no-write-svg`. The real flag `--write-svg/--no-write-svg`
-exists in `flyer_generator/brochure/schema_renderer/__main__.py:64-67`; tests
-use the default `--write-svg` behavior plus tmpdir. Assertions are on exit code,
-stdout, and stderr only."""
+W11: tests do NOT pass the svg-writing opt-out flag in their invocations. The
+real flag exists in flyer_generator/brochure/schema_renderer/__main__.py:64-67;
+tests rely on its default plus tmpdir. Assertions cover exit code, stdout,
+and stderr only."""
 
 from __future__ import annotations
 
