@@ -71,3 +71,31 @@ class RasterizationError(FlyerGeneratorError):
 
 class MaxAttemptsExceededError(FlyerGeneratorError):
     """Regeneration budget exhausted."""
+
+
+class BrandKitError(FlyerGeneratorError):
+    """Base for all brand-kit errors."""
+
+
+class BrandKitScrapeError(BrandKitError):
+    """Scraper exhausted both Playwright and BS4 paths without usable data."""
+
+
+class BrandKitContrastError(BrandKitError):
+    """Contrast remediation exhausted options with no passing swap."""
+
+
+class BrandKitAuditError(BrandKitError):
+    """Audit loop hit max cycles without clean pass (only raised in strict mode)."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        cycles: int = 0,
+        remaining_issues: list[object] | None = None,
+        **kwargs: object,
+    ) -> None:
+        super().__init__(message, **kwargs)
+        self.cycles = cycles
+        self.remaining_issues = remaining_issues or []

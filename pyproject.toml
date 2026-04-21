@@ -15,6 +15,11 @@ dependencies = [
     "typer>=0.24.1",
     "reportlab>=4.4.10",
     "pypdf>=6.10.2",
+    "beautifulsoup4>=4.14",
+    "tinycss2>=1.5",
+    "wcag-contrast-ratio>=0.9",
+    "coloraide>=8,<9",
+    "playwright>=1.58",
 ]
 
 [project.optional-dependencies]
