@@ -53,12 +53,59 @@ class VisionError(FlyerGeneratorError):
     """Base for vision evaluation errors."""
 
 
-class VisionAPIError(VisionError):
-    """4xx/5xx from Anthropic API."""
-
-
 class VisionResponseParseError(VisionError):
     """JSON response unsalvageable after retry."""
+
+
+class LLMAPIError(FlyerGeneratorError):
+    """Base class for all LLM HTTP errors (Ollama, Anthropic, future providers).
+
+    Subclasses signal retryability semantics; see `stages.llm_retry` for the
+    classification rules. Carries optional `model` (which model in the chain
+    failed) and `status_code` (HTTP status when applicable).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        model: str | None = None,
+        status_code: int | None = None,
+        **kwargs: object,
+    ) -> None:
+        super().__init__(message, **kwargs)
+        self.model = model
+        self.status_code = status_code
+
+
+class LLMRateLimitError(LLMAPIError):
+    """HTTP 429. Carries retry_after_seconds parsed from the Retry-After header."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        retry_after_seconds: float | None = None,
+        **kwargs: object,
+    ) -> None:
+        super().__init__(message, **kwargs)
+        self.retry_after_seconds = retry_after_seconds
+
+
+class LLMServiceUnavailableError(LLMAPIError):
+    """HTTP 502 / 503 / 500. Retryable against the same model."""
+
+
+class LLMTimeoutError(LLMAPIError):
+    """httpx.ReadTimeout / ConnectTimeout / ConnectError / ReadError. Retryable."""
+
+
+class LLMModelUnavailableError(LLMAPIError):
+    """HTTP 404 or body indicating the requested model is not loaded / not found.
+
+    NOT retryable against the same model — the chain should advance to the next
+    fallback model.
+    """
 
 
 class CompositionError(FlyerGeneratorError):
@@ -99,3 +146,11 @@ class BrandKitAuditError(BrandKitError):
         super().__init__(message, **kwargs)
         self.cycles = cycles
         self.remaining_issues = remaining_issues or []
+
+
+# --- Backwards-compatible alias (DEPRECATED) ---
+# VisionAPIError was the original name for Anthropic/Ollama API failures.
+# New code should catch LLMAPIError (or a specific subclass). Existing
+# `except VisionAPIError` sites continue to work because this is a direct
+# reference to the same class.
+VisionAPIError = LLMAPIError

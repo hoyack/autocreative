@@ -3,12 +3,17 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from FLYER_-prefixed environment variables."""
+    """Application settings loaded from FLYER_-prefixed environment variables.
+
+    List fields (e.g. ollama_text_model_fallbacks) accept a comma-separated
+    string from the environment, e.g.
+    ``FLYER_OLLAMA_TEXT_MODEL_FALLBACKS="kimi-k2.6:cloud,qwen3.6:35b"``.
+    """
 
     model_config = SettingsConfigDict(
         env_prefix="FLYER_",
@@ -38,6 +43,21 @@ class Settings(BaseSettings):
     ollama_base_url: str = "https://ollama.com"
     ollama_vision_model: str = "llama3.2-vision"
     ollama_text_model: str = "llama3.2"  # future use — not wired to any stage
+
+    # --- Fallback model chains (comma-separated in env, e.g.
+    # FLYER_OLLAMA_TEXT_MODEL_FALLBACKS="kimi-k2.6:cloud,qwen3.6:35b").
+    # Pydantic-settings parses bare comma-separated strings into list[str].
+    ollama_text_model_fallbacks: list[str] = Field(
+        default_factory=lambda: ["kimi-k2.6:cloud", "qwen3.6:35b"]
+    )
+    ollama_vision_model_fallbacks: list[str] = Field(
+        default_factory=lambda: ["kimi-k2.6:cloud", "qwen3.6:35b"]
+    )
+
+    # --- LLM retry policy (applies to both text and vision Ollama calls).
+    llm_retry_max_attempts: int = 3
+    llm_retry_base_delay: float = 1.0  # seconds
+    llm_retry_max_delay: float = 10.0  # seconds
 
     # ComfyUI workflow (name or path to .json)
     workflow: str = "turbo_portrait"
