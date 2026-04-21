@@ -101,6 +101,7 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260421-c1n | Resilient Ollama LLM client: retry/backoff/fallback models | 2026-04-21 | 38361bf | [260421-c1n-resilient-ollama-llm-client-retry-backof](./quick/260421-c1n-resilient-ollama-llm-client-retry-backof/) |
+| 260421-epk | Auto-audit in schema_renderer CLI (--audit sidecar + --iterate-audit) | 2026-04-21 | a976152 | [260421-epk-auto-audit-in-schema-renderer-cli](./quick/260421-epk-auto-audit-in-schema-renderer-cli/) |
 
 ## Deferred Items
 
