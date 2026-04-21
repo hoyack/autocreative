@@ -148,6 +148,22 @@ class BrandKitAuditError(BrandKitError):
         self.remaining_issues = remaining_issues or []
 
 
+class BrandVoiceViolationError(BrandKitError):
+    """LLM copy contained banned-word or voice violation after retries exhausted."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        banned_matches: list[str] | None = None,
+        keys: list[str] | None = None,
+        **kwargs: object,
+    ) -> None:
+        super().__init__(message, **kwargs)
+        self.banned_matches = banned_matches or []
+        self.keys = keys or []
+
+
 # --- Backwards-compatible alias (DEPRECATED) ---
 # VisionAPIError was the original name for Anthropic/Ollama API failures.
 # New code should catch LLMAPIError (or a specific subclass). Existing
