@@ -14,3 +14,4 @@ output/
 .mypy_cache/
 .pyright/
 .pytest_cache/
+.brand-kits/

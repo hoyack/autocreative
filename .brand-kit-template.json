@@ -1,0 +1,89 @@
+{
+  "name": "Example Brand",
+  "source_url": "https://example.com",
+  "fetched_at": "2026-04-20T12:00:00Z",
+  "palette": {
+    "primary": {
+      "hex": "#1E3A5F",
+      "usage_hint": "primary CTA / heading accent"
+    },
+    "secondary": {
+      "hex": "#C4A269",
+      "usage_hint": "supporting accent / callouts"
+    },
+    "accent": {
+      "hex": "#E8F1F2",
+      "usage_hint": "highlight fill"
+    },
+    "neutral_dark": {
+      "hex": "#1A1A1A",
+      "usage_hint": "body text on light"
+    },
+    "neutral_light": {
+      "hex": "#FAFAF7",
+      "usage_hint": "panel background / text on dark"
+    },
+    "extras": {
+      "success": {
+        "hex": "#2F855A",
+        "usage_hint": "positive state"
+      },
+      "danger": {
+        "hex": "#C53030",
+        "usage_hint": "error state"
+      }
+    }
+  },
+  "typography": {
+    "heading_family": "'Playfair Display', 'Times New Roman', serif",
+    "body_family": "'Source Serif Pro', Georgia, serif",
+    "size_scale": {
+      "hero": 120,
+      "display": 96,
+      "heading": 60,
+      "subheading": 42,
+      "body": 34,
+      "caption": 22
+    },
+    "font_sources": [
+      "https://fonts.example.com/playfair-display.woff2",
+      "https://fonts.example.com/source-serif-pro.woff2"
+    ]
+  },
+  "logos": [
+    {
+      "path": "logos/primary.png",
+      "variant": "primary",
+      "format": "png",
+      "aspect_ratio": 2.5
+    },
+    {
+      "path": "logos/mark_only.svg",
+      "variant": "mark_only",
+      "format": "svg",
+      "aspect_ratio": 1.0
+    }
+  ],
+  "voice": {
+    "tone": "authoritative, warm, plain-spoken",
+    "example_phrases": [
+      "Counsel you can trust.",
+      "We draft the documents that keep your family whole."
+    ],
+    "banned_words": [
+      "synergy",
+      "leverage",
+      "rockstar"
+    ]
+  },
+  "photography": {
+    "preferred_style_preset": "photorealistic",
+    "color_grade_notes": "warm mid-tones; preserve shadow detail; avoid crushed blacks"
+  },
+  "source_artifacts": [
+    "source/screenshot.png",
+    "source/rendered.html",
+    "source/style.css"
+  ],
+  "size_multiplier": 1.0
+}
