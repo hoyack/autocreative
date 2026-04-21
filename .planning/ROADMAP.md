@@ -193,9 +193,9 @@ Plans:
   9. Untracked storage: `.social-campaigns/<slug>/<campaign-id>/` per-post JSON + image bytes + audit sidecar; `.social-campaigns/` in `.gitignore`; `.social-template.json` tracked as schema reference; `FLYER_SOCIAL_CAMPAIGNS_DIR` env var honored
  10. Tests cover platform validators (all 4 platforms × pass/fail cases), BrandVoice wiring (tone injection, banned-word filter), post templates (≥12 templates validate shape + produce rendered output), generator (mocked LLM + Comfy, end-to-end Post), campaign (shared hero cropped correctly per-platform), audit (platform-rule coverage), CLI (post + campaign + list + show) — all net-new tests green in < 5 min
  11. Publishing/scheduling is EXPLICITLY out of scope — phase 19 produces artifacts only. No LinkedIn API, Twitter API, Meta Graph, or scheduler integration; defer to a future phase
-**Plans:** 9 plans
+**Plans:** 1/9 plans executed
 Plans:
-- [ ] 19-01-PLAN.md -- BrandVoice wiring in text_gen + BrandVoiceViolationError
+- [x] 19-01-PLAN.md -- BrandVoice wiring in text_gen + BrandVoiceViolationError
 - [ ] 19-02-PLAN.md -- Errors tree + Pydantic models + storage + .gitignore + .social-template.json + pyproject dep bump
 - [ ] 19-03-PLAN.md -- Platform rules registry (4 platforms) + shared validators + Flesch-Kincaid readability
 - [ ] 19-04-PLAN.md -- Workflow-aspect map + Pillow crop helpers (PLATFORM_CROP_SIZES)
@@ -222,4 +222,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 8. Brochure PDF Assembly | 0/? | Not Started | - |
 | 9. Brochure CLI & Public API | 0/? | Not Started | - |
 | 18. Brand Kit System | 8/8 | Complete   | 2026-04-21 |
-| 19. Social Media Posting System | 0/? | Not Started | - |
+| 19. Social Media Posting System | 1/9 | In Progress|  |
