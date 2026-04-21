@@ -31,7 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 15: Polish — Shape/Text Collision + Spot-Image Compositing** - constrain decorative shapes to avoid heading zones, composite spot images into inner panels + tuck flap, re-verify end-to-end visual output (completed 2026-04-18)
 - [x] **Phase 16: Quality tuning — section distribution, heading hierarchy, verification teeth** - smarter multi-section panel assignment, accent rules under every heading, cover-title drop-shadow + auto-shrink, verify-loop regen with seed variation (completed 2026-04-18)
 - [x] **Phase 17: Improvements pass (HIGH/MEDIUM/LOW from docs/brochure-improvements.md)** - rubric-driven verification, two-sheet scoring, verdict/lint on BrochureOutput + CLI surfacing, template typography threaded through composer, @font-face data-URI infrastructure, fit optimizer retry loop, tuck-flap tagline for N<4, aspect-aware spot crop, cover_image_concept field, mechanical output linter (completed 2026-04-18)
-- [ ] **Phase 18: Brand Kit System** - scrape website → untracked brand kit (colors/fonts/logos/voice) → apply to any schema_renderer template, WCAG contrast validation + auto-remediation, visual inspection + adversarial audit loop; also increase readable type size across templates
+- [x] **Phase 18: Brand Kit System** - scrape website → untracked brand kit (colors/fonts/logos/voice) → apply to any schema_renderer template, WCAG contrast validation + auto-remediation, visual inspection + adversarial audit loop; also increase readable type size across templates (completed 2026-04-21)
 
 ## Phase Details
 
@@ -165,7 +165,7 @@ Plans:
   6. Post-render audit (`audit_render`) produces a structured report with per-panel whitespace density, contrast violations, and per-region content-budget fill — plus an iterate loop that regenerates copy / swaps contrast up to 3 cycles when issues are found
   7. Tests cover: scraper with mocked HTML (Playwright + BS4 paths), models round-trip, contrast ratios (known pairs + remediation), applier (palette + typography + logo merge + size_multiplier), audit (whitespace + contrast + density fixtures), CLI (fetch + list + show), and an end-to-end smoke that applies a seeded kit to `editorial_classic` and confirms AA-clean output
   8. Templates' inside-panel body/bullet sizes are raised so that default-density content no longer reads thin at print scale; the existing 78-cell schema-renderer gallery still renders without overflow, and the shrubnet v9 sample renders with the kit applied and passes contrast + density audits
-**Plans:** 7/8 plans executed
+**Plans:** 8/8 plans complete
 Plans:
 - [x] 18-01-PLAN.md -- Dependencies + errors + storage scaffold + `.brand-kit-template.json` + `.gitignore`
 - [x] 18-02-PLAN.md -- Pydantic v2 data models (BrandKit, BrandPalette, BrandTypography, BrandLogo, BrandVoice, BrandPhotoHints, ColorUsage)
@@ -174,7 +174,7 @@ Plans:
 - [x] 18-05-PLAN.md -- Applier (apply_brand_kit immutable transform with palette/typography swap + size_multiplier scaling + AA guardrail)
 - [x] 18-06-PLAN.md -- Audit module (whitespace density + contrast + content-budget fill + iterate_audit_loop)
 - [x] 18-07-PLAN.md -- CLI (fetch/list/show) + --brand-kit flag in schema_renderer + end-to-end integration smoke
-- [ ] 18-08-PLAN.md -- Typography uplift across 13 templates (body_size, bullet_size baseline bumps)
+- [x] 18-08-PLAN.md -- Typography uplift across 13 templates (body_size, bullet_size baseline bumps)
 
 ## Progress
 
@@ -192,4 +192,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 7. Brochure Composition | 0/? | Not Started | - |
 | 8. Brochure PDF Assembly | 0/? | Not Started | - |
 | 9. Brochure CLI & Public API | 0/? | Not Started | - |
-| 18. Brand Kit System | 7/8 | In Progress|  |
+| 18. Brand Kit System | 8/8 | Complete   | 2026-04-21 |
