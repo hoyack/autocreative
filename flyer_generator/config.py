@@ -75,5 +75,7 @@ class Settings(BaseSettings):
     output_dir: Path = Path("./output")
     # Brand kit storage (Phase 18). Configurable via FLYER_BRAND_KITS_DIR env var.
     brand_kits_dir: Path = Path(".brand-kits")
+    # Social campaigns storage (Phase 19). Configurable via FLYER_SOCIAL_CAMPAIGNS_DIR env var.
+    social_campaigns_dir: Path = Path(".social-campaigns")
     log_level: str = "INFO"
     log_format: Literal["json", "text"] = "text"

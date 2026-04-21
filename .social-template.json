@@ -1,0 +1,25 @@
+{
+  "campaign_id": "01HXYZABC123DEF456GHIJKLMN",
+  "brand_kit_slug": "example-brand",
+  "topic": "Why typed validation prevents production incidents",
+  "platforms": ["linkedin", "twitter", "instagram", "facebook"],
+  "created_at": "2026-04-21T12:00:00Z",
+  "posts": {
+    "linkedin__value-prop": {
+      "platform": "linkedin",
+      "intent": "value-prop",
+      "copy": {
+        "title": "Typed validation, not typed frustration",
+        "body": "Every engineer has shipped a runtime error that a type check would have caught. We built a Pydantic-backed validation layer that catches 94% of contract violations at the module boundary. Read how.",
+        "cta": "Read the full post",
+        "hashtags": ["#python", "#pydantic", "#devops", "#typedcode"]
+      },
+      "image_path": "linkedin__value-prop/image.png",
+      "validation_report": {
+        "platform": "linkedin",
+        "issues": []
+      },
+      "audit_summary": "clean"
+    }
+  }
+}

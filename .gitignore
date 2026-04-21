@@ -15,3 +15,4 @@ output/
 .pyright/
 .pytest_cache/
 .brand-kits/
+.social-campaigns/

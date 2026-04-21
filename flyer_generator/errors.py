@@ -170,3 +170,35 @@ class BrandVoiceViolationError(BrandKitError):
 # `except VisionAPIError` sites continue to work because this is a direct
 # reference to the same class.
 VisionAPIError = LLMAPIError
+
+
+class SocialError(FlyerGeneratorError):
+    """Base for all social-posting errors."""
+
+
+class PostValidationError(SocialError):
+    """Hard platform-validation failure (e.g. body over hard cap)."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        platform: str | None = None,
+        issues: list[object] | None = None,
+        **kwargs: object,
+    ) -> None:
+        super().__init__(message, **kwargs)
+        self.platform = platform
+        self.issues = issues or []
+
+
+class PlatformUnsupportedError(SocialError):
+    """Unknown platform string passed to generator/campaign."""
+
+
+class IntentUnsupportedError(SocialError):
+    """Unknown intent string."""
+
+
+class CampaignError(SocialError):
+    """Campaign-level orchestration failure."""

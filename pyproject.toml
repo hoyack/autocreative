@@ -20,6 +20,7 @@ dependencies = [
     "wcag-contrast-ratio>=0.9",
     "coloraide>=8,<9",
     "playwright>=1.58",
+    "python-ulid>=3.1.0",
 ]
 
 [project.optional-dependencies]
