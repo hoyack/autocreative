@@ -1,0 +1,20 @@
+:root {
+  --brand-primary: #1E3A5F;
+  --brand-secondary: #C4A269;
+  --neutral-dark: #1A1A1A;
+  --neutral-light: #FAFAF7;
+}
+
+@font-face {
+  font-family: 'Playfair Display';
+  src: url(https://fonts.example.com/playfair-display.woff2) format('woff2');
+}
+
+body {
+  font-family: 'Source Serif Pro', Georgia, serif;
+  color: var(--neutral-dark);
+}
+
+h1 {
+  font-family: 'Playfair Display', serif;
+}
