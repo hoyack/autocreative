@@ -137,11 +137,18 @@ def _scan_banned_in_copy(copy_dict: dict, banned: list[str]) -> tuple[list[str],
 def _normalize_to_post_copy(
     raw: dict, platform_rules: PlatformRules
 ) -> PostCopy:
-    title = raw.get("copy.title") or raw.get("title") or ""
-    body = raw.get("copy.body") or raw.get("body") or ""
-    cta = raw.get("copy.cta") or raw.get("cta") or None
+    # The system prompt describes keys as "copy.title" / "copy.body" — LLMs
+    # reasonably interpret this as EITHER dotted-flat keys OR a nested "copy"
+    # object. Accept both shapes: unwrap the nested case first.
+    if isinstance(raw.get("copy"), dict):
+        nested = raw["copy"]
+    else:
+        nested = {}
+    title = nested.get("title") or raw.get("copy.title") or raw.get("title") or ""
+    body = nested.get("body") or raw.get("copy.body") or raw.get("body") or ""
+    cta = nested.get("cta") or raw.get("copy.cta") or raw.get("cta") or None
     hashtags_raw = (
-        raw.get("copy.hashtags") or raw.get("hashtags") or []
+        nested.get("hashtags") or raw.get("copy.hashtags") or raw.get("hashtags") or []
     )
     if isinstance(hashtags_raw, str):
         hashtags = [h.strip() for h in hashtags_raw.split() if h.strip()]
