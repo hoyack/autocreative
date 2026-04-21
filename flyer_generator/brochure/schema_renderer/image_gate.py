@@ -153,6 +153,47 @@ def _build_spot_workflow(
     )
 
 
+async def generate_single_image(
+    workflow_name: str,
+    prompt: str,
+    *,
+    settings: Settings,
+    http_client: httpx.AsyncClient,
+    style_preset: str = "photorealistic",
+    presets: PresetRegistry | None = None,
+) -> bytes:
+    """Generate one ComfyCloud image matching the named workflow.
+
+    Shared entry point for social post + campaign hero generation (Plans 07 + 09).
+    Reuses the canonical ComfyClient init + spot-prompt builder already in this
+    module; does NOT duplicate workflow loading or ComfyClient construction.
+
+    Args:
+        workflow_name: Name resolved via `load_workflow(workflow_name)`.
+        prompt: The concept string — routed through `_build_spot_workflow` with
+            the given style_preset so the workflow's positive_prompt is
+            preset-shaped exactly like existing spot-slot generations.
+        settings: ComfyCloud API key + base URL + poll tuning.
+        http_client: Caller-owned httpx.AsyncClient. Helper does NOT close it.
+        style_preset: Preset name (default 'photorealistic'; registry-resolved).
+        presets: Optional registry; defaults to `build_default_registry()`.
+
+    Returns:
+        Raw PNG bytes.
+
+    Raises:
+        ComfySubmitError, ComfyJobFailedError, ComfyJobTimeoutError,
+        ComfyDownloadError (uncaught — caller handles).
+    """
+    if presets is None:
+        presets = build_default_registry()
+    wf_config = load_workflow(workflow_name)
+    wf = _build_spot_workflow(wf_config, presets, style_preset, prompt)
+    client = ComfyClient(settings, http_client)
+    _job, raw_bytes = await client.generate(wf, attempt=1)
+    return raw_bytes
+
+
 async def generate_template_images(
     template: TemplateSchema,
     content: BrochureContent,
