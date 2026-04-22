@@ -193,6 +193,43 @@ def _resolve_font_family(role: str, typography: Typography) -> str:
     return typography.heading_family if role == "heading" else typography.body_family
 
 
+def _fit_font_size(
+    text: str,
+    max_width: float,
+    base_font_size: int,
+    *,
+    min_ratio: float = 0.65,
+    avg_char_width_coefficient: float = 0.55,
+) -> int:
+    """Shrink font_size so ``text`` fits inside ``max_width`` at the rendered scale.
+
+    Heuristic: estimates pixel width as ``len(text) * font_size *
+    avg_char_width_coefficient`` (0.55 is a standard sans-serif average
+    advance). If the estimate overshoots ``max_width``, scales the font down
+    proportionally with a 5% safety margin. Never shrinks below
+    ``base_font_size * min_ratio`` (legibility floor).
+
+    Args:
+        text: Rendered title/cta string (post xml_escape / uppercase).
+        max_width: Slot bbox width in SVG units.
+        base_font_size: Template-declared font_size.
+        min_ratio: Minimum allowed ratio of the base size.
+        avg_char_width_coefficient: Width/size ratio for the expected font.
+
+    Returns:
+        Integer font_size to render. Always <= base_font_size.
+    """
+    if not text or max_width <= 0 or base_font_size <= 0:
+        return base_font_size
+    estimated_width = len(text) * base_font_size * avg_char_width_coefficient
+    if estimated_width <= max_width:
+        return base_font_size
+    scale = (max_width / estimated_width) * 0.95
+    floor = base_font_size * min_ratio
+    new_size = max(floor, base_font_size * scale)
+    return int(round(new_size))
+
+
 def _get_content_value(copy: PostCopy, content_key: str) -> str:
     """Resolve ``"copy.title"`` -> ``copy.title``, etc.
 
@@ -287,6 +324,16 @@ def _build_svg(
         color = _resolve_palette_color(ts.color_role, palette)
         family = _resolve_font_family(ts.font_role, typography)
 
+        # Auto-shrink: the Ernie/Qwen backdrop + overlay band often ships a
+        # bbox narrower than the declared font_size permits for the chosen
+        # title length. Estimate rendered pixel width using a sans-serif
+        # average-advance heuristic (0.55 * font_size per char); if it
+        # overshoots bbox width, scale font_size down — never below 65% of
+        # the declared size (legibility floor).
+        effective_font_size = _fit_font_size(
+            text, ts.bbox[2], ts.font_size, min_ratio=0.65
+        )
+
         # Anchor x based on align; y is bbox-top + font_size for baseline.
         if ts.align == "center":
             x_pos: float = ts.bbox[0] + ts.bbox[2] / 2
@@ -294,7 +341,7 @@ def _build_svg(
             x_pos = ts.bbox[0] + ts.bbox[2]
         else:
             x_pos = ts.bbox[0]
-        y_pos = ts.bbox[1] + ts.font_size
+        y_pos = ts.bbox[1] + effective_font_size
 
         anchor_map = {"left": "start", "center": "middle", "right": "end"}
         anchor = anchor_map[ts.align]
@@ -308,7 +355,7 @@ def _build_svg(
         weight = weight_map.get(ts.font_weight, "400")
         parts.append(
             f'<text x="{x_pos}" y="{y_pos}" fill="{color}" '
-            f'font-family="{family}" font-size="{ts.font_size}" '
+            f'font-family="{family}" font-size="{effective_font_size}" '
             f'font-weight="{weight}" text-anchor="{anchor}">{safe}</text>'
         )
 

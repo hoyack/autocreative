@@ -43,7 +43,7 @@ def main(
     fees: Annotated[Optional[str], typer.Option(help="Fee amount")] = None,
     org: Annotated[Optional[str], typer.Option(help="Organizer name")] = None,
     concept: Annotated[Optional[str], typer.Option(help="Style concept for image generation")] = None,
-    preset: Annotated[Optional[str], typer.Option(help="Style preset name")] = None,
+    preset: Annotated[Optional[str], typer.Option("--preset", "--style-preset", help="Style preset name (alias: --style-preset for parity with other CLIs)")] = None,
     accent: Annotated[str, typer.Option(help="Hex accent color")] = "#F59E0B",
     output: Annotated[Path, typer.Option(help="Output PNG path")] = Path("./output/flyer.png"),
     event_json: Annotated[Optional[Path], typer.Option("--event-json", help="Load event from JSON file")] = None,
@@ -51,8 +51,23 @@ def main(
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Print prompt without generating")] = False,
     max_attempts: Annotated[Optional[int], typer.Option("--max-attempts", help="Max background generation attempts")] = None,
     workflow: Annotated[Optional[str], typer.Option("--workflow", help="Workflow name or path to .json")] = None,
+    brand_kit: Annotated[Optional[str], typer.Option("--brand-kit", help="Brand-kit slug (loaded from .brand-kits/<slug>/) — overrides --accent with kit.palette.accent")] = None,
 ) -> None:
     """Generate an AI-powered event flyer from structured event data."""
+    # Brand-kit override: pull accent color from the kit.palette.accent.
+    # Fuller palette/typography threading is deferred — the flyer path uses
+    # vision-determined zones + Rasterizer text overlay, which doesn't go
+    # through the schema_renderer's kit applier. For parity with the other
+    # CLIs, swapping --accent is the minimum-viable brand-kit integration.
+    if brand_kit is not None:
+        try:
+            from flyer_generator.brand_kit import load_brand_kit  # noqa: PLC0415
+            _kit = load_brand_kit(brand_kit)
+            if _kit.palette is not None and _kit.palette.accent is not None:
+                accent = _kit.palette.accent.hex
+                typer.echo(f"Brand kit {brand_kit!r} loaded; accent → {accent}")
+        except Exception as exc:
+            typer.echo(f"Warning: could not apply brand kit {brand_kit!r}: {exc}", err=True)
     # D-09: --list-presets
     if list_presets:
         registry = build_default_registry()
