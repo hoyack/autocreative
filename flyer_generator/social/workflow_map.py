@@ -16,15 +16,22 @@ from typing import Literal, Sequence
 from flyer_generator.social.models import Platform
 
 AspectString = Literal["1:1", "4:5", "1.91:1", "16:9", "9:16"]
-WorkflowName = Literal["standard_square", "turbo_portrait", "turbo_landscape"]
+WorkflowName = Literal[
+    "standard_square", "turbo_portrait", "turbo_landscape",
+    "qwen_landscape", "flux2_landscape",
+]
 
-# Per 19-RESEARCH.md §Workflow Aspect Mapping lines 676-680
+# Per 19-RESEARCH.md §Workflow Aspect Mapping + adversarial-loop finding
+# (2026-04-21): Ernie-family landscape workflows hallucinate garbled text in
+# abstract backdrops even with negative prompts (seen: "B2BB Saw", "B2B SAVS").
+# Qwen-Image-2512 follows "no text" instructions more faithfully, so landscape
+# aspects default to qwen_landscape for clean social-post backdrops.
 _ASPECT_TO_WORKFLOW: dict[str, WorkflowName] = {
     "1:1": "standard_square",
     "4:5": "turbo_portrait",
     "9:16": "turbo_portrait",
-    "16:9": "turbo_landscape",
-    "1.91:1": "turbo_landscape",
+    "16:9": "qwen_landscape",
+    "1.91:1": "qwen_landscape",
 }
 
 # Per platform, the primary aspect the CAMPAIGN source hero should cover.

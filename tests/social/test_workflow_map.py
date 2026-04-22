@@ -24,8 +24,10 @@ def test_select_workflow_for_aspect_portrait() -> None:
 
 
 def test_select_workflow_for_aspect_landscape() -> None:
-    assert select_workflow_for_aspect("16:9") == "turbo_landscape"
-    assert select_workflow_for_aspect("1.91:1") == "turbo_landscape"
+    # Landscape aspects use qwen_landscape (Qwen-Image-2512) as of 2026-04-21 —
+    # Ernie-family hallucinated text in abstract backdrops even with negatives.
+    assert select_workflow_for_aspect("16:9") == "qwen_landscape"
+    assert select_workflow_for_aspect("1.91:1") == "qwen_landscape"
 
 
 def test_select_workflow_for_aspect_unknown_raises() -> None:
