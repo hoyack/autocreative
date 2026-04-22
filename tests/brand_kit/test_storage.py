@@ -20,7 +20,7 @@ from flyer_generator.brand_kit.storage import (
     save_brand_kit,
 )
 from flyer_generator.config import Settings
-from flyer_generator.errors import BrandKitError
+from flyer_generator.errors import BrandKitError, BrandKitNotFoundError
 
 
 # ---- Settings field resolution ------------------------------------------
@@ -119,5 +119,10 @@ def test_save_and_load_round_trip(tmp_path: Path) -> None:
 
 def test_load_missing_raises(tmp_path: Path) -> None:
     _skip_if_no_models()
-    with pytest.raises(FileNotFoundError):
+    # BrandKitNotFoundError is a subclass of BrandKitError, which matches
+    # downstream `except BrandKitError` sites unchanged.
+    with pytest.raises(BrandKitNotFoundError) as exc:
         load_brand_kit("nonexistent", base_dir=tmp_path)
+    assert isinstance(exc.value, BrandKitError)
+    # Error message still mentions "not found" for human-facing strings/CLIs.
+    assert "not found" in str(exc.value)

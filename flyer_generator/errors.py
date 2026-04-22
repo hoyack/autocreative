@@ -124,6 +124,10 @@ class BrandKitError(FlyerGeneratorError):
     """Base for all brand-kit errors."""
 
 
+class BrandKitNotFoundError(BrandKitError):
+    """Requested brand-kit slug does not resolve to a stored kit on disk."""
+
+
 class BrandKitScrapeError(BrandKitError):
     """Scraper exhausted both Playwright and BS4 paths without usable data."""
 
