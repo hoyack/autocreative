@@ -205,8 +205,14 @@ def render(
     if brand_kit is not None:
         from flyer_generator.brand_kit.applier import apply_brand_kit
         from flyer_generator.brand_kit.storage import load_brand_kit
+        from flyer_generator.errors import BrandKitError
         try:
             kit = load_brand_kit(brand_kit)
+        except BrandKitError as err:
+            # BrandKitNotFoundError (subclass of BrandKitError) is raised
+            # when the slug does not resolve to a stored kit.
+            typer.echo(f"Error: --brand-kit {brand_kit!r} not found: {err}", err=True)
+            raise typer.Exit(2) from err
         except FileNotFoundError as err:
             typer.echo(f"Error: --brand-kit {brand_kit!r} not found: {err}", err=True)
             raise typer.Exit(2) from err

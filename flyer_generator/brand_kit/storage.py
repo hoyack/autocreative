@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from flyer_generator.config import Settings
-from flyer_generator.errors import BrandKitError
+from flyer_generator.errors import BrandKitError, BrandKitNotFoundError
 
 if TYPE_CHECKING:  # pragma: no cover
     from flyer_generator.brand_kit.models import BrandKit
@@ -124,7 +124,9 @@ def load_brand_kit(
     """Load a brand kit by slug (under base_dir) or explicit path to brand.json.
 
     Raises:
-        FileNotFoundError: no matching kit found.
+        BrandKitNotFoundError: no matching kit found (subclass of
+            ``BrandKitError``, so existing ``except BrandKitError`` callers
+            continue to match).
         pydantic.ValidationError: brand.json does not match BrandKit.
         BrandKitError: slug failed validation.
     """
@@ -138,8 +140,11 @@ def load_brand_kit(
         path = kit_dir / "brand.json"
     if not path.is_file():
         available = list_brand_kits(base_dir=base_dir)
-        raise FileNotFoundError(
-            f"brand kit not found: {path}. Available slugs: {available}"
+        raise BrandKitNotFoundError(
+            f"brand kit not found: {path}. Available slugs: {available}",
+            slug=slug_or_path,
+            expected_path=str(path),
+            available=available,
         )
     raw = json.loads(path.read_text(encoding="utf-8"))
     return BrandKit.model_validate(raw)
