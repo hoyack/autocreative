@@ -581,6 +581,132 @@ python -m pytest tests/brochure/ -q            # brochure suite
 
 ---
 
+## API server (Phase 20)
+
+Phase 20 adds a FastAPI + SQLAlchemy + arq HTTP surface on top of the four
+existing generators. Single-user / private-network only in v1 — there is NO
+authentication. See SECURITY below before exposing this to any network you
+do not fully control.
+
+### Quick start
+
+1. Install dependencies:
+
+   ```bash
+   uv sync --extra dev
+   ```
+
+2. Start Redis (required for the arq worker):
+
+   ```bash
+   docker compose up -d flyer-redis
+   ```
+
+   Redis is also available from any other installer (Homebrew, apt, WSL).
+   Defaults assume `redis://localhost:6379`. Use `FLYER_REDIS_URL` to override.
+
+3. Create the database (SQLite by default — no other service required):
+
+   ```bash
+   make migrate         # runs `alembic upgrade head` against FLYER_DATABASE_URL
+   ```
+
+4. Start both processes in one terminal:
+
+   ```bash
+   make serve           # launches uvicorn + arq via honcho, aggregated logs
+   ```
+
+   Or start each in a separate terminal:
+
+   ```bash
+   make serve-web       # terminal 1: uvicorn on http://127.0.0.1:8000
+   make serve-worker    # terminal 2: arq worker consuming from Redis
+   ```
+
+5. Verify:
+
+   ```bash
+   curl http://127.0.0.1:8000/healthz    # {"status":"ok"}
+   open http://127.0.0.1:8000/docs       # interactive OpenAPI UI
+   ```
+
+### Environment variables
+
+The API layer extends the existing `Settings` with five new keys (all optional
+with sensible defaults for local dev):
+
+| Env var | Default | Notes |
+|---|---|---|
+| `FLYER_DATABASE_URL` | `sqlite+aiosqlite:///./flyer.db` | `postgresql+asyncpg://user:pass@host:5432/db` in prod. |
+| `FLYER_REDIS_URL` | `redis://localhost:6379` | arq broker. |
+| `FLYER_CORS_ORIGINS` | `http://localhost:5173` | Comma-separated list. Never `*` when `allow_credentials=True`. |
+| `FLYER_ARTIFACT_ROOT_FLYER` | `./output/flyers` | Where `task_generate_flyer` writes PNGs. |
+| `FLYER_ARTIFACT_ROOT_BROCHURE` | `./output/brochures` | Where `task_generate_brochure` writes PNGs + PDFs. |
+
+Existing `FLYER_*` knobs (API keys, ComfyCloud URL, Ollama models, etc.) are
+unchanged and still read from `.env` via pydantic-settings.
+
+### Postgres for production
+
+Bring up the full stack:
+
+```bash
+docker compose up -d
+FLYER_DATABASE_URL="postgresql+asyncpg://flyer:flyer@localhost:5432/flyer" make migrate
+FLYER_DATABASE_URL="postgresql+asyncpg://flyer:flyer@localhost:5432/flyer" make serve
+```
+
+### Developer loop
+
+- Blow away the SQLite DB and re-migrate: `make fresh-db`
+- Run only the Phase 20 tests: `make test-api`
+- Run the full non-slow suite: `make test-all` (target: 1186+ passing)
+
+### Request lifecycle
+
+1. Client POSTs to a creative endpoint (e.g. `POST /api/v1/flyers`).
+2. API handler validates the Pydantic body, inserts a `JobRecord(status=queued)`,
+   commits, and enqueues an arq job. Returns `202 {job_id}`.
+3. The `arq` worker picks up the job, flips status to `running`, runs the
+   existing Python generator, writes artifacts to disk, inserts
+   `RenderRecord` rows, and flips status to `succeeded` (or `failed`).
+4. Client polls `GET /api/v1/jobs/{job_id}` until status is terminal, reads
+   `result_ref` (single URL or list of `{platform, url}`), then fetches
+   `GET /api/v1/renders/{render_id}/image` to get the artifact bytes.
+
+### SECURITY — prerequisites for public deployment
+
+Phase 20 is designed for local / private-network use. Before exposing the API
+to the public internet you MUST add:
+
+1. **Authentication.** There is none in v1. All routes are effectively public
+   to anyone who can reach the port.
+2. **Rate limiting.** Each enqueue can burn a ComfyCloud job (60–300s, real
+   $). An unauthenticated attacker can DoS your budget with a loop on
+   `POST /api/v1/social/campaigns`. Deploy behind a rate-limiting reverse
+   proxy (Nginx, Caddy, Cloudflare) before going public.
+3. **TLS.** All example commands use HTTP on localhost. Prod MUST be HTTPS.
+4. **Secrets.** `FLYER_*` secrets (API keys) should come from a secrets
+   manager, not a committed `.env`. If you MUST use `.env`, `chmod 600`.
+5. **CORS allow-list review.** `FLYER_CORS_ORIGINS` defaults to localhost
+   dev. In prod set it to the exact frontend origins.
+
+The following mitigations are already in place in v1:
+
+- Path-traversal guard on `GET /api/v1/renders/{id}/image`: the file path from
+  the DB is resolved with `Path.resolve(strict=True)` and checked against
+  `is_relative_to(<allowed_root>)`; any miss returns 404, never the
+  filesystem shape.
+- SSRF guard inherited from the Phase 18 brand-kit scraper; `POST /brand-kits/fetch`
+  does NOT bypass it.
+- Error responses return only `{detail, error_type, trace_id}` — no stack
+  traces, no error-context kwargs, no secrets.
+- `X-Request-ID` correlation via `asgi-correlation-id` — every log line and
+  response carries a trace id.
+
+---
+
 ## See also
 
 - `HANDOFF.md` — most recent session handoff with current state-of-the-world
