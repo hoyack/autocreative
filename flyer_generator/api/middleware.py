@@ -14,7 +14,16 @@ def install_middleware(app: FastAPI, settings: AppSettings) -> None:
     # CorrelationIdMiddleware echoes/generates X-Request-ID and populates
     # the `asgi_correlation_id.correlation_id` contextvar. structlog's
     # merge_contextvars processor surfaces it as trace_id in every log line.
-    app.add_middleware(CorrelationIdMiddleware, header_name="X-Request-ID")
+    #
+    # validator=None accepts arbitrary client-supplied IDs (ULIDs, opaque
+    # trace IDs from an upstream gateway, etc.). The library's default
+    # validator only accepts UUID4 strings and silently overwrites non-UUID
+    # IDs, which breaks the must_haves truth "X-Request-ID header is echoed
+    # on every response". Phase 20 uses ULIDs for job_id and downstream
+    # observability tooling should be able to thread its own trace IDs.
+    app.add_middleware(
+        CorrelationIdMiddleware, header_name="X-Request-ID", validator=None
+    )
 
     # CORS — origins from FLYER_CORS_ORIGINS env (default
     # ["http://localhost:5173"], never "*" per Pitfall 7 when credentials=True).
