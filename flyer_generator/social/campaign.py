@@ -75,6 +75,8 @@ async def _generate_shared_hero(
     brand_kit: BrandKit,
     settings: Settings,
     comfy_client: Any | None,
+    *,
+    style_preset: str = "social_graphic",
 ) -> bytes:
     """Generate ONE source hero and upscale to 2048x2048.
 
@@ -108,6 +110,7 @@ async def _generate_shared_hero(
                     prompt=prompt,
                     settings=settings,
                     http_client=http,
+                    style_preset=style_preset,
                 )
         except ComfySubmitError as err:
             raise CampaignError(
@@ -132,6 +135,7 @@ async def generate_campaign(
     text_client: Any | None = None,
     comfy_client: Any | None = None,
     audit: bool = False,
+    style_preset: str = "social_graphic",
 ) -> Campaign:
     """Generate a multi-platform campaign from a single topic with a shared source hero.
 
@@ -187,7 +191,8 @@ async def generate_campaign(
     log.info("generate_campaign_workflow_selected", workflow=workflow_name)
     try:
         shared_hero = await _generate_shared_hero(
-            workflow_name, image_hint or topic, brand_kit, settings, comfy_client
+            workflow_name, image_hint or topic, brand_kit, settings, comfy_client,
+            style_preset=style_preset,
         )
         log.info("generate_campaign_hero_ready", bytes_len=len(shared_hero))
     except CampaignError:
@@ -237,6 +242,7 @@ async def generate_campaign(
             text_client=text_client,
             comfy_client=effective_comfy,
             audit=audit,
+            style_preset=style_preset,
         )
         plog.info(
             "generate_campaign_post_ready",

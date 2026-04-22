@@ -33,6 +33,8 @@ async def _generate_hero_image(
     brand_kit: BrandKit,
     settings: Settings,
     comfy_client: Any | None,
+    *,
+    style_preset: str = "social_graphic",
 ) -> bytes:
     """Generate a single hero image matching template.image_slot.aspect via ComfyCloud.
 
@@ -79,7 +81,7 @@ async def _generate_hero_image(
                 prompt=prompt,
                 settings=settings,
                 http_client=http,
-                style_preset="social_graphic",
+                style_preset=style_preset,
             )
     except ComfySubmitError as err:
         # Wrap as SocialError so callers catch a single family. Preserve the
@@ -102,6 +104,7 @@ async def generate_post(
     text_client: Any | None = None,
     comfy_client: Any | None = None,
     audit: bool = False,
+    style_preset: str = "social_graphic",
 ) -> Post:
     """Run the full single-post pipeline and return a Post artifact."""
     if settings is None:
@@ -141,7 +144,8 @@ async def generate_post(
     if template.image_slot is not None:
         log.info("generate_post_hero_start", aspect=template.image_slot.aspect)
         hero_bytes = await _generate_hero_image(
-            template, brief, brand_kit, settings, comfy_client
+            template, brief, brand_kit, settings, comfy_client,
+            style_preset=style_preset,
         )
         log.info("generate_post_hero_ready", bytes_len=len(hero_bytes))
     else:

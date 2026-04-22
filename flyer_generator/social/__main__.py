@@ -64,6 +64,17 @@ def post(
     image_hint: Annotated[str | None, typer.Option("--image-hint")] = None,
     campaign_id: Annotated[str | None, typer.Option("--campaign-id")] = None,
     audit: Annotated[bool, typer.Option("--audit/--no-audit")] = True,
+    style_preset: Annotated[
+        str,
+        typer.Option(
+            "--style-preset",
+            help=(
+                "Image style preset (default social_graphic). Other built-ins: "
+                "photorealistic, anime, western_cartoon, scifi, watercolor, "
+                "retro_poster."
+            ),
+        ),
+    ] = "social_graphic",
 ) -> None:
     """Generate one post and write artifacts under --output."""
     try:
@@ -85,7 +96,9 @@ def post(
         image_hint=image_hint,
     )
     try:
-        post_obj = asyncio.run(generate_post(brief, kit, audit=audit))
+        post_obj = asyncio.run(
+            generate_post(brief, kit, audit=audit, style_preset=style_preset)
+        )
     except SocialError as err:
         typer.echo(f"Error: {err}", err=True)
         for k, v in (getattr(err, "context", None) or {}).items():
@@ -126,6 +139,13 @@ def campaign(
     image_hint: Annotated[str | None, typer.Option("--image-hint")] = None,
     include_story: Annotated[bool, typer.Option("--include-story")] = False,
     audit: Annotated[bool, typer.Option("--audit/--no-audit")] = True,
+    style_preset: Annotated[
+        str,
+        typer.Option(
+            "--style-preset",
+            help="Image style preset (default social_graphic).",
+        ),
+    ] = "social_graphic",
 ) -> None:
     """Generate a multi-platform campaign with a shared source hero."""
     try:
@@ -149,6 +169,7 @@ def campaign(
                 cta=cta,
                 image_hint=image_hint,
                 audit=audit,
+                style_preset=style_preset,
             )
         )
     except SocialError as err:
