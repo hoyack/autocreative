@@ -177,6 +177,16 @@ def campaign(
         raise typer.Exit(2) from err
 
     save_campaign(camp, base_dir=output)
+    # Persist each per-platform post (JSON + image.png) under the campaign dir.
+    for key, post_obj in camp.posts_full.items():
+        platform_name, intent_name = key.split("__", 1)
+        save_post(
+            post_obj,
+            slug=camp.brand_kit_slug,
+            campaign_id=camp.campaign_id,
+            template_name=key,
+            base_dir=output,
+        )
     typer.echo(
         f"Campaign written: {output}/{camp.brand_kit_slug}/{camp.campaign_id}/"
     )

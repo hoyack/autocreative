@@ -48,10 +48,10 @@ class Settings(BaseSettings):
     # FLYER_OLLAMA_TEXT_MODEL_FALLBACKS="kimi-k2.6:cloud,qwen3.6:35b").
     # Pydantic-settings parses bare comma-separated strings into list[str].
     ollama_text_model_fallbacks: list[str] = Field(
-        default_factory=lambda: ["kimi-k2.6:cloud", "qwen3.6:35b"]
+        default_factory=lambda: ["kimi-k2.6:cloud"]
     )
     ollama_vision_model_fallbacks: list[str] = Field(
-        default_factory=lambda: ["kimi-k2.6:cloud", "qwen3.6:35b"]
+        default_factory=lambda: ["kimi-k2.6:cloud"]
     )
 
     # --- LLM retry policy (applies to both text and vision Ollama calls).

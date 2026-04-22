@@ -146,7 +146,7 @@ class Campaign(BaseModel):
     tightens this once binary-in-JSON resolution lands.
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     campaign_id: str
     brand_kit_slug: str
@@ -154,3 +154,7 @@ class Campaign(BaseModel):
     platforms: list[Platform] = Field(default_factory=list)
     created_at: datetime
     posts: dict[str, object] = Field(default_factory=dict)
+    # In-memory only: full Post objects keyed by "{platform}__{intent}",
+    # preserving image_bytes for downstream persistence. Excluded from
+    # campaign.json to avoid embedding base64 PNGs.
+    posts_full: dict[str, "Post"] = Field(default_factory=dict, exclude=True, repr=False)

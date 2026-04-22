@@ -172,8 +172,15 @@ async def generate_campaign(
         raise CampaignError("at least one platform is required")
     trace_id = str(ULID())
     campaign_id = str(ULID())
-    # Derive slug from brand_kit.name: lowercase + replace spaces with hyphen.
-    brand_slug = (brand_kit.name or "unknown").lower().replace(" ", "-")
+    # Derive slug from brand_kit.name with aggressive sanitisation: scraped
+    # page titles commonly contain "|", "—", punctuation, whitespace — none
+    # of which pass the ^[a-z0-9][a-z0-9-]*$ storage validator. Strip all
+    # non-[a-z0-9] to '-', collapse runs, trim edges.
+    import re  # noqa: PLC0415
+    raw = (brand_kit.name or "unknown").lower()
+    brand_slug = re.sub(r"[^a-z0-9]+", "-", raw).strip("-") or "unknown"
+    # Prefer the first segment if the title yielded a long joined string.
+    brand_slug = brand_slug.split("-")[0] if len(brand_slug) > 40 else brand_slug
 
     log = logger.bind(
         trace_id=trace_id,
@@ -204,6 +211,12 @@ async def generate_campaign(
         raise CampaignError(f"hero generation failed: {err}") from err
 
     # Step 2 -- fan out: per-platform copy + crop + render
+    # Ollama cloud caps concurrent requests tight (observed: 2-way parallel
+    # still trips 429 "too many concurrent requests" during timeouts and
+    # retries). Semaphore of 1 = fully serial LLM calls — slower but
+    # reliable. Per-call cost (~5s) × 4 = ~20s, acceptable.
+    llm_gate = asyncio.Semaphore(1)
+
     async def _one_platform(platform: Platform) -> tuple[Platform, Post]:
         plog = log.bind(platform=platform)
         brief = PostBrief(
@@ -234,16 +247,17 @@ async def generate_campaign(
                 return cropped or b""
 
         effective_comfy = _PreloadedHero() if cropped is not None else None
-        post = await generate_post(
-            brief,
-            brand_kit,
-            template=template,
-            settings=settings,
-            text_client=text_client,
-            comfy_client=effective_comfy,
-            audit=audit,
-            style_preset=style_preset,
-        )
+        async with llm_gate:
+            post = await generate_post(
+                brief,
+                brand_kit,
+                template=template,
+                settings=settings,
+                text_client=text_client,
+                comfy_client=effective_comfy,
+                audit=audit,
+                style_preset=style_preset,
+            )
         plog.info(
             "generate_campaign_post_ready",
             platform=platform,
@@ -256,6 +270,7 @@ async def generate_campaign(
         return_exceptions=True,
     )
     posts_by_key: dict[str, object] = {}
+    posts_full_by_key: dict[str, Post] = {}
     for item in results:
         if isinstance(item, Exception):
             log.warning("generate_campaign_platform_failed", error=str(item))
@@ -263,6 +278,7 @@ async def generate_campaign(
         platform, post = item
         key = f"{platform}__{intent}"
         posts_by_key[key] = post.model_dump(mode="json", exclude={"image_bytes"})
+        posts_full_by_key[key] = post
         # store that the post had image bytes so a downstream CLI can persist them
         if post.image_bytes is not None:
             # type: ignore[index] -- we just set this to a dict above
@@ -275,6 +291,7 @@ async def generate_campaign(
         platforms=list(platforms),
         created_at=datetime.now(tz=timezone.utc),
         posts=posts_by_key,
+        posts_full=posts_full_by_key,
     )
     log.info("generate_campaign_end", n_posts=len(posts_by_key))
     return campaign
