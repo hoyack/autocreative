@@ -14,7 +14,7 @@ Design reference: [docs/brochure-plan.md](../docs/brochure-plan.md).
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation** - Data contracts, configuration, error hierarchy, style presets, and project scaffolding
+- [x] **Phase 1: Foundation** - Data contracts, configuration, error hierarchy, style presets, and project scaffolding
 - [x] **Phase 2: Image Pipeline** - AI background generation via ComfyCloud and vision evaluation via Claude (completed 2026-04-17)
 - [x] **Phase 3: Composition** - Layout resolution, SVG composition with text overlays, and PNG rasterization (completed 2026-04-17)
 - [x] **Phase 4: Orchestration & CLI** - Pipeline wiring with retry loop, CLI entrypoint, and public API surface (completed 2026-04-17)
@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 17: Improvements pass (HIGH/MEDIUM/LOW from docs/brochure-improvements.md)** - rubric-driven verification, two-sheet scoring, verdict/lint on BrochureOutput + CLI surfacing, template typography threaded through composer, @font-face data-URI infrastructure, fit optimizer retry loop, tuck-flap tagline for N<4, aspect-aware spot crop, cover_image_concept field, mechanical output linter (completed 2026-04-18)
 - [x] **Phase 18: Brand Kit System** - scrape website → untracked brand kit (colors/fonts/logos/voice) → apply to any schema_renderer template, WCAG contrast validation + auto-remediation, visual inspection + adversarial audit loop; also increase readable type size across templates (completed 2026-04-21)
 - [x] **Phase 19: Social Media Posting System** - given a brand kit slug + a post brief (topic/intent/CTA), generate platform-specific social posts (LinkedIn, Twitter/X, Instagram, Facebook) with platform-appropriate copy, aspect-correct imagery, brand-kit-aware palette/typography, and adversarial audit against each platform's constraints (char limits, hashtag caps, aspect ratios, readability) (completed 2026-04-21)
-- [ ] **Phase 20: FastAPI + SQLAlchemy Backend** - HTTP + DB wrapper over the four existing subsystems (flyer / brochure / brand_kit / social). Async FastAPI app at `/api/v1/*`, SQLAlchemy 2.x async over SQLite (dev) / Postgres (prod) with Alembic, arq + Redis job queue for long-running ComfyCloud runs, single-user v1 (no auth, no org model), existing Python APIs reused verbatim (no reimplementation), `.brand-kits/` and `.social-campaigns/` filesystem roots preserved with DB metadata layer on top
+- [x] **Phase 20: FastAPI + SQLAlchemy Backend** - HTTP + DB wrapper over the four existing subsystems (flyer / brochure / brand_kit / social). Async FastAPI app at `/api/v1/*`, SQLAlchemy 2.x async over SQLite (dev) / Postgres (prod) with Alembic, arq + Redis job queue for long-running ComfyCloud runs, single-user v1 (no auth, no org model), existing Python APIs reused verbatim (no reimplementation), `.brand-kits/` and `.social-campaigns/` filesystem roots preserved with DB metadata layer on top (completed 2026-04-22)
 - [ ] **Phase 21: React Frontend Dashboard** - React + Vite + ShadCN + Tailwind SPA consuming the Phase 20 API. Full dashboard: brand-kit list/detail + scrape, flyer creator, brochure creator, social post creator, campaign creator, job list + status stream, render gallery. Depends on Phase 20.
 
 ## Phase Details
@@ -227,7 +227,7 @@ Plans:
  13. `flyer_generator/api/config.py` `AppSettings` (pydantic-settings, `FLYER_` prefix) adds `database_url`, `redis_url`, `cors_origins`, `artifact_root_flyer`, `artifact_root_brochure` on top of the existing `Settings`; reads `.env` at startup; validates at boot (not per-request)
  14. Tests in `tests/api/`: `test_app_smoke.py`, `test_error_mapping.py`, `test_brand_kits_routes.py`, `test_flyer_routes.py`, `test_brochure_routes.py`, `test_social_routes.py`, `test_jobs_routes.py`, `test_renders_routes.py`, `test_worker_tasks.py`. Use `httpx.AsyncClient(transport=ASGITransport(app=app))`, in-memory SQLite fixture (`sqlite+aiosqlite:///:memory:`), in-process arq worker or direct task invocation, `respx` for ComfyCloud / LLM mocks. ≥50 new tests; the existing 1136 tests MUST still pass (`python -m pytest tests/ -q -m "not slow"` → 1186+ passing)
  15. Developer experience: `docker-compose.yml` at repo root with `postgres:16` + `redis:7` services (named `flyer-postgres` + `flyer-redis`), `alembic upgrade head` one-liner, README section "API server (Phase 20)" documenting the two-command boot (`uvicorn` + `arq`), and a `Makefile` or `uv run` recipe `serve` that starts both with aggregated logs
-**Plans:** 11/12 plans executed
+**Plans:** 13/12 plans complete
 Plans:
 - [x] 20-01-PLAN.md — Dependencies + errors (BrandKitNotFoundError) + logging_config + .gitignore
 - [x] 20-02-PLAN.md — AppSettings (flyer_generator/api/config.py) + api package marker
@@ -240,7 +240,7 @@ Plans:
 - [x] 20-09-PLAN.md — POST /api/v1/flyers + tests (T-6 body-size guard)
 - [x] 20-10-PLAN.md — POST /api/v1/brochures + POST /api/v1/social/posts + POST /api/v1/social/campaigns + tests
 - [x] 20-11-PLAN.md — GET /api/v1/jobs/{id} (campaign-fusing result_ref) + GET /api/v1/renders/{id}/image (T-1 HIGH path-traversal mitigation) + tests
-- [ ] 20-12-PLAN.md — docker-compose (postgres:16 + redis:7) + Procfile + Makefile + README "API server" section + regression sweep
+- [x] 20-12-PLAN.md — docker-compose (postgres:16 + redis:7) + Procfile + Makefile + README "API server" section + regression sweep
 
 ### Phase 21: React Frontend Dashboard
 **Goal**: A developer can run `cd frontend && pnpm dev` and, against a running Phase 20 API, use a single-page React dashboard to (a) browse brand kits + scrape a new one via URL, (b) fill a flyer form and watch its job progress to a rendered PNG, (c) fill a brochure form and watch its two sheets + PDF render, (d) fill a social post form and watch copy + image + validation report render, (e) fill a campaign form and watch all N platform variants render, (f) browse past renders in a gallery with download + inline preview. Single-user v1 (no login). All dashboard pages use ShadCN components + Tailwind; job status polls Phase 20's `/api/v1/jobs/{id}` endpoint (no WebSocket for v1).
@@ -266,5 +266,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 9. Brochure CLI & Public API | 0/? | Not Started | - |
 | 18. Brand Kit System | 8/8 | Complete   | 2026-04-21 |
 | 19. Social Media Posting System | 9/9 | Complete   | 2026-04-21 |
-| 20. FastAPI + SQLAlchemy Backend | 11/12 | In Progress|  |
+| 20. FastAPI + SQLAlchemy Backend | 13/12 | Complete   | 2026-04-22 |
 | 21. React Frontend Dashboard | 0/? | Not Started | - |
