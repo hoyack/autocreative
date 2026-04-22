@@ -140,6 +140,8 @@ python -m flyer_generator --event-json event.json --output ./output/flyer.png
 | `--workflow <name>` | Pick a ComfyCloud workflow from `flyer_generator/workflows/` (default `turbo_portrait`) |
 | `--max-attempts <n>` | Override hero vision-retry budget |
 | `--accent "#RRGGBB"` | Accent color for text/shape overlays |
+| `--preset` / `--style-preset <name>` | Style preset name (both flags accepted — parity with brochure + social CLIs) |
+| `--brand-kit <slug>` | Pull accent color from a scraped brand kit (minimal integration — the flyer path uses vision-determined zones, not schema_renderer, so fuller palette/typography threading is deferred) |
 
 ---
 
@@ -224,8 +226,11 @@ python -m flyer_generator.brochure.schema_renderer \
     --output /tmp/brochure-out
 ```
 
-**Best workflow today:** `ernie_landscape` — 40/40 first-try vision approvals
-on brochure heroes. See `HANDOFF.md` §6 for the full comparison.
+**Best workflows today:** `ernie_landscape` and `flux2_landscape` tied at 52.7
+avg verification score across 3 prompts in the latest adversarial battery;
+`flux2_landscape` edges ahead on adversarial-outside (33.3 vs 31.7).
+`ernie_turbo_landscape` is ~35% faster for only a 1.4pt drop — best
+speed/quality ratio. Full comparison in `HANDOFF.md` §2.
 
 ### Auto-audit every render
 
