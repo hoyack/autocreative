@@ -90,9 +90,20 @@ def register_exception_handlers(app: FastAPI) -> None:
         request: Request, exc: RequestValidationError
     ) -> JSONResponse:
         # Pydantic body / query / path validation — always 422.
+        # ``exc.errors()`` can carry non-JSON-serializable objects in the
+        # ``ctx`` bag (notably a ``ValueError`` instance when a
+        # ``field_validator`` raised).  Coerce each entry's ``ctx`` to strings
+        # so ``json.dumps`` never fails on a 422 response.
+        safe_errors = []
+        for err in exc.errors():
+            entry = dict(err)
+            ctx = entry.get("ctx")
+            if isinstance(ctx, dict):
+                entry["ctx"] = {k: str(v) for k, v in ctx.items()}
+            safe_errors.append(entry)
         return JSONResponse(
             {
-                "detail": exc.errors(),
+                "detail": safe_errors,
                 "error_type": "RequestValidationError",
                 "trace_id": correlation_id.get() or "",
             },
