@@ -1,0 +1,43 @@
+# Phase 20 local dev services. Start with: docker compose up -d
+#
+# The app defaults to SQLite for dev (sqlite+aiosqlite:///./flyer.db) and does
+# NOT require Postgres. Postgres is only needed when FLYER_DATABASE_URL points
+# at it (prod-style dev). Redis IS required because the arq worker runs
+# against it for the async job queue.
+
+services:
+  flyer-postgres:
+    image: postgres:16
+    container_name: flyer-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: flyer
+      POSTGRES_PASSWORD: flyer
+      POSTGRES_DB: flyer
+    ports:
+      - "5432:5432"
+    volumes:
+      - flyer-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flyer -d flyer"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  flyer-redis:
+    image: redis:7
+    container_name: flyer-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - flyer-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  flyer-postgres-data:
+  flyer-redis-data:
