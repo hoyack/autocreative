@@ -227,11 +227,11 @@ Plans:
  13. `flyer_generator/api/config.py` `AppSettings` (pydantic-settings, `FLYER_` prefix) adds `database_url`, `redis_url`, `cors_origins`, `artifact_root_flyer`, `artifact_root_brochure` on top of the existing `Settings`; reads `.env` at startup; validates at boot (not per-request)
  14. Tests in `tests/api/`: `test_app_smoke.py`, `test_error_mapping.py`, `test_brand_kits_routes.py`, `test_flyer_routes.py`, `test_brochure_routes.py`, `test_social_routes.py`, `test_jobs_routes.py`, `test_renders_routes.py`, `test_worker_tasks.py`. Use `httpx.AsyncClient(transport=ASGITransport(app=app))`, in-memory SQLite fixture (`sqlite+aiosqlite:///:memory:`), in-process arq worker or direct task invocation, `respx` for ComfyCloud / LLM mocks. ≥50 new tests; the existing 1136 tests MUST still pass (`python -m pytest tests/ -q -m "not slow"` → 1186+ passing)
  15. Developer experience: `docker-compose.yml` at repo root with `postgres:16` + `redis:7` services (named `flyer-postgres` + `flyer-redis`), `alembic upgrade head` one-liner, README section "API server (Phase 20)" documenting the two-command boot (`uvicorn` + `arq`), and a `Makefile` or `uv run` recipe `serve` that starts both with aggregated logs
-**Plans:** 12 plans
+**Plans:** 3/12 plans executed
 Plans:
-- [ ] 20-01-PLAN.md — Dependencies + errors (BrandKitNotFoundError) + logging_config + .gitignore
-- [ ] 20-02-PLAN.md — AppSettings (flyer_generator/api/config.py) + api package marker
-- [ ] 20-03-PLAN.md — 7 ORM Records (Base + BrandKit + Flyer + Brochure + Campaign + Post + Render + Job) + DDL smoke test
+- [x] 20-01-PLAN.md — Dependencies + errors (BrandKitNotFoundError) + logging_config + .gitignore
+- [x] 20-02-PLAN.md — AppSettings (flyer_generator/api/config.py) + api package marker
+- [x] 20-03-PLAN.md — 7 ORM Records (Base + BrandKit + Flyer + Brochure + Campaign + Post + Render + Job) + DDL smoke test
 - [ ] 20-04-PLAN.md — flyer_generator/api/db.py + Alembic async init + initial migration + session smoke test
 - [ ] 20-05-PLAN.md — Pydantic v2 API request/response schemas (12 models across 7 files)
 - [ ] 20-06-PLAN.md — App factory + lifespan + middleware (CORS + correlation-id) + 8 exception handlers + 6 route stubs + conftest + smoke + error-mapping tests
@@ -266,5 +266,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 9. Brochure CLI & Public API | 0/? | Not Started | - |
 | 18. Brand Kit System | 8/8 | Complete   | 2026-04-21 |
 | 19. Social Media Posting System | 9/9 | Complete   | 2026-04-21 |
-| 20. FastAPI + SQLAlchemy Backend | 0/? | Not Started | - |
+| 20. FastAPI + SQLAlchemy Backend | 3/12 | In Progress|  |
 | 21. React Frontend Dashboard | 0/? | Not Started | - |
