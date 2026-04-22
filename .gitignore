@@ -16,3 +16,11 @@ output/
 .pytest_cache/
 .brand-kits/
 .social-campaigns/
+
+# Phase 20 — API + database
+flyer.db
+flyer.db-journal
+*.sqlite
+*.sqlite-journal
+# Alembic local caches (migrations themselves are tracked)
+alembic/versions/__pycache__/
