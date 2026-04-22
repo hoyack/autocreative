@@ -71,6 +71,37 @@
 - [ ] **SOC-10**: Tests cover platform validators (all 4 × pass/fail), BrandVoice wiring (tone injection, banned-word filter + retry + raise), post templates (≥12 validate shape + render), generator (mocked LLM + Comfy), campaign (shared hero cropped correctly per-platform), audit (platform-rule coverage), CLI (post + campaign + list + show); all net-new tests green in < 5 min
 - [ ] **SOC-11**: Publishing/scheduling EXPLICITLY out of scope — Phase 19 produces artifacts only; no LinkedIn API / Twitter API / Meta Graph / scheduler integration
 
+### FastAPI + SQLAlchemy Backend (Phase 20)
+
+- [ ] **API-01**: FastAPI `app` instance in `flyer_generator/api/__init__.py` with `/api/v1` versioned prefix, CORS middleware (origins from `FLYER_CORS_ORIGINS` env, default `http://localhost:5173`), request-ID middleware binding `trace_id` into structlog ContextVars, auto-generated `/docs` and `/redoc` powered by existing Pydantic v2 models; `uv run uvicorn flyer_generator.api:app --reload` boots cleanly
+- [ ] **API-02**: Single error-to-HTTPException mapper — `BrandKitNotFoundError → 404`, `BrandKitError` / `FlyerError` / `BrochureError` / `SocialError` / `ValidationError` → 400/422, `BrandVoiceViolationError → 422`, `ComfyError` / `VisionAPIError` / `LLMAPIError` → 502, `LLMRateLimitError → 503 (sets Retry-After header)`, everything else → 500; every response body is `{detail, error_type, trace_id}` for client debugging
+- [ ] **API-03**: SQLAlchemy 2.x **async** engine + `async_sessionmaker` in `flyer_generator/api/db.py`; `get_session` FastAPI dependency yields `AsyncSession` per request; connection URL from `FLYER_DATABASE_URL` (default `sqlite+aiosqlite:///./flyer.db`); Alembic configured with async-capable `env.py`, `alembic.ini`, and an initial migration that creates every Phase-20 table
+- [ ] **API-04**: ORM models under `flyer_generator/api/models/` — `BrandKitRecord` (slug PK, source_url, scraped_at, palette/typography/voice JSON columns), `FlyerRecord`, `BrochureRecord`, `CampaignRecord`, `PostRecord`, `RenderRecord` (id PK, kind enum, file_path, comfy_job_id, vision_verdict JSON, created_at), `JobRecord` (ULID PK, kind enum, status enum, started_at, completed_at, error_detail, result_ref, input_payload JSON); relationships: `Campaign 1-N Post`, each creative row 1-1 `Render`, `Job 1-1` (polymorphic) to the creative row it produced
+- [ ] **API-05**: Brand-kit routes in `flyer_generator/api/routes/brand_kits.py` — `POST /api/v1/brand-kits/fetch` (body `{url, slug}`, enqueues `fetch_brand_kit` worker task, returns `{job_id}` 202), `GET /api/v1/brand-kits` (paginated list fused from DB + filesystem for migration grace), `GET /api/v1/brand-kits/{slug}` (detail row with palette/typography/logos/voice fields)
+- [ ] **API-06**: Flyer route `POST /api/v1/flyers` (body `{event: EventInput, preset, brand_kit_slug?, accent?, max_bg_attempts?}`, enqueues worker that calls existing `FlyerGenerator.generate`, writes `FlyerRecord` + `RenderRecord`, returns `{job_id}` 202); reuses existing `EventInput` Pydantic model as the request schema
+- [ ] **API-07**: Brochure route `POST /api/v1/brochures` (body `{content, template, brand_kit_slug?, generate_images, workflow, style_preset}`, enqueues worker calling `render_schema_brochure` + `generate_template_images`, writes `BrochureRecord` + two `RenderRecord`s (front/back) + PDF path, returns `{job_id}` 202)
+- [ ] **API-08**: Social post route `POST /api/v1/social/posts` (body `{brand_kit_slug, platform, intent, topic, cta?, image_hint?, style_preset?}`, enqueues worker calling `generate_post`, writes `PostRecord` + `RenderRecord`, returns `{job_id}` 202)
+- [ ] **API-09**: Social campaign route `POST /api/v1/social/campaigns` (body `{brand_kit_slug, platforms, intent, topic, cta?, style_preset?}`, enqueues worker calling `generate_campaign`, writes one `CampaignRecord` + N `PostRecord`s + N `RenderRecord`s for the shared hero + per-platform crops, returns `{job_id}` 202)
+- [ ] **API-10**: Job polling `GET /api/v1/jobs/{id}` returns `{id, kind, status, started_at, completed_at, error_detail, result_ref}` where `result_ref` is a stable `/api/v1/renders/{render_id}/image` URL (single render) or `[{platform, url}]` (campaign); worker transitions `queued → running → {succeeded, failed, cancelled}` and every hop commits to `JobRecord`
+- [ ] **API-11**: Render artifact route `GET /api/v1/renders/{id}/image` streams the PNG / PDF from its filesystem path with correct `Content-Type` and `Content-Disposition: inline`; path lookup rejects `..` / symlink traversal; renders outside configured roots (`.brand-kits/`, `.social-campaigns/`, `FLYER_OUTPUT_ROOT`) return 404 regardless of DB state
+- [ ] **API-12**: arq worker in `flyer_generator/api/worker.py` with `WorkerSettings` (Redis from `FLYER_REDIS_URL`, default `redis://localhost:6379`), task functions wrap `fetch_brand_kit` / `generate_flyer` / `render_schema_brochure` / `generate_post` / `generate_campaign`; every state transition updates the corresponding `JobRecord` row in a committed transaction; worker boots under `uv run arq flyer_generator.api.worker.WorkerSettings`
+- [ ] **API-13**: `flyer_generator/api/config.py` `AppSettings` (pydantic-settings, `FLYER_` prefix) adds `database_url`, `redis_url`, `cors_origins`, `artifact_root_flyer`, `artifact_root_brochure`, `artifact_root_brand_kit` on top of the existing `Settings`; reads `.env` at startup; validates at boot (not per-request)
+- [ ] **API-14**: Tests in `tests/api/` — `test_app_smoke.py`, `test_error_mapping.py`, `test_brand_kits_routes.py`, `test_flyer_routes.py`, `test_brochure_routes.py`, `test_social_routes.py`, `test_jobs_routes.py`, `test_renders_routes.py`, `test_worker_tasks.py` — using `httpx.AsyncClient(transport=ASGITransport(app=app))`, in-memory SQLite (`sqlite+aiosqlite:///:memory:`) fixture, in-process arq or direct task invocation, `respx` for ComfyCloud + LLM mocks; ≥50 new tests green, existing 1136 tests MUST remain green (target `python -m pytest tests/ -q -m "not slow"` → 1186+ passing)
+- [ ] **API-15**: Developer experience — `docker-compose.yml` at repo root with `postgres:16` + `redis:7` services (named `flyer-postgres` + `flyer-redis`), an `alembic upgrade head` one-liner, README "API server (Phase 20)" section documenting the two-command boot (`uvicorn` + `arq`), and a `uv run` recipe `serve` that starts both with aggregated logs
+
+### React Frontend Dashboard (Phase 21 — stub)
+
+- [ ] **FE-01**: React + Vite + TypeScript + ShadCN + Tailwind project under `frontend/`; `pnpm dev` boots; `pnpm build` emits a production bundle
+- [ ] **FE-02**: Typed API client generated from Phase 20's OpenAPI schema (e.g. via `openapi-typescript`) living at `frontend/src/api/`; dev proxy to `http://localhost:8000/api/v1`
+- [ ] **FE-03**: Dashboard shell with sidebar navigation for Brand Kits / Flyers / Brochures / Social / Campaigns / Jobs / Renders; uses ShadCN `Sheet` + `NavigationMenu` components
+- [ ] **FE-04**: Brand Kits page — list view with cards, detail view with palette swatches + typography sample + scraped logo gallery, "Add" modal that POSTs to `/brand-kits/fetch` and tails the job
+- [ ] **FE-05**: Flyer creator page — typed form matching `EventInput`, preset picker, brand-kit picker, submit → job polling UI → rendered PNG preview + download
+- [ ] **FE-06**: Brochure creator page — content JSON editor (schema-driven form), template picker, preset picker, brand-kit picker, submit → job polling → front/back PNG + PDF preview
+- [ ] **FE-07**: Social post creator — platform / intent / topic / CTA / image_hint inputs + brand-kit + style-preset, submit → job polling → copy preview + image preview + validation report + audit report
+- [ ] **FE-08**: Campaign creator — topic / platforms multi-select / intent / brand-kit / style-preset, submit → job polling → per-platform result grid with shared source hero
+- [ ] **FE-09**: Jobs page — global list of every job with filtering by status + kind, click-through to the originating creative; row-level status polling via `/jobs/{id}`
+- [ ] **FE-10**: Renders gallery — grid of all renders across all kinds, download button, inline preview (PNG inline, PDF via object tag); filter by kind + date
+
 ## v2 Requirements
 
 ### Extensibility
@@ -147,12 +178,37 @@
 | SOC-09 | Phase 19 | Not Started |
 | SOC-10 | Phase 19 | Not Started |
 | SOC-11 | Phase 19 | Not Started |
+| API-01 | Phase 20 | Not Started |
+| API-02 | Phase 20 | Not Started |
+| API-03 | Phase 20 | Not Started |
+| API-04 | Phase 20 | Not Started |
+| API-05 | Phase 20 | Not Started |
+| API-06 | Phase 20 | Not Started |
+| API-07 | Phase 20 | Not Started |
+| API-08 | Phase 20 | Not Started |
+| API-09 | Phase 20 | Not Started |
+| API-10 | Phase 20 | Not Started |
+| API-11 | Phase 20 | Not Started |
+| API-12 | Phase 20 | Not Started |
+| API-13 | Phase 20 | Not Started |
+| API-14 | Phase 20 | Not Started |
+| API-15 | Phase 20 | Not Started |
+| FE-01 | Phase 21 | Not Started |
+| FE-02 | Phase 21 | Not Started |
+| FE-03 | Phase 21 | Not Started |
+| FE-04 | Phase 21 | Not Started |
+| FE-05 | Phase 21 | Not Started |
+| FE-06 | Phase 21 | Not Started |
+| FE-07 | Phase 21 | Not Started |
+| FE-08 | Phase 21 | Not Started |
+| FE-09 | Phase 21 | Not Started |
+| FE-10 | Phase 21 | Not Started |
 
 **Coverage:**
-- v1 requirements: 34 total + 11 Phase 19 = 45 total
-- Mapped to phases: 45
+- v1 requirements: 34 + Phase 19 (11) + Phase 20 (15) + Phase 21 (10) = 70 total
+- Mapped to phases: 70
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-16*
-*Last updated: 2026-04-21 after Phase 19 SOC-* additions*
+*Last updated: 2026-04-22 after Phase 20 API-* and Phase 21 FE-* additions*
