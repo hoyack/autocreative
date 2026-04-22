@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from asgi_correlation_id import correlation_id
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -90,9 +91,14 @@ def register_exception_handlers(app: FastAPI) -> None:
         request: Request, exc: RequestValidationError
     ) -> JSONResponse:
         # Pydantic body / query / path validation — always 422.
+        # Pydantic v2 ``exc.errors()`` embeds raw ``ValueError`` objects in
+        # ``ctx.error`` when a ``field_validator`` raises. Those objects are
+        # not JSON-serializable, so we pass the list through FastAPI's
+        # ``jsonable_encoder`` (which coerces them via ``str(...)``) before
+        # handing it to the JSONResponse encoder.
         return JSONResponse(
             {
-                "detail": exc.errors(),
+                "detail": jsonable_encoder(exc.errors()),
                 "error_type": "RequestValidationError",
                 "trace_id": correlation_id.get() or "",
             },
