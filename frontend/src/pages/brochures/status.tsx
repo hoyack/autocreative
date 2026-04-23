@@ -100,6 +100,7 @@ export function BrochureStatusPage() {
                 <RenderPreview
                   url={detail.pdf_render_url}
                   alt="Brochure PDF"
+                  isPdf
                 />
               </div>
             )}
