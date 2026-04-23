@@ -289,6 +289,51 @@
         }
       }
     },
+    "/api/v1/brochures/{brochure_id}": {
+      "get": {
+        "tags": [
+          "brochures"
+        ],
+        "summary": "Brochure detail (front PNG + back PNG + print PDF)",
+        "description": "Return the 3 render URLs for a brochure.\n\nPer Plan 21-07 Task 1 parallel-id pattern: ``brochure_id`` == ``job_id``,\nso the FE can navigate from /jobs/{id} (or directly from a brochure-task\n``result_ref``) to this route without an extra lookup.\n\nReturns 404 when no ``BrochureRecord`` with the given id exists. No\ndistinction is made between \"no such id\" and \"id is malformed beyond\nthe 26-char PathParam guard\" \u2014 both surface as the same 404 to avoid\nleaking DB presence signals (T-16 disposition: trust the ULID guard,\ndon't leak existence).",
+        "operationId": "get_brochure_detail_api_v1_brochures__brochure_id__get",
+        "parameters": [
+          {
+            "name": "brochure_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 26,
+              "maxLength": 26,
+              "title": "Brochure Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrochureDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/social/posts": {
       "post": {
         "tags": [
@@ -1393,6 +1438,76 @@
         ],
         "title": "BrochureCreateRequest",
         "description": "Body of POST /api/v1/brochures."
+      },
+      "BrochureDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "template": {
+            "type": "string",
+            "title": "Template"
+          },
+          "brand_kit_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Brand Kit Slug"
+          },
+          "front_render_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Front Render Url"
+          },
+          "back_render_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Back Render Url"
+          },
+          "pdf_render_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pdf Render Url"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "template",
+          "created_at"
+        ],
+        "title": "BrochureDetail",
+        "description": "Response for GET /api/v1/brochures/{id} \u2014 all 3 artifacts.\n\nPer 21-PATTERNS.md lines 577-589: brochures uniquely produce 3 artifacts\n(front PNG, back PNG, print PDF). JobRecord.result_ref is a single string,\nso the FE status page cannot reach all 3 through /jobs/{id} alone. The\nparallel-id pattern (plan 21-07 Task 1) sets BrochureRecord.id == JobRecord.id\nso the FE can GET /brochures/{job_id} and fan out to the 3 render URLs."
       },
       "CampaignCreateRequest": {
         "properties": {

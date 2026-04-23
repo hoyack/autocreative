@@ -153,6 +153,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/brochures/{brochure_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Brochure detail (front PNG + back PNG + print PDF)
+         * @description Return the 3 render URLs for a brochure.
+         *
+         *     Per Plan 21-07 Task 1 parallel-id pattern: ``brochure_id`` == ``job_id``,
+         *     so the FE can navigate from /jobs/{id} (or directly from a brochure-task
+         *     ``result_ref``) to this route without an extra lookup.
+         *
+         *     Returns 404 when no ``BrochureRecord`` with the given id exists. No
+         *     distinction is made between "no such id" and "id is malformed beyond
+         *     the 26-char PathParam guard" — both surface as the same 404 to avoid
+         *     leaking DB presence signals (T-16 disposition: trust the ULID guard,
+         *     don't leak existence).
+         */
+        get: operations["get_brochure_detail_api_v1_brochures__brochure_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/social/posts": {
         parameters: {
             query?: never;
@@ -597,6 +627,35 @@ export interface components {
              * @default photorealistic
              */
             style_preset: string;
+        };
+        /**
+         * BrochureDetail
+         * @description Response for GET /api/v1/brochures/{id} — all 3 artifacts.
+         *
+         *     Per 21-PATTERNS.md lines 577-589: brochures uniquely produce 3 artifacts
+         *     (front PNG, back PNG, print PDF). JobRecord.result_ref is a single string,
+         *     so the FE status page cannot reach all 3 through /jobs/{id} alone. The
+         *     parallel-id pattern (plan 21-07 Task 1) sets BrochureRecord.id == JobRecord.id
+         *     so the FE can GET /brochures/{job_id} and fan out to the 3 render URLs.
+         */
+        BrochureDetail: {
+            /** Id */
+            id: string;
+            /** Template */
+            template: string;
+            /** Brand Kit Slug */
+            brand_kit_slug?: string | null;
+            /** Front Render Url */
+            front_render_url?: string | null;
+            /** Back Render Url */
+            back_render_url?: string | null;
+            /** Pdf Render Url */
+            pdf_render_url?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /**
          * CampaignCreateRequest
@@ -1100,6 +1159,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_brochure_detail_api_v1_brochures__brochure_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brochure_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrochureDetail"];
                 };
             };
             /** @description Validation Error */
