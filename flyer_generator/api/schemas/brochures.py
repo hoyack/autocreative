@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -31,3 +32,24 @@ class BrochureCreateRequest(BaseModel):
         if not _SLUG_RE.match(v):
             raise ValueError("brand_kit_slug must match ^[a-z0-9][a-z0-9-]*$")
         return v
+
+
+class BrochureDetail(BaseModel):
+    """Response for GET /api/v1/brochures/{id} — all 3 artifacts.
+
+    Per 21-PATTERNS.md lines 577-589: brochures uniquely produce 3 artifacts
+    (front PNG, back PNG, print PDF). JobRecord.result_ref is a single string,
+    so the FE status page cannot reach all 3 through /jobs/{id} alone. The
+    parallel-id pattern (plan 21-07 Task 1) sets BrochureRecord.id == JobRecord.id
+    so the FE can GET /brochures/{job_id} and fan out to the 3 render URLs.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    template: str
+    brand_kit_slug: str | None = None
+    front_render_url: str | None = None  # /api/v1/renders/{id}/image
+    back_render_url: str | None = None
+    pdf_render_url: str | None = None
+    created_at: datetime

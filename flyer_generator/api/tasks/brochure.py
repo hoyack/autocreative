@@ -38,9 +38,12 @@ logger = structlog.get_logger()
 async def task_generate_brochure(ctx: dict, *, job_id: str, payload: dict) -> str | None:
     """Generate a brochure (front + back PNGs + print PDF).
 
-    Returns the FRONT :class:`RenderRecord`.id as the primary ``result_ref``.
-    Back and PDF render ids are discoverable via
-    ``BrochureRecord.render_back_id`` + ``render_pdf_id``.
+    Per 21-07-PLAN.md Task 1 (parallel-id pattern): returns ``BrochureRecord.id``
+    (== ``job_id``) as the primary ``result_ref``. The 3 render ids are
+    discoverable through ``BrochureRecord.render_{front,back,pdf}_id`` via the
+    new ``GET /api/v1/brochures/{id}`` detail route. Mirrors how campaigns
+    link to JobRecord (see flyer_generator/api/routes/jobs.py lines 57-69
+    comment: "JobRecord.id is reused as CampaignRecord.id").
     """
     sessionmaker = ctx["sessionmaker"]
     settings = ctx["settings"]
@@ -119,7 +122,11 @@ async def task_generate_brochure(ctx: dict, *, job_id: str, payload: dict) -> st
             s.add_all([r_front, r_back, r_pdf])
             await s.flush()
 
+            # Per 21-PATTERNS.md Q4 recommendation #2: assign brochure.id = job_id
+            # so JobRecord.id == BrochureRecord.id. Mirrors how campaigns work
+            # (see flyer_generator/api/routes/jobs.py:57-69 comment).
             brochure = BrochureRecord(
+                id=job_id,  # parallel-id pattern (Plan 21-07 Task 1)
                 title=getattr(content, "title", template_name),
                 template=template_name,
                 brand_kit_slug=slug,
@@ -130,10 +137,14 @@ async def task_generate_brochure(ctx: dict, *, job_id: str, payload: dict) -> st
             )
             s.add(brochure)
             await s.commit()
-            result_ref = r_front.id  # primary render — PDF + back linked via BrochureRecord
+            # result_ref = brochure.id so /jobs/{id} -> /brochures/{result_ref}
+            # finds the row directly. The single front_render_id (the previous
+            # result_ref) is still discoverable via BrochureRecord.render_front_id
+            # when the FE calls GET /brochures/{id}.
+            result_ref = brochure.id
 
         await mark_succeeded(sessionmaker, job_id, result_ref=result_ref)
-        log.info("task_succeeded", brochure_front_id=result_ref)
+        log.info("task_succeeded", brochure_id=result_ref)
         return result_ref
 
     except Exception as exc:
