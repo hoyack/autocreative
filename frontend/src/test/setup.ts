@@ -19,8 +19,27 @@
 // captures it. Keep the afterEach/afterAll lifecycle hooks so handlers reset
 // between tests and the server cleans up at the end of the worker.
 import "@testing-library/jest-dom/vitest";
-import { afterAll, afterEach } from "vitest";
+import { afterAll, afterEach, vi } from "vitest";
 import { server } from "./msw-server";
+
+// [Plan 21-05 Rule 3 - Blocking] jsdom does not implement window.matchMedia.
+// sonner's <Toaster /> calls matchMedia at mount time (to detect prefers-
+// color-scheme), so any test that renders a route which eventually surfaces
+// a toast (e.g. the new ScrapeBrandKitPage success branch) throws
+// "window.matchMedia is not a function". Polyfill a no-op MediaQueryList
+// before any component mount.
+if (typeof window !== "undefined" && !window.matchMedia) {
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }));
+}
 
 server.listen({ onUnhandledRequest: "error" });
 afterEach(() => server.resetHandlers());

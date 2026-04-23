@@ -11,7 +11,7 @@
 // handler via server.use(...).
 import { describe, expect, it } from "vitest";
 import userEvent from "@testing-library/user-event";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 
 import { server } from "@/test/msw-server";
@@ -27,8 +27,11 @@ describe("ScrapeBrandKitPage", () => {
     await userEvent.click(screen.getByRole("button", { name: /scrape/i }));
 
     // zod's .url() message is "Invalid url" / "Invalid URL" depending on
-    // version; match both.
-    expect(await screen.findByText(/invalid url/i)).toBeInTheDocument();
+    // version; match both. Use waitFor so RHF has time to flush the state
+    // update after the async resolver rejects.
+    await waitFor(() => {
+      expect(screen.getByText(/invalid url/i)).toBeInTheDocument();
+    });
   });
 
   it("submits + posts to /brand-kits/fetch on valid input", async () => {
