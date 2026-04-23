@@ -246,7 +246,7 @@ Plans:
 **Goal**: A developer can run `cd frontend && pnpm dev` and, against a running Phase 20 API, use a single-page React dashboard to (a) browse brand kits + scrape a new one via URL, (b) fill a flyer form and watch its job progress to a rendered PNG, (c) fill a brochure form and watch its two sheets + PDF render, (d) fill a social post form and watch copy + image + validation report render, (e) fill a campaign form and watch all N platform variants render, (f) browse past renders in a gallery with download + inline preview. Single-user v1 (no login). All dashboard pages use ShadCN components + Tailwind; job status polls Phase 20's `/api/v1/jobs/{id}` endpoint (no WebSocket for v1).
 **Depends on**: Phase 20 (FastAPI + SQLAlchemy backend)
 **Requirements**: FE-01, FE-02, FE-03, FE-04, FE-05, FE-06, FE-07, FE-08, FE-09, FE-10
-**Plans:** 8/11 plans executed
+**Plans:** 9/11 plans executed
 Plans:
 - [x] 21-01-PLAN.md -- Vite + React 19 + TS + Tailwind v4 + ShadCN scaffold + CLAUDE.md amendment + README section
 - [x] 21-02-PLAN.md -- openapi-typescript codegen + openapi-fetch client.ts + queryKeys.ts registry
@@ -255,7 +255,7 @@ Plans:
 - [x] 21-05-PLAN.md -- FE-04 Brand Kits (list + detail + scrape) + new BE GET /brand-kits/{slug}/logos/{filename} (T-1 mitigation)
 - [x] 21-06-PLAN.md -- FE-05 Flyer creator (typed RHF form mirroring EventInput) + status page
 - [ ] 21-07-PLAN.md -- FE-06 Brochure creator + 3-artifact status page + BE parallel-id pattern + GET /brochures/{id}
-- [ ] 21-08-PLAN.md -- FE-07 Social post creator + status page
+- [x] 21-08-PLAN.md -- FE-07 Social post creator + status page
 - [ ] 21-09-PLAN.md -- FE-08 Campaign creator (multi-platform Checkbox group) + status page (per-platform grid)
 - [x] 21-10-PLAN.md -- FE-09 Jobs page (Table + filters) + new BE GET /api/v1/jobs (paginated)
 - [x] 21-11-PLAN.md -- FE-10 Renders gallery + new BE GET /api/v1/renders (paginated)
@@ -279,4 +279,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 18. Brand Kit System | 8/8 | Complete   | 2026-04-21 |
 | 19. Social Media Posting System | 9/9 | Complete   | 2026-04-21 |
 | 20. FastAPI + SQLAlchemy Backend | 13/12 | Complete   | 2026-04-22 |
-| 21. React Frontend Dashboard | 8/11 | In Progress|  |
+| 21. React Frontend Dashboard | 9/11 | In Progress|  |
