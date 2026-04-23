@@ -12,7 +12,7 @@ Covers:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -233,3 +233,169 @@ async def test_get_running_campaign_job_returns_null_result_ref(
     body = r.json()
     assert body["status"] == "running"
     assert body["result_ref"] is None
+
+
+# --- GET /api/v1/jobs (list, Plan 21-10 Task 1) -----------------------------
+# Tests mirror the brand-kits list tests: empty state, sort order, filters,
+# and enum validation. Uses sessionmaker_fx (the fixture that actually exists
+# in conftest.py — the plan text suggested `db_session` but no such fixture
+# is wired). Terminal jobs / queued jobs / campaign rows all go through the
+# same cheap path in the list route (campaigns get result_ref=None per Open
+# Question Q1; validated by test_list_jobs_campaign_row_has_null_result_ref).
+
+
+@pytest.mark.asyncio
+async def test_list_jobs_returns_paginated_response_when_empty(client) -> None:
+    resp = await client.get("/api/v1/jobs")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["items"] == []
+    assert body["total"] == 0
+    assert body["limit"] == 50
+    assert body["offset"] == 0
+
+
+@pytest.mark.asyncio
+async def test_list_jobs_returns_rows_newest_first(client, sessionmaker_fx) -> None:
+    now = datetime.now(timezone.utc)
+    async with sessionmaker_fx() as s:
+        s.add(
+            JobRecord(
+                id="01OLD" + "A" * 21,  # 26 chars
+                kind=JobKind.FLYER,
+                status=JobStatus.SUCCEEDED,
+                input_payload={},
+                created_at=now - timedelta(hours=2),
+            )
+        )
+        s.add(
+            JobRecord(
+                id="01NEW" + "A" * 21,  # 26 chars
+                kind=JobKind.FLYER,
+                status=JobStatus.SUCCEEDED,
+                input_payload={},
+                created_at=now,
+            )
+        )
+        await s.commit()
+
+    resp = await client.get("/api/v1/jobs")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 2
+    # Newest first.
+    assert body["items"][0]["id"].startswith("01NEW")
+    assert body["items"][1]["id"].startswith("01OLD")
+
+
+@pytest.mark.asyncio
+async def test_list_jobs_filters_by_kind(client, sessionmaker_fx) -> None:
+    async with sessionmaker_fx() as s:
+        s.add(
+            JobRecord(
+                id="01FLYER" + "A" * 19,  # 26 chars
+                kind=JobKind.FLYER,
+                status=JobStatus.QUEUED,
+                input_payload={},
+            )
+        )
+        s.add(
+            JobRecord(
+                id="01BROC" + "A" * 20,  # 26 chars
+                kind=JobKind.BROCHURE,
+                status=JobStatus.QUEUED,
+                input_payload={},
+            )
+        )
+        await s.commit()
+
+    resp = await client.get("/api/v1/jobs?kind=flyer")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 1
+    assert body["items"][0]["kind"] == "flyer"
+
+
+@pytest.mark.asyncio
+async def test_list_jobs_filters_by_status(client, sessionmaker_fx) -> None:
+    async with sessionmaker_fx() as s:
+        s.add(
+            JobRecord(
+                id="01QUEUE" + "A" * 19,
+                kind=JobKind.FLYER,
+                status=JobStatus.QUEUED,
+                input_payload={},
+            )
+        )
+        s.add(
+            JobRecord(
+                id="01DONE0" + "A" * 19,
+                kind=JobKind.FLYER,
+                status=JobStatus.SUCCEEDED,
+                input_payload={},
+            )
+        )
+        await s.commit()
+
+    resp = await client.get("/api/v1/jobs?status=succeeded")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 1
+    assert body["items"][0]["status"] == "succeeded"
+
+
+@pytest.mark.asyncio
+async def test_list_jobs_invalid_kind_is_422(client) -> None:
+    resp = await client.get("/api/v1/jobs?kind=not_a_real_kind")
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_list_jobs_campaign_row_has_null_result_ref(
+    client, sessionmaker_fx
+) -> None:
+    """Cheap path: campaigns get result_ref=None in the list view even though
+    their single-job-detail endpoint would fuse the ResultLink list."""
+    job_id = "01CAMP0" + "A" * 19  # 26 chars
+    render_id = "01RNDRLIST" + "A" * 16  # 26 chars
+
+    async with sessionmaker_fx() as s:
+        # A succeeded single-render flyer job — result_ref should be a URL string.
+        s.add(
+            RenderRecord(
+                id=render_id,
+                kind="flyer_final",
+                file_path="/tmp/fake.png",
+            )
+        )
+        s.add(
+            JobRecord(
+                id="01FLY1S" + "A" * 19,
+                kind=JobKind.FLYER,
+                status=JobStatus.SUCCEEDED,
+                result_ref=render_id,
+                input_payload={},
+            )
+        )
+        # A succeeded campaign job — even though the detail route would fuse
+        # a list[ResultLink], the list route must return result_ref=None.
+        s.add(
+            JobRecord(
+                id=job_id,
+                kind=JobKind.SOCIAL_CAMPAIGN,
+                status=JobStatus.SUCCEEDED,
+                input_payload={},
+            )
+        )
+        await s.commit()
+
+    resp = await client.get("/api/v1/jobs")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 2
+    by_id = {row["id"]: row for row in body["items"]}
+    assert by_id[job_id]["result_ref"] is None  # cheap-path campaign
+    assert (
+        by_id["01FLY1S" + "A" * 19]["result_ref"]
+        == f"/api/v1/renders/{render_id}/image"
+    )
