@@ -1,9 +1,24 @@
 ---
 phase: 21-react-frontend-dashboard
 verified: 2026-04-23T14:58:28Z
+updated: 2026-04-23T20:52:26Z
 status: human_needed
 score: 13/13 must-haves verified
 overrides_applied: 0
+re_verification:
+  previous_status: human_needed
+  previous_score: 13/13
+  wave: 6
+  wave_plans: [21-12, 21-13, 21-14]
+  warnings_closed: [WR-01, WR-02, WR-03, WR-04]
+  info_closed: [IN-01, IN-03]
+  gaps_closed:
+    - "WR-01: brochure worker reads payload['workflow'] (not 'workflow_name')"
+    - "WR-02: list_brand_kits dedupes FS-fuse against full DB slug set (stable total, no duplicates)"
+    - "WR-03: both brand-kits + brochures routes wrap enqueue_job in try/except with compensating FAILED transition"
+    - "WR-04: RenderPreview uses strict .pdf suffix regex + explicit isPdf prop (no /pdf substring false-positives)"
+  gaps_remaining: []
+  regressions: []
 human_verification:
   - test: "Capability (a): Browse brand kits + scrape a new one via URL"
     expected: "Navigate /brand-kits -> see card grid; click Add brand kit; enter URL + slug; submit; watch job progress to succeeded; return to /brand-kits and see new kit; click card -> detail shows palette swatches + typography + logos + voice"
@@ -218,3 +233,102 @@ The four review warnings (WR-01..WR-04) are polish items recommended for a follo
 
 _Verified: 2026-04-23T14:58:28Z_
 _Verifier: Claude (gsd-verifier)_
+
+---
+
+## Gap Closure Re-Verification (2026-04-23)
+
+**Re-verified:** 2026-04-23T20:52:26Z
+**Trigger:** Wave 6 gap closure — plans 21-12, 21-13, 21-14 shipped to close 4 REVIEW warnings (WR-01..WR-04) + 2 info items (IN-01, IN-03).
+**Re-verification scope:** Targeted grep + regression-test + full-suite re-run. Initial 13 must-haves NOT re-evaluated (they already passed and are unchanged; regression check: all tests still green, no FE-* requirement newly failing).
+
+### Updated Status
+
+| Field | Before | After |
+|-------|--------|-------|
+| status | human_needed | human_needed (unchanged — 9 human UAT items still open, they are runtime-observable and not affected by gap closure) |
+| score | 13/13 | 13/13 (unchanged) |
+| warnings open | 4 (WR-01..WR-04) | 0 |
+| info items open | 9 | 7 (IN-01, IN-03 closed as companion fixes in Waves 6) |
+| BE test count | 172 | 176 (+4 new regression tests) |
+| FE test count | 22 | 26 (+4 new RenderPreview tests) |
+
+### Warning Closure Table
+
+| Warning | File(s) | Status | Evidence | Regression Test(s) |
+|---------|---------|--------|----------|--------------------|
+| WR-01 | flyer_generator/api/tasks/brochure.py:79 | FIXED | `grep 'payload.get("workflow_name"'` → 0 hits; `grep 'payload.get("workflow"'` → 1 hit at line 79; code reads `workflow_name=payload.get("workflow", "turbo_landscape")` | tests/api/test_worker_tasks.py::test_brochure_task_honors_user_supplied_workflow (line 463) — posts `{"workflow": "foo_portrait", ...}` and asserts generate_template_images called with workflow_name="foo_portrait" |
+| WR-02 | flyer_generator/api/routes/brand_kits.py:146-148 | FIXED | `grep 'all_db_slugs'` → 3 hits (declaration at 146, doc ref at 151, usage at 162); `grep 'db_slugs = {r.slug for r in rows}'` → 0 hits; `list_brand_kits` computes `all_db_slugs = set(select(BrandKitRecord.slug))` BEFORE FS enumeration + `merged.sort(key=lambda s: _as_utc(s.scraped_at), reverse=True)` for IN-03 companion | tests/api/test_brand_kits_routes.py::test_list_brand_kits_pagination_no_duplicates_across_pages (line 391) — seeds 3 DB + 1 FS kit, paginates limit=2, asserts total=4 stable across pages + union of slugs has 4 unique values + FS-only slug appears exactly once |
+| WR-03 brand-kits half | flyer_generator/api/routes/brand_kits.py:96-106 | FIXED | `grep 'except Exception'` → match at line 96 (new) + line 171 (pre-existing corrupt-JSON skip, unrelated); `grep 'enqueue_failed'` → 1 hit at line 102; `grep 'str(exc)'` → 0 hits (T-21-13-04 info-disclosure guardrail honored); pattern: try/except wraps `arq_pool.enqueue_job`, fresh session via `request.app.state.sessionmaker()`, typed `error_detail = {"reason": "enqueue_failed", "type": type(exc).__name__}`, re-raise | tests/api/test_brand_kits_routes.py::test_post_brand_kit_fetch_enqueue_failure_marks_job_failed (line 477) — monkeypatches enqueue_job to raise RuntimeError, asserts propagation + JobRecord FAILED + error_detail.reason == "enqueue_failed" + "redis" NOT in str(error_detail) |
+| WR-03 brochures half | flyer_generator/api/routes/brochures.py:46-67 | FIXED | `grep 'except Exception'` → match at line 52; `grep 'enqueue_failed'` → 2 hits (comment line 55 + dict key line 63); `grep 'str(exc)'` → 0 hits; identical try/except + fresh-session + typed error_detail + re-raise pattern | tests/api/test_brochure_routes.py::test_post_brochure_enqueue_failure_marks_job_failed (line 156) — uses ASGITransport(raise_app_exceptions=False) to assert r.status_code >= 500 + JobRecord FAILED + error_detail.reason == "enqueue_failed" |
+| WR-04 | frontend/src/components/RenderPreview.tsx:42-50 + frontend/src/pages/brochures/status.tsx:103 | FIXED | `grep 'lower.includes("/pdf")'` → 0 hits; `grep 'PDF_SUFFIX_RE'` → 2 hits (declaration line 42 + usage line 50); `grep 'isPdf'` → 4 hits in RenderPreview.tsx (prop type, destructure, branch, comment); `grep 'isPdf'` → 1 hit in brochures/status.tsx at line 103 (pdf_render_url slot); regex is strict `/\.pdf($|\?)/i`; OR-combined with explicit `isPdf` prop; IN-01 companion `suggestPdfFilename()` helper ensures {ulid}.pdf filename | frontend/src/components/RenderPreview.test.tsx — 4 `it()` blocks: (1) ULID starting with "pdf" in path does NOT trigger PDF branch (WR-04), (2) `.pdf` suffix triggers anchor, (3) `.pdf?query` suffix triggers anchor, (4) `isPdf` prop forces anchor + filename ends in .pdf (IN-01) |
+
+### Info Items Closed (Companion Fixes)
+
+| Info | Companion to | Evidence |
+|------|--------------|----------|
+| IN-01 | WR-04 (plan 21-14) | `suggestPdfFilename()` helper in RenderPreview.tsx returns `{ulid}.pdf` for `/renders/{id}/image` URLs and appends `.pdf` to generic last-segment fallback. Test case 4 asserts download attr matches `/\.pdf$/`. |
+| IN-03 | WR-02 (plan 21-13) | `merged.sort(key=lambda s: _as_utc(s.scraped_at), reverse=True)` before pagination slice — FS-only entries now interleave by recency instead of always tailing. Datetime normalization handles SQLite naive/aware mismatch. |
+
+### Info Items Still Open (Not in Wave 6 Scope)
+
+IN-02 (list_renders accepts untyped kind string), IN-04 (useJob swallows error message), IN-05 (JobStatusCard stale-closure risk), IN-06 (brochure form parses JSON twice), IN-07 (label not associated with Select — accessibility), IN-08 (dead code in task_generate_brochure getattr fallback), IN-09 (logo_bytes hard-coded None warning needed). All 7 remaining info items are polish/a11y/dev-ergonomics — none block the goal.
+
+### Regression Test Suite Results
+
+**Backend (pytest tests/api/):**
+```
+176 passed, 1 warning in 5.80s
+```
+- Previous: 172 passed. Delta: +4 tests (2 from plan 21-12 + 2 from plan 21-13). The single warning is pre-existing `copy` field-shadow in `flyer_generator/social/models.py:127` — not in this phase's scope.
+
+**Frontend (pnpm test --run):**
+```
+Test Files  12 passed (12)
+     Tests  26 passed (26)
+   Duration  6.63s
+```
+- Previous: 22 passed in 11 files. Delta: +4 tests in 1 new file (RenderPreview.test.tsx from plan 21-14).
+
+### New Regression Tests (Traceability)
+
+| Plan | Test file | Test name | Pins |
+|------|-----------|-----------|------|
+| 21-12 | tests/api/test_worker_tasks.py | test_brochure_task_honors_user_supplied_workflow | WR-01 payload-key translation |
+| 21-12 | tests/api/test_brochure_routes.py | test_post_brochure_enqueue_failure_marks_job_failed | WR-03 brochures compensating transition |
+| 21-13 | tests/api/test_brand_kits_routes.py | test_list_brand_kits_pagination_no_duplicates_across_pages | WR-02 pagination dedup + stable total |
+| 21-13 | tests/api/test_brand_kits_routes.py | test_post_brand_kit_fetch_enqueue_failure_marks_job_failed | WR-03 brand-kits compensating transition |
+| 21-14 | frontend/src/components/RenderPreview.test.tsx | RenderPreview > does not treat a URL containing the substring '/pdf' as a PDF (WR-04) | WR-04 false-positive prevention |
+| 21-14 | frontend/src/components/RenderPreview.test.tsx | RenderPreview > renders a download anchor for a URL ending in .pdf | Happy-path .pdf suffix |
+| 21-14 | frontend/src/components/RenderPreview.test.tsx | RenderPreview > renders a download anchor for a URL ending in .pdf?query | .pdf with query string |
+| 21-14 | frontend/src/components/RenderPreview.test.tsx | RenderPreview > renders a download anchor when isPdf=true even without a .pdf suffix | isPdf prop threading + IN-01 filename |
+
+### Regression Check: No New Regressions in FE-01..FE-10
+
+All 10 FE-* requirements remain SATISFIED. The three gap-closure plans touched exactly 5 source files:
+
+- `flyer_generator/api/tasks/brochure.py` — supports FE-06 (brochure); fix makes user-supplied workflow actually take effect. No behavioral regression for the default path (default `"turbo_landscape"` unchanged).
+- `flyer_generator/api/routes/brochures.py` — supports FE-06; added compensating transition. Happy path unchanged (enqueue success → JobCreated, same as before).
+- `flyer_generator/api/routes/brand_kits.py` — supports FE-04 (brand kits list + scrape); happy path unchanged; pagination now correct + stable; FS-only entries now sorted by recency instead of tailed alphabetically (strict improvement for UX).
+- `frontend/src/components/RenderPreview.tsx` — supports FE-06 + FE-10 (brochure PDF + renders gallery). Strict regex + explicit prop → all existing `.pdf` URLs still match; gallery already uses `isPdfKind(r.kind)` so RenderPreview for PNG kinds continues to render inline. No visual regression.
+- `frontend/src/pages/brochures/status.tsx` — supports FE-06; only addition is `isPdf` prop on the pdf_render_url slot (deterministic PDF branch now). Front/back PNG slots unchanged.
+
+Full test suites (BE 176/176 + FE 26/26) confirm zero regressions.
+
+### Human Verification Status
+
+9 human UAT items remain (unchanged). They are inherently runtime-observable (visual PDF rendering, job polling cadence, sidebar highlighting, live proxy behavior) and Wave 6's gap-closure work does not reduce that list — none of the 4 review warnings were about UX behaviors that would satisfy a human UAT item. All 9 still need manual verification against a live Phase 20 backend + Vite dev server.
+
+### Final Summary
+
+**Status: human_needed (unchanged, by design).**
+
+The 4 automated warnings from 21-REVIEW.md are definitively closed with grep-verifiable source fixes AND regression tests that would catch re-introduction. The 2 companion info items (IN-01 filename, IN-03 FS-fuse sort order) are closed alongside their parent warnings. 7 remaining info items are out of Wave 6 scope and do not block the goal. The 9 human UAT items are unchanged and still the only path to a `passed` status; they require a live backend + dev server run.
+
+Recommendation: proceed with human UAT (the 9 items already listed in the original frontmatter). If UAT passes, phase 21 can be marked `passed`. If any UAT fails, a new gap-closure wave can be planned targeting the failure.
+
+---
+
+_Re-verified: 2026-04-23T20:52:26Z_
+_Verifier: Claude (gsd-verifier)_
+_Wave: 6 (gap closure of WR-01..WR-04 + IN-01 + IN-03)_
