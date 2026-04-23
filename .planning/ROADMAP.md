@@ -246,9 +246,9 @@ Plans:
 **Goal**: A developer can run `cd frontend && pnpm dev` and, against a running Phase 20 API, use a single-page React dashboard to (a) browse brand kits + scrape a new one via URL, (b) fill a flyer form and watch its job progress to a rendered PNG, (c) fill a brochure form and watch its two sheets + PDF render, (d) fill a social post form and watch copy + image + validation report render, (e) fill a campaign form and watch all N platform variants render, (f) browse past renders in a gallery with download + inline preview. Single-user v1 (no login). All dashboard pages use ShadCN components + Tailwind; job status polls Phase 20's `/api/v1/jobs/{id}` endpoint (no WebSocket for v1).
 **Depends on**: Phase 20 (FastAPI + SQLAlchemy backend)
 **Requirements**: FE-01, FE-02, FE-03, FE-04, FE-05, FE-06, FE-07, FE-08, FE-09, FE-10
-**Plans:** 11 plans
+**Plans:** 1/11 plans executed
 Plans:
-- [ ] 21-01-PLAN.md -- Vite + React 19 + TS + Tailwind v4 + ShadCN scaffold + CLAUDE.md amendment + README section
+- [x] 21-01-PLAN.md -- Vite + React 19 + TS + Tailwind v4 + ShadCN scaffold + CLAUDE.md amendment + README section
 - [ ] 21-02-PLAN.md -- openapi-typescript codegen + openapi-fetch client.ts + queryKeys.ts registry
 - [ ] 21-03-PLAN.md -- React Router v7 data-router + Sidebar layout + 404 + ErrorPage + 13 stub pages
 - [ ] 21-04-PLAN.md -- TanStack Query provider + useJob polling hook + JobStatusCard + RenderPreview + Vitest+msw infra
@@ -279,4 +279,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 18. Brand Kit System | 8/8 | Complete   | 2026-04-21 |
 | 19. Social Media Posting System | 9/9 | Complete   | 2026-04-21 |
 | 20. FastAPI + SQLAlchemy Backend | 13/12 | Complete   | 2026-04-22 |
-| 21. React Frontend Dashboard | 0/11 | Not Started | - |
+| 21. React Frontend Dashboard | 1/11 | In Progress|  |
