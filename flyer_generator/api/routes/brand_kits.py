@@ -13,7 +13,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import ulid
-from fastapi import APIRouter, Depends, Path as PathParam, Query, Request, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Path as PathParam,
+    Query,
+    Request,
+    status,
+)
+from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -210,4 +219,82 @@ async def get_brand_kit(
         slug=slug,
         record_created_at=datetime.now(timezone.utc),
         brand_kit=kit,
+    )
+
+
+# --- GET /brand-kits/{slug}/logos/{filename} (Plan 21-05 Task 1) ------------
+#
+# T-1 HIGH — path-traversal guard. Mirrors routes/renders.py::_is_within
+# (copy rather than import to keep the brand-kits module self-contained; the
+# helper is 18 lines and pinning two copies is simpler than refactoring. If
+# a third file-streaming route lands later, extract to api/_paths.py).
+#
+# Whitelist extends renders.py by adding SVG — logos are commonly SVG; the
+# renders whitelist excludes SVG because rendered creative output is always
+# rasterized PNG / PDF / JPG.
+
+_LOGO_EXT_MIME = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".svg": "image/svg+xml",
+}
+
+
+def _logo_is_within(candidate: Path, root: Path) -> bool:
+    """Path-containment guard (T-1 HIGH).
+
+    True iff ``candidate`` (resolved, must exist) is inside ``root`` (resolved).
+    ``strict=True`` on the candidate forces the file to exist AND follows
+    symlinks, so any symlink-to-outside-root is rejected. ``is_relative_to``
+    (py >= 3.9) correctly handles trailing separators where ``str.startswith``
+    would not.
+    """
+    try:
+        resolved = candidate.resolve(strict=True)
+    except (FileNotFoundError, OSError):
+        return False
+    try:
+        root_resolved = (
+            root.resolve(strict=True) if root.exists() else root.resolve()
+        )
+    except OSError:
+        return False
+    return resolved.is_relative_to(root_resolved)
+
+
+@router.get(
+    "/brand-kits/{slug}/logos/{filename}",
+    summary="Stream a brand-kit logo file (PNG / JPG / SVG)",
+    responses={404: {"description": "Logo not found"}},
+)
+async def get_brand_kit_logo(
+    slug: str = PathParam(..., pattern=r"^[a-z0-9][a-z0-9-]*$", max_length=64),
+    filename: str = PathParam(..., max_length=128),
+    settings: AppSettings = Depends(get_settings),
+) -> FileResponse:
+    """Serve a logo from ``.brand-kits/<slug>/logos/<filename>``.
+
+    SECURITY (T-1 HIGH — path traversal). Returns 404 on EVERY failure:
+
+    - slug regex mismatch (handled by FastAPI PathParam validation -> 422)
+    - extension not in :data:`_LOGO_EXT_MIME`
+    - resolved file path outside ``settings.brand_kits_dir``
+    - file missing on disk
+
+    We deliberately do NOT distinguish (e.g. 403 vs 404) — any signal leaks
+    filesystem shape to attackers. See routes/renders.py for the same posture
+    (Phase 20 T-1 mitigation).
+    """
+    base = Path(settings.brand_kits_dir) / slug / "logos"
+    candidate = base / filename
+    media_type = _LOGO_EXT_MIME.get(Path(filename).suffix.lower())
+    if media_type is None:
+        raise HTTPException(status_code=404, detail="logo not found")
+    if not _logo_is_within(candidate, Path(settings.brand_kits_dir)):
+        raise HTTPException(status_code=404, detail="logo not found")
+    return FileResponse(
+        path=candidate,
+        media_type=media_type,
+        headers={"Content-Disposition": f'inline; filename="{candidate.name}"'},
     )
