@@ -41,6 +41,23 @@ if (typeof window !== "undefined" && !window.matchMedia) {
   }));
 }
 
+// [Plan 21-09 Rule 3 - Blocking] jsdom does not implement ResizeObserver.
+// @radix-ui/react-checkbox (via @radix-ui/react-use-size) calls new
+// ResizeObserver(...) at mount to track its indicator size. Without this
+// polyfill, any test that renders a route containing a ShadCN Checkbox
+// (plan 21-09's NewCampaignPage platforms multi-select) throws
+// "ResizeObserver is not defined". A no-op class satisfies the surface
+// area Radix uses (observe / unobserve / disconnect).
+if (typeof globalThis.ResizeObserver === "undefined") {
+  class NoopResizeObserver implements ResizeObserver {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  (globalThis as unknown as { ResizeObserver: typeof ResizeObserver }).ResizeObserver =
+    NoopResizeObserver as unknown as typeof ResizeObserver;
+}
+
 server.listen({ onUnhandledRequest: "error" });
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
