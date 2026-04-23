@@ -19,8 +19,11 @@ describe("NewBrochurePage", () => {
     renderWithProviders(<NewBrochurePage />);
     const textarea = screen.getByLabelText(/content/i);
     await userEvent.clear(textarea);
-    // Malformed JSON — missing closing brace.
-    await userEvent.type(textarea, "{not valid");
+    // Malformed JSON — missing closing brace. `{` is a keyboard modifier
+    // token in @testing-library/user-event's `type()` DSL (see
+    // https://testing-library.com/docs/user-event/keyboard), so double it to
+    // escape OR use `paste()` / direct assignment. We double-brace here.
+    await userEvent.type(textarea, "{{not valid");
     await userEvent.click(
       screen.getByRole("button", { name: /generate/i }),
     );
@@ -47,8 +50,10 @@ describe("NewBrochurePage", () => {
     );
     await screen.findByText(/brochure enqueued/i);
     expect(captured).toBeTruthy();
-    // Narrow via type guard so TS accepts the following property accesses.
-    const body = captured as {
+    // `captured` has been narrowed to null by control flow after the let
+    // declaration; re-widen through unknown to access fields we know the
+    // server saw.
+    const body = captured as unknown as {
       template: string;
       content: { title: string };
     };
