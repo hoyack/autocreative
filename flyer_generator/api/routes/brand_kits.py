@@ -76,11 +76,35 @@ async def create_brand_kit_fetch(
     # worker the moment enqueue_job returns.)
     await session.commit()
 
-    await request.app.state.arq_pool.enqueue_job(
-        "task_fetch_brand_kit",
-        job_id=job_id,
-        payload={"url": str(body.url), "slug": body.slug},
-    )
+    # WR-03 (Plan 21-13 Task 2) — compensate on enqueue failure so the
+    # JobRecord we just committed does NOT orphan in QUEUED with no worker
+    # to advance it. Mirrors the brochure creator's pattern (Plan 21-12
+    # Task 2) and the threat model T-21-13-03 / T-21-13-04 dispositions:
+    #   - Use a FRESH session via app.state.sessionmaker() because the
+    #     request-scoped ``session`` is owned by get_session and may already
+    #     be in an inconsistent state after the enqueue raised.
+    #   - Write ONLY typed fields into error_detail ({reason, type}) — never
+    #     the stringified exception message, which may include Redis URLs or
+    #     stack frames (T-5 / T-21-13-04 info disclosure).
+    #   - Re-raise so the caller still sees the 5xx via Starlette.
+    try:
+        await request.app.state.arq_pool.enqueue_job(
+            "task_fetch_brand_kit",
+            job_id=job_id,
+            payload={"url": str(body.url), "slug": body.slug},
+        )
+    except Exception as exc:
+        async with request.app.state.sessionmaker() as s2:
+            row = await s2.get(JobRecord, job_id)
+            if row is not None:
+                row.status = JobStatus.FAILED
+                row.error_detail = {
+                    "reason": "enqueue_failed",
+                    "type": type(exc).__name__,
+                }
+                await s2.commit()
+        raise
+
     return JobCreated(job_id=job_id)
 
 
