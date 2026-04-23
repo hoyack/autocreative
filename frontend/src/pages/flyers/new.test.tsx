@@ -25,14 +25,17 @@ describe("NewFlyerPage", () => {
     await userEvent.click(
       screen.getByRole("button", { name: /generate/i }),
     );
-    // zod v4 min(1) message can be "Too small" / "at least 1" / "required".
-    // Use a broad regex so version drift doesn't break this test.
+    // zod v4 min(1) message is "Too small: expected string to have >=1
+    // characters". With six min(1) fields (title/date/time/location_name/
+    // location_address/style_preset) all empty, multiple FormMessage nodes
+    // surface the same message — so we use getAllByText to tolerate that.
+    // Broad regex covers zod version drift (v3 used "at least 1"; older
+    // versions used "must contain"; v4 uses "too small").
     await waitFor(() => {
-      expect(
-        screen.getByText(
-          /at least 1|too small|required|must contain|invalid/i,
-        ),
-      ).toBeInTheDocument();
+      const matches = screen.getAllByText(
+        /at least 1|too small|required|must contain|invalid/i,
+      );
+      expect(matches.length).toBeGreaterThan(0);
     });
   });
 
