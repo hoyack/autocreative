@@ -66,7 +66,8 @@ The ComfyCloud workflow uses the Lumina2 model (`z_image_turbo_bf16.safetensors`
 - **Models:** Pydantic v2 for all data contracts, pydantic-settings for config
 - **Logging:** structlog
 - **CLI:** typer
-- **No Node.js deps:** No sharp, no Puppeteer — pure Python stack
+- **No Node.js deps in the Python stack:** No sharp, no Puppeteer for image processing — Python uses Pillow + cairosvg only.
+- **Optional frontend (Phase 21):** Node.js >= 22 + pnpm >= 9 are REQUIRED to develop the optional `frontend/` React dashboard. The Python API + CLI remain the source of truth and are usable without the dashboard. The frontend depends on Phase 20's API running locally.
 - **System deps:** Cairo + libffi required for cairosvg
 
 ## Key Decisions

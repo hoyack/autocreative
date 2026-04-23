@@ -707,6 +707,65 @@ The following mitigations are already in place in v1:
 
 ---
 
+## Frontend (Phase 21)
+
+Phase 21 ships an optional React dashboard under `frontend/` that consumes the Phase 20 API. The Python API + CLI remain the source of truth — the frontend is a UI sugar layer.
+
+### Prerequisites
+
+- Node.js >= 22 (install via `nvm install 22` / `fnm install 22` / `volta install node@22`)
+- pnpm >= 9 (`npm install -g pnpm@10`)
+- The Phase 20 backend running locally on `:8000` (see `## API server (Phase 20)` above — `make serve`)
+
+### Install
+
+```bash
+cd frontend
+pnpm install
+```
+
+### Develop
+
+In one terminal: `make serve` (starts uvicorn + arq from the repo root).
+In a second terminal:
+
+```bash
+cd frontend
+pnpm dev      # Vite dev server on http://localhost:5173
+```
+
+Vite proxies `/api/*` to `http://localhost:8000`, so the frontend code talks to the API as if they were the same origin (no CORS preflights in dev).
+
+### Test, lint, build
+
+```bash
+cd frontend
+pnpm test       # Vitest run
+pnpm lint       # ESLint
+pnpm typecheck  # tsc --noEmit
+pnpm build      # production bundle to frontend/dist/
+```
+
+### Deploy (deferred)
+
+Phase 21 does NOT ship a deploy story. `pnpm build` produces a static `frontend/dist/` bundle that a future phase will either mount on FastAPI via `StaticFiles(...)` or host separately (Caddy / nginx / Vercel / Netlify). The dashboard trusts whoever can reach `:5173` and `:8000` — same single-user / private-network model as Phase 20.
+
+### Regenerating the typed API client
+
+The frontend's TypeScript types are generated from the live Phase 20 OpenAPI schema. After changing any Phase 20 route or schema, run:
+
+```bash
+cd frontend
+pnpm gen:api          # requires backend running on :8000
+# OR (offline / CI):
+curl http://localhost:8000/openapi.json -o src/api/openapi.snapshot.json
+pnpm gen:api:snapshot
+```
+
+Commit BOTH `src/api/schema.gen.ts` AND `src/api/openapi.snapshot.json` so the bundle is reproducible without the backend running.
+
+---
+
 ## See also
 
 - `HANDOFF.md` — most recent session handoff with current state-of-the-world
