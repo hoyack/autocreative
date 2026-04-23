@@ -42,3 +42,24 @@ class JobDetail(BaseModel):
     # Queued / running: None.
     result_ref: str | list[ResultLink] | None = None
     created_at: datetime
+
+
+class PaginatedJobs(BaseModel):
+    """Response for ``GET /api/v1/jobs?limit=&offset=&kind=&status=``.
+
+    Mirrors :class:`PaginatedBrandKits`. Items reuse the existing
+    :class:`JobDetail` schema so clients can share a single row type between
+    the list view and the single-job poll.
+
+    Per Plan 21-10 + 21-RESEARCH.md Open Q1 (cheap path): campaigns whose
+    detail route would fuse a ``list[ResultLink]`` instead have
+    ``result_ref=None`` in the list view — callers fetch the full fuse from
+    ``GET /api/v1/jobs/{id}``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[JobDetail]
+    total: int
+    limit: int
+    offset: int
