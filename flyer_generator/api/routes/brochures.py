@@ -39,11 +39,33 @@ async def create_brochure(
     )
     await session.commit()
 
-    await request.app.state.arq_pool.enqueue_job(
-        "task_generate_brochure",
-        job_id=job_id,
-        payload=payload,
-    )
+    # WR-03: compensate on enqueue failure. If arq can't accept the job
+    # (Redis down, pool misconfigured, etc.), the QUEUED row above has no
+    # worker to advance it — flip it to FAILED before the 5xx propagates
+    # so the dashboard reflects reality instead of showing a ghost.
+    try:
+        await request.app.state.arq_pool.enqueue_job(
+            "task_generate_brochure",
+            job_id=job_id,
+            payload=payload,
+        )
+    except Exception as exc:
+        # Use a fresh session: the request-scoped ``session`` may be in a
+        # dirty state depending on the failure path. The error_detail is
+        # deliberately minimal ({"reason": "enqueue_failed", "type": ...})
+        # to avoid leaking Redis connection strings or stack frames into
+        # the DB column (T-21-12-03).
+        async with request.app.state.sessionmaker() as s2:
+            row = await s2.get(JobRecord, job_id)
+            if row is not None:
+                row.status = JobStatus.FAILED
+                row.error_detail = {
+                    "reason": "enqueue_failed",
+                    "type": type(exc).__name__,
+                }
+                await s2.commit()
+        raise
+
     return JobCreated(job_id=job_id)
 
 
