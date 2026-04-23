@@ -24,3 +24,12 @@ flyer.db-journal
 *.sqlite-journal
 # Alembic local caches (migrations themselves are tracked)
 alembic/versions/__pycache__/
+
+# Phase 21 — frontend (Node)
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/.env.*.local
+frontend/*.tsbuildinfo
+frontend/vite.config.d.ts
+frontend/vite.config.js
