@@ -17,16 +17,19 @@ missing. See analog: :func:`flyer_generator.brand_kit.storage._validate_containm
 
 from __future__ import annotations
 
+from datetime import datetime as _dt
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Path as PathParam
+from fastapi import APIRouter, Depends, HTTPException, Path as PathParam, Query
 from fastapi.responses import FileResponse
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from flyer_generator.api.config import AppSettings
 from flyer_generator.api.db import get_session
 from flyer_generator.api.deps import get_settings
 from flyer_generator.api.models import RenderRecord
+from flyer_generator.api.schemas.renders import PaginatedRenders, RenderSummary
 
 router = APIRouter(tags=["renders"])
 
@@ -104,3 +107,59 @@ async def get_render_image(
         media_type=media_type,
         headers={"Content-Disposition": f'inline; filename="{candidate.name}"'},
     )
+
+
+# --- GET /api/v1/renders (list, Plan 21-11 Task 1) --------------------------
+#
+# Mirror of ``routes/jobs.py::list_jobs`` / ``routes/brand_kits.py::list_brand_kits``.
+# Paginated list sorted by ``created_at`` DESC with two optional filters:
+#   - ``kind``: exact match against ``RenderRecord.kind`` (indexed column).
+#   - ``since``: datetime lower-bound on ``RenderRecord.created_at``.
+#
+# File bytes are NOT inlined — callers build the download URL as
+# ``/api/v1/renders/{id}/image`` which flows through the streaming route
+# above (preserving all T-1 path-containment defenses).
+
+
+@router.get(
+    "/renders",
+    response_model=PaginatedRenders,
+    summary="List rendered artifacts (newest first; filter by kind / since)",
+)
+async def list_renders(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    kind: str | None = Query(default=None, max_length=40),
+    since: _dt | None = Query(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> PaginatedRenders:
+    """Return paginated render summaries sorted by ``created_at`` DESC.
+
+    Per 21-RESEARCH.md Open Q2 + 21-PATTERNS.md "Backend addition:
+    list_renders" — this endpoint is a cheap metadata list; clients fetch
+    the bytes via :func:`get_render_image` using the id. T-5 DoS is
+    mitigated by the ``le=200`` cap on ``limit``.
+    """
+    stmt = select(RenderRecord).order_by(RenderRecord.created_at.desc())
+    count_stmt = select(func.count()).select_from(RenderRecord)
+    if kind is not None:
+        stmt = stmt.where(RenderRecord.kind == kind)
+        count_stmt = count_stmt.where(RenderRecord.kind == kind)
+    if since is not None:
+        stmt = stmt.where(RenderRecord.created_at >= since)
+        count_stmt = count_stmt.where(RenderRecord.created_at >= since)
+
+    total = (await session.execute(count_stmt)).scalar_one()
+    rows = (
+        (await session.execute(stmt.limit(limit).offset(offset))).scalars().all()
+    )
+    items = [
+        RenderSummary(
+            id=r.id,
+            kind=r.kind,
+            comfy_job_id=r.comfy_job_id,
+            created_at=r.created_at,
+        )
+        for r in rows
+    ]
+    return PaginatedRenders(items=items, total=total, limit=limit, offset=offset)
