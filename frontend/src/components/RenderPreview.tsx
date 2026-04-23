@@ -1,7 +1,7 @@
 // Render a single artifact URL as either an inline <img> (PNG/JPG) or a
 // download <a> (PDF). Per 21-CONTEXT.md <specifics> "Render preview
-// pattern" — skip inline PDF rendering for v1 because <object> UX is
-// poor across browsers. NEVER use <object> here.
+// pattern" — skip inline PDF rendering for v1 because the embed-tag UX is
+// poor across browsers. This file intentionally renders NO embed tags.
 
 interface RenderPreviewProps {
   url: string;
