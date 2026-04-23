@@ -76,11 +76,35 @@ async def create_brand_kit_fetch(
     # worker the moment enqueue_job returns.)
     await session.commit()
 
-    await request.app.state.arq_pool.enqueue_job(
-        "task_fetch_brand_kit",
-        job_id=job_id,
-        payload={"url": str(body.url), "slug": body.slug},
-    )
+    # WR-03 (Plan 21-13 Task 2) — compensate on enqueue failure so the
+    # JobRecord we just committed does NOT orphan in QUEUED with no worker
+    # to advance it. Mirrors the brochure creator's pattern (Plan 21-12
+    # Task 2) and the threat model T-21-13-03 / T-21-13-04 dispositions:
+    #   - Use a FRESH session via app.state.sessionmaker() because the
+    #     request-scoped ``session`` is owned by get_session and may already
+    #     be in an inconsistent state after the enqueue raised.
+    #   - Write ONLY typed fields into error_detail ({reason, type}) — never
+    #     the stringified exception message, which may include Redis URLs or
+    #     stack frames (T-5 / T-21-13-04 info disclosure).
+    #   - Re-raise so the caller still sees the 5xx via Starlette.
+    try:
+        await request.app.state.arq_pool.enqueue_job(
+            "task_fetch_brand_kit",
+            job_id=job_id,
+            payload={"url": str(body.url), "slug": body.slug},
+        )
+    except Exception as exc:
+        async with request.app.state.sessionmaker() as s2:
+            row = await s2.get(JobRecord, job_id)
+            if row is not None:
+                row.status = JobStatus.FAILED
+                row.error_detail = {
+                    "reason": "enqueue_failed",
+                    "type": type(exc).__name__,
+                }
+                await s2.commit()
+        raise
+
     return JobCreated(job_id=job_id)
 
 
@@ -95,47 +119,39 @@ async def list_brand_kits(
     session: AsyncSession = Depends(get_session),
     settings: AppSettings = Depends(get_settings),
 ) -> PaginatedBrandKits:
-    """Return DB rows unioned with filesystem-only kits (lazy fuse — no INSERT).
+    """Return DB rows unioned with filesystem-only kits.
 
-    RESEARCH.md Open Question Q3 recommendation: synthesize ``BrandKitSummary``
-    entries in-memory for slugs present on disk but not yet in the DB. This is
-    safe for v1 where at most a few dozen kits exist.  A real "import to DB"
-    step is a later phase.
+    WR-02 fix (Plan 21-13 Task 1): the dedup key set is the FULL set of DB
+    slugs (cheap single indexed-column SELECT), not just the current page's
+    slice. This makes the ``total`` count page-invariant and prevents a slug
+    that appears in the DB on page N from being misreported as "FS-only" on
+    page N-1 (which previously produced both a duplicate row across pages and
+    an inflated ``total``).
+
+    IN-03 companion fix: the merged list (DB rows + FS-only summaries) is
+    sorted by ``scraped_at`` descending BEFORE slicing, so FS-only entries no
+    longer always tail the page regardless of recency.
+
+    Scale note: v1 datasets are expected to be at most a few dozen kits
+    (21-CONTEXT.md — single-user private instance), so full DB + FS
+    enumeration on every list call is acceptable. Revisit if a future phase
+    sees >1000 kits.
     """
-    # 1. DB side — count + page
-    total_q = await session.execute(select(func.count()).select_from(BrandKitRecord))
-    db_total = total_q.scalar_one()
-
-    rows = (
-        (
-            await session.execute(
-                select(BrandKitRecord)
-                .order_by(BrandKitRecord.scraped_at.desc())
-                .limit(limit)
-                .offset(offset)
-            )
-        )
-        .scalars()
-        .all()
+    # 1. Full DB slug set for dedup + full DB count (both cheap — single
+    #    indexed column scan). These are page-invariant and MUST be computed
+    #    before the FS enumeration so the dedup is correct for every page.
+    db_total = (
+        await session.execute(select(func.count()).select_from(BrandKitRecord))
+    ).scalar_one()
+    all_db_slugs: set[str] = set(
+        (await session.execute(select(BrandKitRecord.slug))).scalars().all()
     )
-    db_slugs = {r.slug for r in rows}
 
-    items: list[BrandKitSummary] = [
-        BrandKitSummary(
-            slug=r.slug,
-            name=r.name,
-            source_url=r.source_url,
-            scraped_at=r.scraped_at,
-        )
-        for r in rows
-    ]
-
-    # 2. Filesystem fuse — extend ``items`` (and ``total``) with disk-only
-    #    slugs that are NOT already represented in the DB. For v1 this is
-    #    best-effort: we don't paginate across the filesystem, we only top
-    #    up the current page.
+    # 2. Enumerate FS-only summaries ONCE (page-invariant). A slug present in
+    #    ``all_db_slugs`` is skipped — the DB row is the source of truth and
+    #    prevents double-counting.
     base_dir = Path(settings.brand_kits_dir)
-    fs_only_count = 0
+    fs_only_summaries: list[BrandKitSummary] = []
     if base_dir.exists():
         for child in sorted(base_dir.iterdir()):
             if not child.is_dir():
@@ -143,8 +159,8 @@ async def list_brand_kits(
             slug = child.name
             if not _SLUG_RE.match(slug):
                 continue
-            if slug in db_slugs:
-                continue
+            if slug in all_db_slugs:
+                continue  # already in DB — skip (no double count)
             brand_json = child / "brand.json"
             if not brand_json.is_file():
                 continue
@@ -155,8 +171,7 @@ async def list_brand_kits(
             except Exception:
                 # Corrupt brand.json — skip silently for list endpoint.
                 continue
-            fs_only_count += 1
-            items.append(
+            fs_only_summaries.append(
                 BrandKitSummary(
                     slug=slug,
                     name=kit.name,
@@ -164,10 +179,48 @@ async def list_brand_kits(
                     scraped_at=kit.fetched_at,
                 )
             )
+    fs_only_count = len(fs_only_summaries)
+
+    # 3. Stable total computed BEFORE pagination — invariant across pages.
+    total = db_total + fs_only_count
+
+    # 4. Build the DB-side summaries (full unpaginated set, at v1 scale), then
+    #    merge with FS-only summaries and sort globally by scraped_at desc so
+    #    recency ordering is uniform across sources (IN-03).
+    db_rows = (
+        (
+            await session.execute(
+                select(BrandKitRecord).order_by(BrandKitRecord.scraped_at.desc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    db_summaries: list[BrandKitSummary] = [
+        BrandKitSummary(
+            slug=r.slug,
+            name=r.name,
+            source_url=r.source_url,
+            scraped_at=r.scraped_at,
+        )
+        for r in db_rows
+    ]
+
+    merged = db_summaries + fs_only_summaries
+
+    def _as_utc(dt: datetime) -> datetime:
+        """Normalize naive DB datetimes (SQLite returns them without tzinfo
+        even on DateTime(timezone=True)) to UTC so sort comparisons across
+        DB-sourced and FS-sourced (tz-aware) datetimes don't TypeError.
+        """
+        return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+    merged.sort(key=lambda s: _as_utc(s.scraped_at), reverse=True)
+    page = merged[offset : offset + limit]
 
     return PaginatedBrandKits(
-        items=items,
-        total=db_total + fs_only_count,
+        items=page,
+        total=total,
         limit=limit,
         offset=offset,
     )

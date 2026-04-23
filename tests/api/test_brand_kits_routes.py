@@ -11,7 +11,7 @@ Covers:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import select
@@ -379,3 +379,146 @@ async def test_post_fetch_does_not_bypass_ssrf_gate(
         assert job.status == JobStatus.FAILED
         assert job.error_detail["type"] == "BrandKitScrapeError"
         assert set(job.error_detail.keys()) == {"type", "message"}
+
+
+# ---------- WR-02 regression (Plan 21-13 Task 1) -----------------------------
+#
+# list_brand_kits must dedup the filesystem fuse against the FULL set of DB
+# slugs, not just the current page's slice. Also `total` must be page-invariant.
+
+
+@pytest.mark.asyncio
+async def test_list_brand_kits_pagination_no_duplicates_across_pages(
+    client, app, sessionmaker_fx, tmp_path
+) -> None:
+    """WR-02 regression: the filesystem fuse must dedup against the FULL
+    set of DB slugs, not just the current page's slice.
+
+    Setup: 3 DB rows (staggered scraped_at so ordering is deterministic) +
+    1 FS-only kit. With limit=2:
+      - page 1 must see EXACTLY 2 items, total=4
+      - page 2 must see EXACTLY 2 items, total=4
+      - union of all slugs across both pages must have 4 unique values
+      - fs-only slug appears EXACTLY ONCE across all pages
+
+    Under the buggy implementation, `db_slugs = {r.slug for r in rows}` is built
+    only from the current page's rows. On page 1 the FS-only slug (sorted
+    alphabetically after "db-*" via `sorted(base_dir.iterdir())`) may or may
+    not appear; more importantly, if a DB slug appears on a different page it
+    gets treated as FS-only on the current page, duplicating rows across pages
+    AND inflating `total`. This test pins the page-invariant behavior.
+    """
+    from flyer_generator.api.models import BrandKitRecord
+
+    # --- Seed 3 DB rows with staggered scraped_at so ordering is stable.
+    base_time = datetime(2026, 4, 23, 12, 0, 0, tzinfo=timezone.utc)
+    async with sessionmaker_fx() as s:
+        for i, slug in enumerate(["db-one", "db-two", "db-three"]):
+            kit = _sample_kit(name=slug)
+            s.add(
+                BrandKitRecord(
+                    slug=slug,
+                    name=kit.name,
+                    source_url=kit.source_url,
+                    scraped_at=base_time - timedelta(minutes=i),
+                    payload=kit.model_dump(mode="json"),
+                )
+            )
+        await s.commit()
+
+    # --- Seed 1 FS-only kit on disk at tmp_path.
+    fs_kit_dir = tmp_path / "fs-only"
+    fs_kit_dir.mkdir(parents=True)
+    fs_kit = _sample_kit(name="fs-only")
+    (fs_kit_dir / "brand.json").write_text(fs_kit.model_dump_json())
+
+    # --- Override brand_kits_dir on the already-built app (idiomatic per
+    #     existing test patterns in this module — see test_get_list_empty).
+    app.state.settings.brand_kits_dir = tmp_path
+
+    # Page 1
+    r1 = await client.get("/api/v1/brand-kits?limit=2&offset=0")
+    assert r1.status_code == 200, r1.text
+    p1 = r1.json()
+
+    # Page 2
+    r2 = await client.get("/api/v1/brand-kits?limit=2&offset=2")
+    assert r2.status_code == 200, r2.text
+    p2 = r2.json()
+
+    # Assertion 1: totals are stable and correct.
+    assert p1["total"] == 4, f"Page 1 total={p1['total']} (want 4). WR-02 bug."
+    assert p2["total"] == 4, f"Page 2 total={p2['total']} (want 4). WR-02 bug."
+
+    # Assertion 2: no duplicate slugs across pages.
+    slugs_p1 = {it["slug"] for it in p1["items"]}
+    slugs_p2 = {it["slug"] for it in p2["items"]}
+    union = slugs_p1 | slugs_p2
+    assert len(union) == 4, (
+        f"Expected 4 unique slugs across pages, got {len(union)} from "
+        f"{sorted(union)}. WR-02: fs-only slug duplicated across pages."
+    )
+
+    # Assertion 3: the FS-only slug appears EXACTLY ONCE across all pages.
+    flat_slugs = [it["slug"] for it in p1["items"]] + [
+        it["slug"] for it in p2["items"]
+    ]
+    assert flat_slugs.count("fs-only") == 1, (
+        f"fs-only appeared {flat_slugs.count('fs-only')} times (want 1). "
+        f"Flat: {flat_slugs}. WR-02 bug."
+    )
+
+
+# ---------- WR-03 regression — brand-kit enqueue failure compensation --------
+# (Plan 21-13 Task 2. Mirrors the brochure fix in Plan 21-12 Task 2.)
+
+
+@pytest.mark.asyncio
+async def test_post_brand_kit_fetch_enqueue_failure_marks_job_failed(
+    client, fake_arq_pool, sessionmaker_fx, monkeypatch
+) -> None:
+    """WR-03 regression: if arq enqueue_job raises, the JobRecord must be
+    flipped to FAILED with error_detail (``reason == 'enqueue_failed'``)
+    before the 5xx propagates to the client. Prevents stale QUEUED rows from
+    orphaning with no worker to advance them.
+
+    error_detail must be typed (reason + type name) and MUST NOT contain
+    ``str(exc)`` — the exception message can include Redis URLs / stack
+    frames that would leak infrastructure shape (T-21-13-04 disposition).
+    """
+    async def boom(*_a, **_kw):
+        raise RuntimeError("redis unreachable")
+
+    monkeypatch.setattr(fake_arq_pool, "enqueue_job", boom)
+
+    # httpx ASGITransport has raise_app_exceptions=True by default: an
+    # unhandled exception in the route surfaces here rather than becoming a
+    # 5xx response. The route MUST re-raise after flipping the JobRecord so
+    # the client sees the failure (the ASGI server in prod will render the
+    # error as 5xx via Starlette's ServerErrorMiddleware; here we just
+    # confirm the exception propagates AND the compensating transition ran).
+    with pytest.raises(RuntimeError, match="redis unreachable"):
+        await client.post(
+            "/api/v1/brand-kits/fetch",
+            json={"url": "https://example.com", "slug": "example"},
+        )
+
+    async with sessionmaker_fx() as s:
+        rows = (
+            await s.execute(
+                select(JobRecord).where(JobRecord.kind == JobKind.BRAND_KIT)
+            )
+        ).scalars().all()
+        assert len(rows) == 1, f"Expected 1 brand-kit JobRecord, got {len(rows)}"
+        row = rows[0]
+        assert row.status == JobStatus.FAILED, (
+            f"Expected FAILED, got {row.status}. WR-03: brand-kit enqueue "
+            "failure left a stale QUEUED row."
+        )
+        assert row.error_detail is not None
+        assert row.error_detail.get("reason") == "enqueue_failed"
+        # T-21-13-04: exception message (which may include Redis URL) must
+        # not leak through — only the typed fields.
+        assert "redis" not in str(row.error_detail).lower(), (
+            f"error_detail leaked exception message: {row.error_detail}"
+        )
