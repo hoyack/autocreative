@@ -245,6 +245,75 @@ async def test_get_detail_rejects_bad_slug_syntax(client) -> None:
     assert r.status_code == 422
 
 
+# ---------- GET /brand-kits/{slug}/logos/{filename} (Plan 21-05 Task 1) -----
+#
+# T-1 HIGH — path-traversal guard, mirroring routes/renders.py::_is_within.
+# All four tests return 404 on ANY failure (never 403) to avoid leaking
+# filesystem shape. SVG is whitelisted (unlike the renders route), since
+# brand-kit logos are commonly SVG.
+
+
+@pytest.mark.asyncio
+async def test_get_brand_kit_logo_serves_png(client, app, tmp_path) -> None:
+    app.state.settings.brand_kits_dir = tmp_path
+    kit_dir = tmp_path / "demo" / "logos"
+    kit_dir.mkdir(parents=True)
+    png_path = kit_dir / "primary.png"
+    png_path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 16)
+
+    r = await client.get("/api/v1/brand-kits/demo/logos/primary.png")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "image/png"
+    assert "inline" in r.headers.get("content-disposition", "")
+
+
+@pytest.mark.asyncio
+async def test_get_brand_kit_logo_serves_svg(client, app, tmp_path) -> None:
+    app.state.settings.brand_kits_dir = tmp_path
+    kit_dir = tmp_path / "demo" / "logos"
+    kit_dir.mkdir(parents=True)
+    svg_path = kit_dir / "primary.svg"
+    svg_path.write_text('<svg xmlns="http://www.w3.org/2000/svg"/>')
+
+    r = await client.get("/api/v1/brand-kits/demo/logos/primary.svg")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "image/svg+xml"
+
+
+@pytest.mark.asyncio
+async def test_get_brand_kit_logo_404_on_traversal_attempt(
+    client, app, tmp_path
+) -> None:
+    """T-1 HIGH — a path-traversal attempt via URL-encoded ``..`` must 404.
+
+    FastAPI URL-decodes the path param, so ``..%2Fbrand.json`` arrives in the
+    handler as ``../brand.json``. Either the extension whitelist rejects it
+    (no whitelisted suffix) or the containment guard rejects the resolved
+    path — both return 404 (never 403).
+    """
+    app.state.settings.brand_kits_dir = tmp_path
+    (tmp_path / "demo" / "logos").mkdir(parents=True)
+    # Seed a sibling file outside .../logos/ that a naive ``../`` would hit.
+    (tmp_path / "demo" / "brand.json").write_text("{}")
+
+    r = await client.get("/api/v1/brand-kits/demo/logos/..%2Fbrand.json")
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_get_brand_kit_logo_404_on_missing_file(
+    client, app, tmp_path
+) -> None:
+    """Containment passes (path is inside brand_kits_dir) but file is absent.
+
+    Must return 404 — NOT 403, NOT 500.
+    """
+    app.state.settings.brand_kits_dir = tmp_path
+    (tmp_path / "demo" / "logos").mkdir(parents=True)
+    r = await client.get("/api/v1/brand-kits/demo/logos/nope.png")
+    assert r.status_code == 404
+
+
 # ---------- T-2 SSRF inheritance (WARNING-5 closure) ----------
 #
 # Proof that the Phase-18 SSRF gate (flyer_generator/brand_kit/scraper.py) is
