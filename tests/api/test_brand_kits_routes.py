@@ -467,3 +467,58 @@ async def test_list_brand_kits_pagination_no_duplicates_across_pages(
         f"fs-only appeared {flat_slugs.count('fs-only')} times (want 1). "
         f"Flat: {flat_slugs}. WR-02 bug."
     )
+
+
+# ---------- WR-03 regression — brand-kit enqueue failure compensation --------
+# (Plan 21-13 Task 2. Mirrors the brochure fix in Plan 21-12 Task 2.)
+
+
+@pytest.mark.asyncio
+async def test_post_brand_kit_fetch_enqueue_failure_marks_job_failed(
+    client, fake_arq_pool, sessionmaker_fx, monkeypatch
+) -> None:
+    """WR-03 regression: if arq enqueue_job raises, the JobRecord must be
+    flipped to FAILED with error_detail (``reason == 'enqueue_failed'``)
+    before the 5xx propagates to the client. Prevents stale QUEUED rows from
+    orphaning with no worker to advance them.
+
+    error_detail must be typed (reason + type name) and MUST NOT contain
+    ``str(exc)`` — the exception message can include Redis URLs / stack
+    frames that would leak infrastructure shape (T-21-13-04 disposition).
+    """
+    async def boom(*_a, **_kw):
+        raise RuntimeError("redis unreachable")
+
+    monkeypatch.setattr(fake_arq_pool, "enqueue_job", boom)
+
+    # httpx ASGITransport has raise_app_exceptions=True by default: an
+    # unhandled exception in the route surfaces here rather than becoming a
+    # 5xx response. The route MUST re-raise after flipping the JobRecord so
+    # the client sees the failure (the ASGI server in prod will render the
+    # error as 5xx via Starlette's ServerErrorMiddleware; here we just
+    # confirm the exception propagates AND the compensating transition ran).
+    with pytest.raises(RuntimeError, match="redis unreachable"):
+        await client.post(
+            "/api/v1/brand-kits/fetch",
+            json={"url": "https://example.com", "slug": "example"},
+        )
+
+    async with sessionmaker_fx() as s:
+        rows = (
+            await s.execute(
+                select(JobRecord).where(JobRecord.kind == JobKind.BRAND_KIT)
+            )
+        ).scalars().all()
+        assert len(rows) == 1, f"Expected 1 brand-kit JobRecord, got {len(rows)}"
+        row = rows[0]
+        assert row.status == JobStatus.FAILED, (
+            f"Expected FAILED, got {row.status}. WR-03: brand-kit enqueue "
+            "failure left a stale QUEUED row."
+        )
+        assert row.error_detail is not None
+        assert row.error_detail.get("reason") == "enqueue_failed"
+        # T-21-13-04: exception message (which may include Redis URL) must
+        # not leak through — only the typed fields.
+        assert "redis" not in str(row.error_detail).lower(), (
+            f"error_detail leaked exception message: {row.error_detail}"
+        )
