@@ -246,7 +246,7 @@ Plans:
 **Goal**: A developer can run `cd frontend && pnpm dev` and, against a running Phase 20 API, use a single-page React dashboard to (a) browse brand kits + scrape a new one via URL, (b) fill a flyer form and watch its job progress to a rendered PNG, (c) fill a brochure form and watch its two sheets + PDF render, (d) fill a social post form and watch copy + image + validation report render, (e) fill a campaign form and watch all N platform variants render, (f) browse past renders in a gallery with download + inline preview. Single-user v1 (no login). All dashboard pages use ShadCN components + Tailwind; job status polls Phase 20's `/api/v1/jobs/{id}` endpoint (no WebSocket for v1).
 **Depends on**: Phase 20 (FastAPI + SQLAlchemy backend)
 **Requirements**: FE-01, FE-02, FE-03, FE-04, FE-05, FE-06, FE-07, FE-08, FE-09, FE-10
-**Plans:** 11/11 plans complete + 3 gap-closure plans (WR-01..WR-04)
+**Plans:** 14/14 plans complete
 Plans:
 - [x] 21-01-PLAN.md -- Vite + React 19 + TS + Tailwind v4 + ShadCN scaffold + CLAUDE.md amendment + README section
 - [x] 21-02-PLAN.md -- openapi-typescript codegen + openapi-fetch client.ts + queryKeys.ts registry
@@ -259,9 +259,9 @@ Plans:
 - [x] 21-09-PLAN.md -- FE-08 Campaign creator (multi-platform Checkbox group) + status page (per-platform grid)
 - [x] 21-10-PLAN.md -- FE-09 Jobs page (Table + filters) + new BE GET /api/v1/jobs (paginated)
 - [x] 21-11-PLAN.md -- FE-10 Renders gallery + new BE GET /api/v1/renders (paginated)
-- [ ] 21-12-PLAN.md -- Gap closure: WR-01 (brochure worker workflow key) + WR-03 brochures half (enqueue failure -> FAILED)
-- [ ] 21-13-PLAN.md -- Gap closure: WR-02 (list_brand_kits dedup + stable total + IN-03 sort) + WR-03 brand-kits half
-- [ ] 21-14-PLAN.md -- Gap closure: WR-04 (RenderPreview strict .pdf detection + isPdf prop) + IN-01 companion
+- [x] 21-12-PLAN.md -- Gap closure: WR-01 (brochure worker workflow key) + WR-03 brochures half (enqueue failure -> FAILED)
+- [x] 21-13-PLAN.md -- Gap closure: WR-02 (list_brand_kits dedup + stable total + IN-03 sort) + WR-03 brand-kits half
+- [x] 21-14-PLAN.md -- Gap closure: WR-04 (RenderPreview strict .pdf detection + isPdf prop) + IN-01 companion
 
 ## Progress
 
@@ -282,4 +282,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 18. Brand Kit System | 8/8 | Complete   | 2026-04-21 |
 | 19. Social Media Posting System | 9/9 | Complete   | 2026-04-21 |
 | 20. FastAPI + SQLAlchemy Backend | 13/12 | Complete   | 2026-04-22 |
-| 21. React Frontend Dashboard | 11/11 | Complete    | 2026-04-23 |
+| 21. React Frontend Dashboard | 14/14 | Complete   | 2026-04-23 |
