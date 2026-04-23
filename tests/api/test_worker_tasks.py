@@ -295,16 +295,26 @@ async def test_task_generate_brochure_imports_cleanly_and_writes_records(
         render_id = await task_generate_brochure(ctx, job_id=jid, payload=payload)
 
     assert render_id is not None
+    # Plan 21-07 parallel-id contract: task returns the BrochureRecord.id
+    # (which == job_id), NOT the front render id. This lets /jobs/{id}
+    # resolve /brochures/{result_ref} directly.
+    assert render_id == jid
     async with sessionmaker_fx() as s:
         job = (
             await s.execute(select(JobRecord).where(JobRecord.id == jid))
         ).scalar_one()
         assert job.status == JobStatus.SUCCEEDED
+        # Job's result_ref also == brochure.id == job_id (parallel-id pattern).
+        assert job.result_ref == jid
         renders = (await s.execute(select(RenderRecord))).scalars().all()
         assert len(renders) == 3
         kinds = {r.kind for r in renders}
         assert kinds == {"brochure_front", "brochure_back", "brochure_pdf"}
-        assert (await s.execute(select(BrochureRecord))).scalars().all()
+        brochures = (await s.execute(select(BrochureRecord))).scalars().all()
+        assert len(brochures) == 1
+        # BrochureRecord.id == job_id (the parallel-id assignment this plan
+        # introduces; prior behavior auto-generated a distinct ULID).
+        assert brochures[0].id == jid
 
 
 @pytest.mark.asyncio

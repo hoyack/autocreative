@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import select
 
-from flyer_generator.api.models import JobKind, JobRecord, JobStatus
+from flyer_generator.api.models import BrochureRecord, JobKind, JobRecord, JobStatus, RenderRecord
 
 
 def _minimal_brochure_content() -> dict:
@@ -90,3 +90,58 @@ async def test_post_brochure_rejects_extra_fields(client) -> None:
     }
     r = await client.post("/api/v1/brochures", json=body)
     assert r.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/brochures/{brochure_id} — detail route (Plan 21-07 Task 1)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_brochure_detail_returns_404_when_missing(client) -> None:
+    """Missing brochure id (valid 26-char ULID shape) returns 404."""
+    # 26-char ULID-shaped string with no matching row.
+    resp = await client.get("/api/v1/brochures/01TESTTESTTESTTESTTESTTEST")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_get_brochure_detail_returns_3_render_urls(client, sessionmaker_fx) -> None:
+    """Seed a BrochureRecord + 3 RenderRecords and verify the detail fuse."""
+    async with sessionmaker_fx() as s:
+        front = RenderRecord(kind="brochure_front", file_path="/tmp/front.png")
+        back = RenderRecord(kind="brochure_back", file_path="/tmp/back.png")
+        pdf = RenderRecord(kind="brochure_pdf", file_path="/tmp/print.pdf")
+        s.add_all([front, back, pdf])
+        await s.flush()
+        brochure_id = "01BROCBROCBROCBROCBROCBROC"
+        brochure = BrochureRecord(
+            id=brochure_id,
+            title="t",
+            template="editorial_classic",
+            brand_kit_slug=None,
+            content_payload={},
+            render_front_id=front.id,
+            render_back_id=back.id,
+            render_pdf_id=pdf.id,
+        )
+        s.add(brochure)
+        await s.commit()
+        # Capture the render ids before leaving the session context.
+        front_id, back_id, pdf_id = front.id, back.id, pdf.id
+
+    resp = await client.get(f"/api/v1/brochures/{brochure_id}")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["id"] == brochure_id
+    assert body["template"] == "editorial_classic"
+    assert body["front_render_url"] == f"/api/v1/renders/{front_id}/image"
+    assert body["back_render_url"] == f"/api/v1/renders/{back_id}/image"
+    assert body["pdf_render_url"] == f"/api/v1/renders/{pdf_id}/image"
+
+
+@pytest.mark.asyncio
+async def test_get_brochure_detail_short_id_422(client) -> None:
+    """A brochure_id shorter than 26 chars fails PathParam validation (422)."""
+    resp = await client.get("/api/v1/brochures/tooshort")
+    assert resp.status_code == 422
