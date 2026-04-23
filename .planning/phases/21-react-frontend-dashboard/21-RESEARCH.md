@@ -1212,7 +1212,7 @@ export function ulidToDate(id: string): Date | null {
 | A5 | `eslint-plugin-tailwindcss` v3.18 is incompatible with Tailwind v4 | Standard Stack | LOW-MEDIUM. The plugin is at v3.18.3, no v4 listing yet. The Prettier plugin is the safer bet for v1. If a tailwind-aware ESLint plugin appears with v4 support during Phase 21, plans can revisit. |
 | A6 | Vite 8.x is API-compatible with the Vite 7-era ShadCN docs | Architecture | LOW. Vite 8 was a small jump (Node 22 baseline + perf); the plugin API is stable. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 These are gaps in the Phase 20 backend that affect Phase 21 plans. The planner should resolve them by either (a) adding small backend tasks to Phase 21, (b) downscoping the affected requirement, or (c) deferring the affected feature. **Do NOT re-surface these to the user** -- decide in the plan structure.
 
@@ -1220,21 +1220,25 @@ These are gaps in the Phase 20 backend that affect Phase 21 plans. The planner s
    - What we know: `GET /jobs/{id}` exists. `JobRecord` has `kind` + `status` indexes -- DB-friendly for list+filter.
    - What's missing: A list route. Phase 20 closed without it because no consumer existed.
    - Recommended resolution: Add a small Plan 21-N near the end that ships `GET /api/v1/jobs?status=&kind=&limit=&offset=` returning `Paginated<JobDetail>`. Backend code is ~30 lines (mirrors the brand-kits list pattern). Plan it in the same wave that builds the Jobs page (`pages/jobs/list.tsx`).
+   - **RESOLVED:** implemented in plan 21-10 (BE list_jobs route + PaginatedJobs schema + FE JobsListPage with per-row <JobStatusBadge> polling).
 
 2. **FE-10 needs `GET /api/v1/renders` (list of all renders) -- not currently exposed.**
    - What we know: `RenderRecord` has `kind` index + `created_at`.
    - What's missing: A list route + per-record summary endpoint.
    - Recommended resolution: Same approach as Q1. Add `GET /api/v1/renders?kind=&since=&limit=&offset=` returning `Paginated<RenderSummary>`. The image stream route already exists.
+   - **RESOLVED:** implemented in plan 21-11 (BE list_renders route + PaginatedRenders schema + FE RenderGalleryPage).
 
 3. **Brand-kit logos and source artifacts have no public URL.**
    - What we know: `BrandKit.logos` is a list (likely of `BrandLogo` objects with file paths). `RenderRecord` does not track them.
    - What's missing: An endpoint to stream `.brand-kits/<slug>/logos/<filename>`.
    - Recommended resolution: Add a small route `GET /api/v1/brand-kits/{slug}/logos/{filename}` with the same path-traversal mitigation as `/renders/{id}/image`, restricted to `settings.brand_kits_dir`. Plan this alongside FE-04. Alternative (simpler): inline base64-encode logos into the `BrandKitDetail` response. Recommend the route approach because logos can be large and inline base64 bloats the JSON cache.
+   - **RESOLVED:** implemented in plan 21-05 (BE get_brand_kit_logo route with _logo_is_within containment + _LOGO_EXT_MIME whitelist + 4 BE tests; FE LogoGallery consumes it).
 
 4. **Brochure jobs return only ONE artifact via `result_ref`.**
    - What we know: `JobRecord.result_ref` is `String(26)` (one render id). Brochures produce 3 artifacts.
    - What's missing: A way to expose all three.
    - Recommended resolution: Two options. (a) Cheap fix: change the brochure task to set `result_ref` to the PDF render id (the most useful single artifact), and have the brochure status page also fetch `RenderRecord`s by querying a NEW route `GET /api/v1/brochures/{id}` that returns `{front_render_id, back_render_id, pdf_render_id}`. (b) More elegant: extend `JobDetail.result_ref` to support a `{kind: "brochure", artifacts: {front, back, pdf}}` variant. Recommend (a) -- a small targeted route is simpler than evolving the polymorphic `result_ref`. Plan in the same wave as the brochure status page.
+   - **RESOLVED:** implemented in plan 21-07 (parallel-id pattern: brochure task assigns BrochureRecord.id = job_id; new GET /api/v1/brochures/{id} returns BrochureDetail with 3 render URLs).
 
 5. **Where to put zod schemas long-term.** CONTEXT.md says hand-write per-form. Recommendation in this research: keep colocated per-form (`pages/flyers/new.tsx` exports `FlyerFormSchema`). When the same shape is reused across two pages, promote it to `src/lib/schemas.ts`. **The planner should NOT pre-create a `src/schemas/` directory.**
 
