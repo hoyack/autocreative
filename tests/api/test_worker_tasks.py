@@ -452,3 +452,71 @@ async def test_task_generate_campaign_iterates_posts_full(
         )
         assert len((await s.execute(select(PostRecord))).scalars().all()) == 2
         assert len((await s.execute(select(RenderRecord))).scalars().all()) == 2
+
+
+# ---------------------------------------------------------------------------
+# Plan 21-12 WR-01 regression: brochure worker must honor user-supplied workflow
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_brochure_task_honors_user_supplied_workflow(sessionmaker_fx) -> None:
+    """WR-01 regression: user-supplied ``workflow`` must reach generate_template_images.
+
+    Before the fix, the worker read ``payload["workflow_name"]`` but the
+    schema produces ``payload["workflow"]`` via ``body.model_dump(mode="json")``,
+    so user overrides were silently dropped and ``turbo_landscape`` was
+    always used.
+    """
+    from flyer_generator.api.config import AppSettings
+    from flyer_generator.api.tasks.brochure import task_generate_brochure
+
+    jid = "01HWR01WORKFLOW00000000001"
+    await _seed_job(sessionmaker_fx, jid, JobKind.BROCHURE)
+
+    ctx = {
+        "sessionmaker": sessionmaker_fx,
+        "settings": AppSettings(),
+        "http_client": None,  # generate_template_images is patched below
+    }
+
+    payload = {
+        "content": {
+            "title": "Sample",
+            "org": "Test Co",
+            "sections": [
+                {"heading": "Intro", "body_paragraphs": ["Hi."], "bullets": []}
+            ],
+        },
+        "template": "editorial_classic",
+        "generate_images": True,
+        "workflow": "foo_portrait",  # <-- user override
+        "style_preset": "photorealistic",
+    }
+
+    # Patch the heavy collaborators the task calls.
+    with patch(
+        "flyer_generator.api.tasks.brochure.generate_template_images",
+        new=AsyncMock(return_value={}),
+    ) as gti, patch(
+        "flyer_generator.api.tasks.brochure.load_template",
+        return_value=object(),
+    ), patch(
+        "flyer_generator.api.tasks.brochure.render_schema_brochure",
+        return_value=("<svg/>", "<svg/>"),
+    ), patch(
+        "flyer_generator.api.tasks.brochure.Rasterizer"
+    ) as rast_cls, patch(
+        "flyer_generator.api.tasks.brochure.assemble_brochure_pdf",
+        return_value=b"pdf",
+    ):
+        rast_cls.return_value.rasterize.return_value = b"png"
+        await task_generate_brochure(ctx, job_id=jid, payload=payload)
+
+    # Assertion: generate_template_images was called with workflow_name="foo_portrait".
+    assert gti.await_count == 1
+    kwargs = gti.await_args.kwargs
+    assert kwargs["workflow_name"] == "foo_portrait", (
+        f"Expected workflow_name=foo_portrait, got {kwargs['workflow_name']!r}. "
+        "WR-01: worker is reading the wrong payload key."
+    )
