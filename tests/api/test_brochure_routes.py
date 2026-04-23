@@ -145,3 +145,54 @@ async def test_get_brochure_detail_short_id_422(client) -> None:
     """A brochure_id shorter than 26 chars fails PathParam validation (422)."""
     resp = await client.get("/api/v1/brochures/tooshort")
     assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# Plan 21-12 WR-03 regression: enqueue failure must flip JobRecord to FAILED
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_post_brochure_enqueue_failure_marks_job_failed(
+    fake_arq_pool, sessionmaker_fx, app, monkeypatch
+) -> None:
+    """WR-03 regression: if arq enqueue_job raises, the JobRecord must be
+    flipped to FAILED with error_detail before the 5xx propagates. Otherwise
+    the row sits in QUEUED forever and the dashboard shows a ghost job.
+
+    Uses a dedicated client with ``raise_app_exceptions=False`` so the 5xx
+    surfaces as a normal response instead of propagating through the ASGI
+    transport — this mirrors how a real HTTP client would observe the error.
+    """
+    from httpx import ASGITransport, AsyncClient
+
+    # Force enqueue_job to raise — simulates Redis down / arq pool misconfig.
+    async def boom(*_a, **_kw):
+        raise RuntimeError("redis unreachable")
+
+    monkeypatch.setattr(fake_arq_pool, "enqueue_job", boom)
+
+    body = {
+        "content": _minimal_brochure_content(),
+        "template": "editorial_classic",
+        "generate_images": False,
+    }
+
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        r = await c.post("/api/v1/brochures", json=body)
+    assert r.status_code >= 500, r.text
+
+    # Exactly one JobRecord exists and it is FAILED with a typed error_detail.
+    async with sessionmaker_fx() as s:
+        rows = (
+            await s.execute(select(JobRecord).where(JobRecord.kind == JobKind.BROCHURE))
+        ).scalars().all()
+        assert len(rows) == 1, f"Expected 1 brochure JobRecord, got {len(rows)}"
+        row = rows[0]
+        assert row.status == JobStatus.FAILED, (
+            f"Expected FAILED, got {row.status}. WR-03: enqueue failure "
+            "left a stale QUEUED row."
+        )
+        assert row.error_detail is not None
+        assert row.error_detail.get("reason") == "enqueue_failed"
