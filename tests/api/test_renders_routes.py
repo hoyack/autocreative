@@ -13,10 +13,16 @@ Test corpus:
 - Dotdot traversal (``..``) inside file_path -> 404 after ``resolve(strict=True)``
 - Missing file inside allowed root -> 404 (``resolve(strict=True)`` raises)
 - Unknown extension (.exe) inside allowed root -> 404 (whitelist defense)
+
+Plan 21-11 additions — GET /api/v1/renders list route:
+- Empty list: default response shape + total=0
+- Kind filter narrows to one RenderRecord.kind value
+- Newest-first ordering via created_at DESC
 """
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -250,3 +256,86 @@ async def test_get_render_rejects_unknown_extension(
 
     r = await client.get(f"/api/v1/renders/{render_id}/image")
     assert r.status_code == 404
+
+
+# --- GET /api/v1/renders (list, Plan 21-11 Task 1) -------------------------
+#
+# Mirror of the Plan 21-10 list_jobs tests — paginated list with limit +
+# offset + optional ``kind`` + ``since`` filters. Uses ``sessionmaker_fx``
+# (per conftest.py + plan 21-10 decision record) rather than a ``db_session``
+# fixture that does not exist in this suite.
+
+
+@pytest.mark.asyncio
+async def test_list_renders_empty(client) -> None:
+    """Empty renders table -> items=[], total=0, default limit=50, offset=0."""
+    r = await client.get("/api/v1/renders")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["items"] == []
+    assert body["total"] == 0
+    assert body["limit"] == 50
+    assert body["offset"] == 0
+
+
+@pytest.mark.asyncio
+async def test_list_renders_filters_by_kind(client, sessionmaker_fx) -> None:
+    """?kind=flyer_final narrows to a single RenderRecord.kind value."""
+    async with sessionmaker_fx() as s:
+        s.add_all(
+            [
+                RenderRecord(
+                    id="01HABCRENDLIST000000000001",  # 26 chars
+                    kind="flyer_final",
+                    file_path="/tmp/a.png",
+                ),
+                RenderRecord(
+                    id="01HABCRENDLIST000000000002",  # 26 chars
+                    kind="brochure_pdf",
+                    file_path="/tmp/b.pdf",
+                ),
+            ]
+        )
+        await s.commit()
+
+    r = await client.get("/api/v1/renders?kind=flyer_final")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total"] == 1
+    assert len(body["items"]) == 1
+    assert body["items"][0]["kind"] == "flyer_final"
+
+
+@pytest.mark.asyncio
+async def test_list_renders_orders_newest_first(client, sessionmaker_fx) -> None:
+    """Items are sorted by created_at DESC (newest-first)."""
+    now = datetime.now(timezone.utc)
+    async with sessionmaker_fx() as s:
+        s.add_all(
+            [
+                RenderRecord(
+                    id="01HABCRENDOLD0000000000001",
+                    kind="flyer_final",
+                    file_path="/tmp/old.png",
+                    created_at=now - timedelta(hours=2),
+                ),
+                RenderRecord(
+                    id="01HABCRENDNEW0000000000002",
+                    kind="flyer_final",
+                    file_path="/tmp/new.png",
+                    created_at=now,
+                ),
+            ]
+        )
+        await s.commit()
+
+    r = await client.get("/api/v1/renders")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total"] == 2
+    assert len(body["items"]) == 2
+    # Newest first — created_at of items[0] >= items[1].
+    assert body["items"][0]["created_at"] >= body["items"][1]["created_at"]
+    # ids round-trip — the newest row's id is the "NEW" one we inserted.
+    assert body["items"][0]["id"] == "01HABCRENDNEW0000000000002"
+    assert body["items"][1]["id"] == "01HABCRENDOLD0000000000001"
