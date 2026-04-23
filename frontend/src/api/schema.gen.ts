@@ -266,6 +266,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/renders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List rendered artifacts (newest first; filter by kind / since)
+         * @description Return paginated render summaries sorted by ``created_at`` DESC.
+         *
+         *     Per 21-RESEARCH.md Open Q2 + 21-PATTERNS.md "Backend addition:
+         *     list_renders" — this endpoint is a cheap metadata list; clients fetch
+         *     the bytes via :func:`get_render_image` using the id. T-5 DoS is
+         *     mitigated by the ``le=200`` cap on ``limit``.
+         */
+        get: operations["list_renders_api_v1_renders_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -781,6 +806,25 @@ export interface components {
             offset: number;
         };
         /**
+         * PaginatedRenders
+         * @description Response for ``GET /api/v1/renders?limit=&offset=&kind=&since=``.
+         *
+         *     Mirrors :class:`PaginatedBrandKits` / :class:`PaginatedJobs`. Items reuse
+         *     :class:`RenderSummary` — file bytes are NOT inlined; clients build the
+         *     download URL as ``/api/v1/renders/{id}/image`` via the existing
+         *     :func:`flyer_generator.api.routes.renders.get_render_image` route.
+         */
+        PaginatedRenders: {
+            /** Items */
+            items: components["schemas"]["RenderSummary"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
          * PostCreateRequest
          * @description Body of POST /api/v1/social/posts.
          *
@@ -808,6 +852,23 @@ export interface components {
             image_hint?: string | null;
             /** Style Preset */
             style_preset?: string | null;
+        };
+        /**
+         * RenderSummary
+         * @description Metadata row for GET /renders/{id} (no file bytes here).
+         */
+        RenderSummary: {
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Comfy Job Id */
+            comfy_job_id?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /**
          * ResultLink
@@ -1201,6 +1262,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_renders_api_v1_renders_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                kind?: string | null;
+                since?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedRenders"];
                 };
             };
             /** @description Validation Error */
