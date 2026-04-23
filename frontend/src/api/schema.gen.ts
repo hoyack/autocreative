@@ -79,6 +79,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/brand-kits/{slug}/logos/{filename}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream a brand-kit logo file (PNG / JPG / SVG)
+         * @description Serve a logo from ``.brand-kits/<slug>/logos/<filename>``.
+         *
+         *     SECURITY (T-1 HIGH — path traversal). Returns 404 on EVERY failure:
+         *
+         *     - slug regex mismatch (handled by FastAPI PathParam validation -> 422)
+         *     - extension not in :data:`_LOGO_EXT_MIME`
+         *     - resolved file path outside ``settings.brand_kits_dir``
+         *     - file missing on disk
+         *
+         *     We deliberately do NOT distinguish (e.g. 403 vs 404) — any signal leaks
+         *     filesystem shape to attackers. See routes/renders.py for the same posture
+         *     (Phase 20 T-1 mitigation).
+         */
+        get: operations["get_brand_kit_logo_api_v1_brand_kits__slug__logos__filename__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/flyers": {
         parameters: {
             query?: never;
@@ -856,6 +887,45 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["BrandKitDetail"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_brand_kit_logo_api_v1_brand_kits__slug__logos__filename__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                filename: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Logo not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
