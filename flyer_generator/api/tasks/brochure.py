@@ -66,8 +66,9 @@ async def task_generate_brochure(ctx: dict, *, job_id: str, payload: dict) -> st
         template = load_template(template_name)
 
         # 1) Generate hero + spot images if requested (ASYNC, existing).
-        # NOTE: generate_template_images keyword is ``workflow_name``, NOT
-        # ``workflow`` — see image_gate.py:197.
+        # NOTE: the request-body key is ``workflow`` (BrochureCreateRequest
+        # schema), but the generate_template_images kwarg is ``workflow_name``.
+        # Translate payload["workflow"] -> workflow_name here. WR-01.
         images: dict = {}
         if payload.get("generate_images", True):
             images = await generate_template_images(
@@ -75,7 +76,7 @@ async def task_generate_brochure(ctx: dict, *, job_id: str, payload: dict) -> st
                 content,
                 settings=settings,
                 http_client=http_client,
-                workflow_name=payload.get("workflow_name", "turbo_landscape"),
+                workflow_name=payload.get("workflow", "turbo_landscape"),
                 style_preset=payload.get("style_preset", "photorealistic"),
             )
 
