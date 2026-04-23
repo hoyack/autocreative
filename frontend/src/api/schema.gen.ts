@@ -214,6 +214,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List jobs (newest first; filter by kind / status)
+         * @description Return paginated jobs sorted by ``created_at`` DESC.
+         *
+         *     Filters: optional ``kind`` + ``status`` enum constraints. FastAPI coerces
+         *     query strings to the two ``JobKind`` / ``JobStatus`` enums and returns
+         *     422 on any value outside the enum — that's the SQL-smuggling mitigation
+         *     for T-18 in the plan threat model.
+         */
+        get: operations["list_jobs_api_v1_jobs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/renders/{render_id}/image": {
         parameters: {
             query?: never;
@@ -733,6 +758,29 @@ export interface components {
             offset: number;
         };
         /**
+         * PaginatedJobs
+         * @description Response for ``GET /api/v1/jobs?limit=&offset=&kind=&status=``.
+         *
+         *     Mirrors :class:`PaginatedBrandKits`. Items reuse the existing
+         *     :class:`JobDetail` schema so clients can share a single row type between
+         *     the list view and the single-job poll.
+         *
+         *     Per Plan 21-10 + 21-RESEARCH.md Open Q1 (cheap path): campaigns whose
+         *     detail route would fuse a ``list[ResultLink]`` instead have
+         *     ``result_ref=None`` in the list view — callers fetch the full fuse from
+         *     ``GET /api/v1/jobs/{id}``.
+         */
+        PaginatedJobs: {
+            /** Items */
+            items: components["schemas"]["JobDetail"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
+        /**
          * PostCreateRequest
          * @description Body of POST /api/v1/social/posts.
          *
@@ -1088,6 +1136,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_jobs_api_v1_jobs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                kind?: components["schemas"]["JobKind"] | null;
+                status?: components["schemas"]["JobStatus"] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedJobs"];
                 };
             };
             /** @description Validation Error */
