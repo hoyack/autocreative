@@ -16,11 +16,15 @@ class FlyerRecord(Base):
 
     id: Mapped[str] = mapped_column(String(26), primary_key=True, default=new_ulid)
     title: Mapped[str] = mapped_column(String(200), nullable=False)
+    # Phase 22 FT-01: template slug used to render this flyer (mirrors
+    # BrochureRecord.template). Existing rows backfill via alembic
+    # f22t01 with server_default='editorial_classic'.
+    template: Mapped[str] = mapped_column(String(64), nullable=False)
     preset: Mapped[str] = mapped_column(String(64), nullable=False)
     brand_kit_slug: Mapped[str | None] = mapped_column(
         ForeignKey("brand_kits.slug", ondelete="SET NULL"), nullable=True, index=True
     )
-    # EventInput.model_dump(mode="json") + {preset, brand_kit_slug, accent, max_bg_attempts}
+    # FlyerInput.model_dump(mode="json") + {preset, brand_kit_slug, accent, max_bg_attempts, template}
     event_payload: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     render_id: Mapped[str | None] = mapped_column(
         ForeignKey("renders.id", ondelete="SET NULL"), nullable=True, index=True
