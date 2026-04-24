@@ -1,0 +1,40 @@
+{
+  "schema_version": "1",
+  "name": "retro_poster",
+  "description": "Display title with stroke, halftone-style scrim, multiple accent shapes. Retro events.",
+  "tone_keywords": ["retro", "poster", "playful"],
+  "subtype_compat": ["event"],
+  "canvas": { "width": 1080, "height": 1920 },
+  "palette": {
+    "accent_default": "#F97316",
+    "neutral_dark": "#1F1B16",
+    "neutral_light": "#FAF4E5",
+    "muted": "#C4A88B",
+    "scrim_opacity_top": 0.70,
+    "scrim_opacity_bottom": 0.80
+  },
+  "typography": {
+    "heading_family": "'Bungee', 'Impact', sans-serif",
+    "body_family": "'Courier New', monospace",
+    "cover_title_size": 120,
+    "body_size": 32,
+    "body_line_height": 42
+  },
+  "panels": {
+    "hero": {
+      "description": "Full-bleed hero, display title with stroke, stacked accent bands, monospace details.",
+      "elements": [
+        { "type": "image_placeholder", "bbox": [0, 0, 1080, 1920], "slot": "hero", "corner_radius": 0, "show_placeholder_label": true, "z": 0 },
+        { "type": "shape", "kind": "rect", "rect": [0, 200, 1080, 80], "fill": { "type": "solid", "color": "#F97316", "opacity": 0.9 }, "z": 4 },
+        { "type": "shape", "kind": "rect", "rect": [0, 1700, 1080, 80], "fill": { "type": "solid", "color": "#F97316", "opacity": 0.9 }, "z": 4 },
+        { "type": "shape", "kind": "circle", "rect": [880, 80, 120, 120], "fill": { "type": "solid", "color": "#F97316" }, "z": 5 },
+        { "type": "shape", "kind": "rect", "rect": [30, 380, 1020, 940], "fill": { "type": "solid", "color": "#1F1B16", "opacity": 0.55 }, "z": 8 },
+        { "type": "text", "bbox": [60, 400, 960, 900], "role": "cover_title", "content_key": "event.title", "color": "#FAF4E5", "weight": "bold", "uppercase": true, "valign": "top", "z": 10 },
+        { "type": "text", "bbox": [60, 1380, 960, 60], "role": "body", "content_key": "event.date", "color": "#FAF4E5", "font_family": "'Courier New', monospace", "weight": "bold", "uppercase": true, "letter_spacing": 2, "z": 10 },
+        { "type": "text", "bbox": [60, 1450, 960, 60], "role": "body", "content_key": "event.location_name", "color": "#FAF4E5", "font_family": "'Courier New', monospace", "uppercase": true, "z": 10 },
+        { "type": "text", "bbox": [60, 1520, 960, 60], "role": "body", "content_key": "event.fees", "color": "#FAF4E5", "font_family": "'Courier New', monospace", "letter_spacing": 2, "z": 10 },
+        { "type": "text", "bbox": [60, 1720, 960, 40], "role": "static", "static_text": "RETRO POSTER", "font_size": 24, "color": "#FAF4E5", "uppercase": true, "letter_spacing": 8, "weight": "bold", "align": "center", "z": 11 }
+      ]
+    }
+  }
+}

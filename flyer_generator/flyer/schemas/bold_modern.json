@@ -1,0 +1,38 @@
+{
+  "schema_version": "1",
+  "name": "bold_modern",
+  "description": "Sans-serif slab, full-bleed scrim, thick accent stripe. High-energy events.",
+  "tone_keywords": ["bold", "modern", "energetic"],
+  "subtype_compat": ["event"],
+  "canvas": { "width": 1080, "height": 1920 },
+  "palette": {
+    "accent_default": "#FF2E4D",
+    "neutral_dark": "#0A0A0A",
+    "neutral_light": "#FFFFFF",
+    "muted": "#2A2A2A",
+    "scrim_opacity_top": 0.85,
+    "scrim_opacity_bottom": 0.90
+  },
+  "typography": {
+    "heading_family": "'Impact', 'Arial Black', sans-serif",
+    "body_family": "'Arial', sans-serif",
+    "cover_title_size": 140,
+    "body_size": 38,
+    "body_line_height": 48
+  },
+  "panels": {
+    "hero": {
+      "description": "Full-bleed hero, slab title dominant, thick bottom accent stripe, details stacked above stripe.",
+      "elements": [
+        { "type": "image_placeholder", "bbox": [0, 0, 1080, 1920], "slot": "hero", "corner_radius": 0, "show_placeholder_label": true, "z": 0 },
+        { "type": "shape", "kind": "rect", "rect": [0, 1800, 1080, 120], "fill": { "type": "solid", "color": "#FF2E4D" }, "z": 5 },
+        { "type": "text", "bbox": [60, 120, 960, 600], "role": "cover_title", "content_key": "event.title", "color": "#FFFFFF", "weight": "bold", "uppercase": true, "valign": "top", "z": 10 },
+        { "type": "text", "bbox": [60, 1300, 960, 60], "role": "body", "content_key": "event.date", "color": "#FFFFFF", "weight": "semibold", "uppercase": true, "z": 10 },
+        { "type": "text", "bbox": [60, 1370, 960, 60], "role": "body", "content_key": "event.time", "color": "#FFFFFF", "weight": "semibold", "z": 10 },
+        { "type": "text", "bbox": [60, 1440, 960, 60], "role": "body", "content_key": "event.location_name", "color": "#FFFFFF", "z": 10 },
+        { "type": "text", "bbox": [60, 1510, 960, 60], "role": "body", "content_key": "event.fees", "color": "#FFFFFF", "weight": "semibold", "z": 10 },
+        { "type": "text", "bbox": [60, 1830, 960, 60], "role": "org_name", "content_key": "org", "color": "#FFFFFF", "font_size": 28, "letter_spacing": 4, "uppercase": true, "weight": "bold", "z": 20 }
+      ]
+    }
+  }
+}

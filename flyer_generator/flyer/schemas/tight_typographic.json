@@ -1,0 +1,41 @@
+{
+  "schema_version": "1",
+  "name": "tight_typographic",
+  "description": "Typography-first, minimal imagery emphasis, structured grid. Clean announcements.",
+  "tone_keywords": ["typographic", "structured", "clean"],
+  "subtype_compat": ["event", "info"],
+  "canvas": { "width": 1080, "height": 1920 },
+  "palette": {
+    "accent_default": "#000000",
+    "neutral_dark": "#000000",
+    "neutral_light": "#FFFFFF",
+    "muted": "#CCCCCC",
+    "scrim_opacity_top": 0.0,
+    "scrim_opacity_bottom": 0.0
+  },
+  "typography": {
+    "heading_family": "'Helvetica Neue', Arial, sans-serif",
+    "body_family": "'Helvetica Neue', Arial, sans-serif",
+    "cover_title_size": 110,
+    "body_size": 36,
+    "body_line_height": 46
+  },
+  "panels": {
+    "hero": {
+      "description": "Top image region (60..660), structured grid rule bands at y=700 and y=1800, large title below image.",
+      "background": { "type": "solid", "color": "#FFFFFF" },
+      "elements": [
+        { "type": "image_placeholder", "bbox": [60, 60, 960, 600], "slot": "hero", "corner_radius": 0, "show_placeholder_label": true, "z": 0 },
+        { "type": "shape", "kind": "rect", "rect": [60, 700, 960, 4], "fill": { "type": "solid", "color": "#000000" }, "z": 5 },
+        { "type": "shape", "kind": "rect", "rect": [60, 1800, 960, 4], "fill": { "type": "solid", "color": "#000000" }, "z": 5 },
+        { "type": "text", "bbox": [60, 740, 960, 60], "role": "static", "static_text": "ANNOUNCEMENT", "font_size": 24, "letter_spacing": 8, "uppercase": true, "weight": "bold", "color": "#000000", "z": 10 },
+        { "type": "text", "bbox": [60, 800, 960, 500], "role": "cover_title", "content_key": "event.title", "color": "#000000", "weight": "bold", "valign": "top", "z": 10 },
+        { "type": "text", "bbox": [60, 1340, 960, 60], "role": "body", "content_key": "event.date", "color": "#000000", "weight": "semibold", "z": 10 },
+        { "type": "text", "bbox": [60, 1410, 960, 60], "role": "body", "content_key": "event.time", "color": "#000000", "z": 10 },
+        { "type": "text", "bbox": [60, 1480, 960, 60], "role": "body", "content_key": "event.location_name", "color": "#000000", "z": 10 },
+        { "type": "text", "bbox": [60, 1550, 960, 120], "role": "body", "content_key": "event.description", "color": "#000000", "z": 10 },
+        { "type": "text", "bbox": [60, 1830, 960, 50], "role": "org_name", "content_key": "org", "color": "#000000", "font_size": 22, "letter_spacing": 5, "uppercase": true, "weight": "semibold", "z": 20 }
+      ]
+    }
+  }
+}

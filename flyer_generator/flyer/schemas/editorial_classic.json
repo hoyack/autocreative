@@ -1,0 +1,36 @@
+{
+  "schema_version": "1",
+  "name": "editorial_classic",
+  "description": "Serif typography, thin accent rule, narrow scrim. Event-centric.",
+  "tone_keywords": ["professional", "editorial", "understated"],
+  "subtype_compat": ["event", "info"],
+  "canvas": { "width": 1080, "height": 1920 },
+  "palette": {
+    "accent_default": "#1E3A5F",
+    "neutral_dark": "#1A1A1A",
+    "neutral_light": "#FAFAF7",
+    "muted": "#E8E6E1",
+    "scrim_opacity_top": 0.60,
+    "scrim_opacity_bottom": 0.70
+  },
+  "typography": {
+    "heading_family": "'Playfair Display', 'Times New Roman', serif",
+    "body_family": "'Source Serif Pro', Georgia, serif",
+    "cover_title_size": 88,
+    "body_size": 36,
+    "body_line_height": 44
+  },
+  "panels": {
+    "hero": {
+      "description": "Full-bleed hero image, serif title upper-left, event details column, thin accent rule at bottom.",
+      "elements": [
+        { "type": "image_placeholder", "bbox": [0, 0, 1080, 1920], "slot": "hero", "corner_radius": 0, "show_placeholder_label": true, "z": 0 },
+        { "type": "shape", "kind": "rect", "rect": [0, 1908, 1080, 8], "fill": { "type": "solid", "color": "#1E3A5F" }, "z": 5 },
+        { "type": "text", "bbox": [80, 100, 920, 400], "role": "cover_title", "content_key": "event.title", "color": "#FAFAF7", "valign": "top", "z": 10 },
+        { "type": "text", "bbox": [80, 550, 920, 60], "role": "body", "content_key": "event.date", "color": "#FAFAF7", "z": 10 },
+        { "type": "text", "bbox": [80, 620, 920, 60], "role": "body", "content_key": "event.location_name", "color": "#FAFAF7", "z": 10 },
+        { "type": "text", "bbox": [80, 1830, 920, 40], "role": "static", "static_text": "ESTABLISHED", "font_size": 24, "letter_spacing": 6, "uppercase": true, "color": "#FAFAF7", "z": 10 }
+      ]
+    }
+  }
+}

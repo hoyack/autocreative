@@ -1,0 +1,38 @@
+{
+  "schema_version": "1",
+  "name": "zine",
+  "description": "Collage feel, off-axis text, asymmetric scrim. DIY / indie events.",
+  "tone_keywords": ["zine", "collage", "indie"],
+  "subtype_compat": ["event", "info"],
+  "canvas": { "width": 1080, "height": 1920 },
+  "palette": {
+    "accent_default": "#DC2626",
+    "neutral_dark": "#111111",
+    "neutral_light": "#F5F5DC",
+    "muted": "#999999",
+    "scrim_opacity_top": 0.50,
+    "scrim_opacity_bottom": 0.65
+  },
+  "typography": {
+    "heading_family": "'Courier New', 'Courier', monospace",
+    "body_family": "'Arial', sans-serif",
+    "cover_title_size": 96,
+    "body_size": 32,
+    "body_line_height": 42
+  },
+  "panels": {
+    "hero": {
+      "description": "Full-bleed hero, two asymmetric accent stripes (top-right + bottom-left), off-axis title.",
+      "elements": [
+        { "type": "image_placeholder", "bbox": [0, 0, 1080, 1920], "slot": "hero", "corner_radius": 0, "show_placeholder_label": true, "z": 0 },
+        { "type": "shape", "kind": "rect", "rect": [600, 0, 480, 180], "fill": { "type": "solid", "color": "#DC2626" }, "rotation": 4, "z": 5 },
+        { "type": "shape", "kind": "rect", "rect": [0, 1720, 560, 140], "fill": { "type": "solid", "color": "#DC2626" }, "rotation": -3, "z": 5 },
+        { "type": "text", "bbox": [40, 200, 900, 500], "role": "cover_title", "content_key": "event.title", "color": "#F5F5DC", "weight": "bold", "uppercase": true, "valign": "top", "z": 10 },
+        { "type": "text", "bbox": [40, 800, 900, 60], "role": "body", "content_key": "event.date", "color": "#F5F5DC", "font_family": "'Courier New', monospace", "letter_spacing": 2, "z": 10 },
+        { "type": "text", "bbox": [40, 870, 900, 60], "role": "body", "content_key": "event.location_name", "color": "#F5F5DC", "font_family": "'Courier New', monospace", "z": 10 },
+        { "type": "text", "bbox": [40, 940, 900, 120], "role": "body", "content_key": "event.description", "color": "#F5F5DC", "z": 10 },
+        { "type": "text", "bbox": [40, 1820, 520, 40], "role": "org_name", "content_key": "org", "color": "#F5F5DC", "font_size": 22, "letter_spacing": 3, "uppercase": true, "weight": "bold", "z": 20 }
+      ]
+    }
+  }
+}
