@@ -183,6 +183,7 @@ def test_render_summary_round_trips() -> None:
 def test_flyer_create_request_round_trips_with_event_input() -> None:
     fcr = FlyerCreateRequest(
         event=_event(),
+        template="editorial_classic",
         preset="photorealistic",
         brand_kit_slug="shrubnet",
         accent="#AABBCC",
@@ -406,3 +407,128 @@ def test_flyer_create_request_accepts_good_accent(good_accent: str) -> None:
 def test_flyer_create_request_rejects_out_of_range_max_bg_attempts(bad_n: int) -> None:
     with pytest.raises(ValidationError):
         FlyerCreateRequest(event=_event(), preset="p", max_bg_attempts=bad_n)
+
+
+# ---------------------------------------------------------------------------
+# Phase 22 Plan 04: FlyerCreateRequest.template + FlyerInput event field
+# ---------------------------------------------------------------------------
+
+
+class TestFlyerCreateRequestTemplate:
+    """Phase 22: template field + subtype-optional event fields."""
+
+    def _valid_event(self) -> dict:
+        return {
+            "title": "T",
+            "date": "2026-05-01",
+            "time": "7pm",
+            "location_name": "Hall",
+            "location_address": "1 Main",
+            "fees": "Free",
+            "org": "Acme",
+            "style_concept": "c",
+            "style_preset": "photorealistic",
+        }
+
+    def test_template_required(self):
+        with pytest.raises(ValidationError) as ei:
+            FlyerCreateRequest.model_validate(
+                {
+                    "event": self._valid_event(),
+                    "preset": "photorealistic",
+                }
+            )
+        assert "template" in str(ei.value)
+
+    def test_template_min_length(self):
+        with pytest.raises(ValidationError):
+            FlyerCreateRequest.model_validate(
+                {
+                    "event": self._valid_event(),
+                    "template": "",
+                    "preset": "photorealistic",
+                }
+            )
+
+    def test_template_max_length(self):
+        with pytest.raises(ValidationError):
+            FlyerCreateRequest.model_validate(
+                {
+                    "event": self._valid_event(),
+                    "template": "a" * 65,
+                    "preset": "photorealistic",
+                }
+            )
+
+    def test_template_wrong_type(self):
+        with pytest.raises(ValidationError):
+            FlyerCreateRequest.model_validate(
+                {
+                    "event": self._valid_event(),
+                    "template": 123,
+                    "preset": "photorealistic",
+                }
+            )
+
+    def test_event_subtype_info_without_event_fields(self):
+        req = FlyerCreateRequest.model_validate(
+            {
+                "event": {
+                    "title": "Notice",
+                    "subtype": "info",
+                    "description": "Road closure",
+                    "org": "City",
+                    "style_concept": "c",
+                    "style_preset": "photorealistic",
+                },
+                "template": "editorial_classic",
+                "preset": "photorealistic",
+            }
+        )
+        assert req.event.subtype == "info"
+        assert req.template == "editorial_classic"
+
+    def test_valid_event_with_template_roundtrip(self):
+        payload = {
+            "event": self._valid_event(),
+            "template": "bold_modern",
+            "preset": "photorealistic",
+        }
+        req = FlyerCreateRequest.model_validate(payload)
+        dumped = req.model_dump(mode="json")
+        assert dumped["template"] == "bold_modern"
+        req2 = FlyerCreateRequest.model_validate(dumped)
+        assert req2.template == req.template
+
+    def test_extra_fields_forbidden(self):
+        with pytest.raises(ValidationError):
+            FlyerCreateRequest.model_validate(
+                {
+                    "event": self._valid_event(),
+                    "template": "editorial_classic",
+                    "preset": "photorealistic",
+                    "foo": "bar",
+                }
+            )
+
+    def test_template_max_length_64_accepted(self):
+        # Exactly 64 chars must be accepted (boundary).
+        req = FlyerCreateRequest.model_validate(
+            {
+                "event": self._valid_event(),
+                "template": "a" * 64,
+                "preset": "photorealistic",
+            }
+        )
+        assert len(req.template) == 64
+
+    def test_template_min_length_1_accepted(self):
+        # Exactly 1 char must be accepted (boundary).
+        req = FlyerCreateRequest.model_validate(
+            {
+                "event": self._valid_event(),
+                "template": "z",
+                "preset": "photorealistic",
+            }
+        )
+        assert req.template == "z"
