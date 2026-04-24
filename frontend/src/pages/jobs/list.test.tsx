@@ -25,7 +25,7 @@ describe("JobsListPage", () => {
       ),
     );
     renderWithProviders(<JobsListPage />);
-    expect(await screen.findByText(/no jobs\./i)).toBeInTheDocument();
+    expect(await screen.findByText(/queue is empty\./i)).toBeInTheDocument();
   });
 
   it("links each row to the kind-specific status page", async () => {
@@ -64,11 +64,11 @@ describe("JobsListPage", () => {
     );
     renderWithProviders(<JobsListPage />);
 
-    // Rows are rendered as "<first-12>..." text inside a <Link>.
-    const flyerLink = await screen.findByText(`${flyerId.slice(0, 12)}...`);
+    // Rows are rendered as "<first-14>…" text inside a <Link>.
+    const flyerLink = await screen.findByText(`${flyerId.slice(0, 14)}…`);
     expect(flyerLink.closest("a")).toHaveAttribute("href", `/flyers/${flyerId}`);
 
-    const brocLink = screen.getByText(`${brocId.slice(0, 12)}...`);
+    const brocLink = screen.getByText(`${brocId.slice(0, 14)}…`);
     expect(brocLink.closest("a")).toHaveAttribute(
       "href",
       `/brochures/${brocId}`,

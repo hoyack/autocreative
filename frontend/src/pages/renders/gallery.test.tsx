@@ -25,7 +25,7 @@ describe("RenderGalleryPage", () => {
       ),
     );
     renderWithProviders(<RenderGalleryPage />);
-    expect(await screen.findByText(/no renders\./i)).toBeInTheDocument();
+    expect(await screen.findByText(/archive is empty\./i)).toBeInTheDocument();
   });
 
   it("renders <img> for PNG kinds and download link for PDF kinds", async () => {
@@ -62,7 +62,9 @@ describe("RenderGalleryPage", () => {
     expect(img).toHaveAttribute("src", `/api/v1/renders/${pngId}/image`);
 
     // PDF card -> Download link pointing at the same streaming route.
-    const dl = screen.getByText(/download pdf/i);
+    // The editorial restyle shows a big "PDF" glyph + "Click to download →"
+    // caption in the card; both live inside the same <a download> element.
+    const dl = screen.getByText(/click to download/i);
     expect(dl.closest("a")).toHaveAttribute(
       "href",
       `/api/v1/renders/${pdfId}/image`,

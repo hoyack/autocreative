@@ -1,14 +1,8 @@
-// Plan 21-07 Task 2 — replaces the plan-21-03 stub.
+// Plan 21-07 Task 2 — brochure status page.
 //
-// Brochure status page: polls the job via <JobStatusCard/>; once the job
-// reaches succeeded, additionally GETs /api/v1/brochures/{id} and renders
-// the 3 artifacts (front PNG, back PNG, print PDF) via <RenderPreview/>.
-//
-// Per 21-07-PLAN.md Task 1 parallel-id pattern: the URL :id is the JobRecord.id
-// which (after the Task 1 worker change) also equals BrochureRecord.id, so
-// GET /brochures/{id} resolves directly. The job polls separately via useJob
-// so the transitions queued -> running -> succeeded still display via the
-// shared JobStatusCard.
+// Polls the job via <JobStatusCard/>; once succeeded, additionally GETs
+// /api/v1/brochures/{id} and renders the 3 artifacts (front PNG, back
+// PNG, print PDF) via <RenderPreview/>.
 import { Link, useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 
@@ -17,22 +11,11 @@ import { RenderPreview } from "@/components/RenderPreview";
 import { useJob } from "@/hooks/useJob";
 import { client } from "@/api/client";
 import { queryKeys } from "@/lib/queryKeys";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 
 export function BrochureStatusPage() {
   const { id = "" } = useParams<{ id: string }>();
   const { data: job } = useJob(id);
 
-  // Only fetch BrochureDetail once the job has succeeded — until then the
-  // BrochureRecord row does not exist (the worker writes it at the tail of
-  // task_generate_brochure). `enabled` gates the query off until the
-  // terminal-state transition fires.
   const { data: detail, isPending: detailPending } = useQuery({
     queryKey: queryKeys.brochure(id),
     enabled: job?.status === "succeeded",
@@ -47,65 +30,88 @@ export function BrochureStatusPage() {
   });
 
   return (
-    <div className="space-y-6">
-      <Link to="/brochures/new" className="text-sm underline">
-        &larr; New brochure
+    <div className="mx-auto max-w-screen-xl px-10 pt-14 pb-24 md:px-14">
+      <Link
+        to="/brochures/new"
+        className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground hover:text-amber"
+      >
+        <span aria-hidden>←</span>
+        New brochure
       </Link>
-      <h1 className="text-2xl font-semibold">Brochure job</h1>
+      <div className="mt-6">
+        <div className="font-mono text-[11px] tracking-[0.2em] uppercase text-muted-foreground">
+          <span className="text-amber">03</span>
+          <span aria-hidden className="mx-3">/</span>
+          Job ·{" "}
+          <span className="normal-case tracking-wider">
+            {id.slice(0, 14)}…
+          </span>
+        </div>
+        <h1
+          className="mt-5 font-display text-5xl leading-[0.95] tracking-[-0.025em] text-foreground"
+          style={{
+            fontVariationSettings: '"opsz" 144, "SOFT" 40, "WONK" 0',
+          }}
+        >
+          Brochure job
+        </h1>
+      </div>
 
-      {/* JobStatusCard polls while the job is non-terminal and also renders
-          the default single-result-ref preview for non-brochure kinds. For
-          brochure jobs the single preview is still correct (it's the front
-          PNG's URL — the result_ref == BrochureRecord.id now resolves through
-          the detail fetch below, not a direct render URL). */}
-      <JobStatusCard jobId={id} title="Brochure" />
+      <div className="mt-10">
+        <JobStatusCard jobId={id} title="Brochure" />
+      </div>
 
-      {/* Once succeeded, render the 3-artifact view from BrochureDetail. */}
       {job?.status === "succeeded" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Artifacts</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-3">
-            {detailPending && (
-              <Skeleton className="h-48 w-full md:col-span-3" />
-            )}
+        <section className="mt-16 border-t border-foreground/80 pt-6">
+          <div className="flex items-baseline gap-4 pb-8">
+            <span className="kicker">Artifacts</span>
+            <h2
+              className="font-display text-3xl italic leading-none tracking-tight text-foreground"
+              style={{
+                fontVariationSettings: '"opsz" 144, "SOFT" 60, "WONK" 1',
+              }}
+            >
+              three panels
+            </h2>
+          </div>
+
+          {detailPending && (
+            <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+              Loading detail…
+            </p>
+          )}
+
+          <div className="grid gap-10 md:grid-cols-3">
             {detail?.front_render_url && (
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-xs font-medium">
-                  Front (PNG)
-                </p>
+              <figure className="space-y-3">
+                <figcaption className="kicker">Front · PNG</figcaption>
                 <RenderPreview
                   url={detail.front_render_url}
                   alt="Brochure front"
                 />
-              </div>
+              </figure>
             )}
             {detail?.back_render_url && (
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-xs font-medium">
-                  Back (PNG)
-                </p>
+              <figure className="space-y-3">
+                <figcaption className="kicker">Back · PNG</figcaption>
                 <RenderPreview
                   url={detail.back_render_url}
                   alt="Brochure back"
                 />
-              </div>
+              </figure>
             )}
             {detail?.pdf_render_url && (
-              <div className="space-y-1">
-                <p className="text-muted-foreground text-xs font-medium">
-                  Print PDF
-                </p>
+              <figure className="space-y-3">
+                <figcaption className="kicker">Print · PDF</figcaption>
                 <RenderPreview
                   url={detail.pdf_render_url}
                   alt="Brochure PDF"
                   isPdf
                 />
-              </div>
+              </figure>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       )}
     </div>
   );

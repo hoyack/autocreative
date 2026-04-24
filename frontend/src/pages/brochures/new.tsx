@@ -41,6 +41,7 @@ import {
   client,
 } from "@/api/client";
 import { queryKeys } from "@/lib/queryKeys";
+import { PageHeader } from "@/components/PageHeader";
 
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
 
@@ -148,21 +149,17 @@ export function NewBrochurePage() {
   });
 
   return (
-    <div className="max-w-2xl space-y-4">
-      <h1 className="text-2xl font-semibold">New brochure</h1>
-      <p className="text-muted-foreground text-sm">
-        Paste a BrochureContent JSON (see{" "}
-        <code>
-          flyer_generator/brochure/schema_renderer/content_model.py
-        </code>
-        ), pick a template, and submit. The pipeline enqueues a job and the
-        next page polls it until the front PNG, back PNG, and print PDF
-        appear.
-      </p>
+    <div className="mx-auto max-w-3xl px-10 pt-14 pb-24 md:px-14">
+      <PageHeader
+        number="03"
+        kicker="The Folio"
+        title="New brochure"
+        dek="Paste a BrochureContent JSON, pick a template, and submit. The pipeline enqueues a job and the next page polls it until the front PNG, back PNG, and print PDF land."
+      />
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit((v) => enqueue.mutate(v))}
-          className="space-y-4"
+          className="space-y-8"
           noValidate
         >
           <FormField
@@ -187,7 +184,7 @@ export function NewBrochurePage() {
               </FormItem>
             )}
           />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-8">
             <FormField
               control={form.control}
               name="template"
@@ -219,7 +216,7 @@ export function NewBrochurePage() {
               )}
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-8">
             <FormField
               control={form.control}
               name="workflow"
@@ -264,9 +261,16 @@ export function NewBrochurePage() {
               </FormItem>
             )}
           />
-          <Button type="submit" disabled={enqueue.isPending}>
-            {enqueue.isPending ? "Submitting..." : "Generate brochure"}
-          </Button>
+          <div className="border-t border-border pt-8">
+            <Button
+              type="submit"
+              size="lg"
+              disabled={enqueue.isPending}
+              className="w-full sm:w-auto"
+            >
+              {enqueue.isPending ? "Submitting…" : "Generate brochure →"}
+            </Button>
+          </div>
         </form>
       </Form>
     </div>

@@ -51,6 +51,7 @@ import {
   client,
 } from "@/api/client";
 import { queryKeys } from "@/lib/queryKeys";
+import { PageHeader } from "@/components/PageHeader";
 
 const HEX = /^#[0-9A-Fa-f]{6}$/;
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
@@ -166,17 +167,17 @@ export function NewFlyerPage() {
   });
 
   return (
-    <div className="max-w-2xl space-y-4">
-      <h1 className="text-2xl font-semibold">New flyer</h1>
-      <p className="text-muted-foreground text-sm">
-        Fill the event fields, pick a style preset, and (optionally) a brand
-        kit. The pipeline enqueues a job and the next page polls it until the
-        rendered PNG appears.
-      </p>
+    <div className="mx-auto max-w-3xl px-10 pt-14 pb-24 md:px-14">
+      <PageHeader
+        number="02"
+        kicker="The Canvas"
+        title="New flyer"
+        dek="Fill the event fields, pick a style preset, and (optionally) a brand kit. The pipeline enqueues a job and the next page polls it until the rendered PNG lands."
+      />
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit((v) => enqueue.mutate(v))}
-          className="space-y-4"
+          className="space-y-8"
           noValidate
         >
           <FormField
@@ -192,7 +193,7 @@ export function NewFlyerPage() {
               </FormItem>
             )}
           />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-8">
             <FormField
               control={form.control}
               name="event.date"
@@ -246,7 +247,7 @@ export function NewFlyerPage() {
               </FormItem>
             )}
           />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-8">
             <FormField
               control={form.control}
               name="event.fees"
@@ -314,7 +315,7 @@ export function NewFlyerPage() {
               </FormItem>
             )}
           />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-8">
             <FormField
               control={form.control}
               name="brand_kit_slug"
@@ -350,9 +351,16 @@ export function NewFlyerPage() {
               )}
             />
           </div>
-          <Button type="submit" disabled={enqueue.isPending}>
-            {enqueue.isPending ? "Submitting..." : "Generate flyer"}
-          </Button>
+          <div className="border-t border-border pt-8">
+            <Button
+              type="submit"
+              size="lg"
+              disabled={enqueue.isPending}
+              className="w-full sm:w-auto"
+            >
+              {enqueue.isPending ? "Submitting…" : "Generate flyer →"}
+            </Button>
+          </div>
         </form>
       </Form>
     </div>

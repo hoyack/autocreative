@@ -1,8 +1,4 @@
-// Plan 21-06 Task 1 — replaces the plan-21-03 stub.
-//
-// Thin wrapper around <JobStatusCard/> (plan 21-04). All polling, status
-// states, and render preview logic live inside JobStatusCard so this page
-// stays minimal.
+// Plan 21-06 Task 1 — thin wrapper around <JobStatusCard/>.
 import { Link, useParams } from "react-router";
 
 import { JobStatusCard } from "@/components/JobStatusCard";
@@ -10,12 +6,35 @@ import { JobStatusCard } from "@/components/JobStatusCard";
 export function FlyerStatusPage() {
   const { id = "" } = useParams<{ id: string }>();
   return (
-    <div className="space-y-4">
-      <Link to="/flyers/new" className="text-sm underline">
-        &larr; New flyer
+    <div className="mx-auto max-w-screen-xl px-10 pt-14 pb-24 md:px-14">
+      <Link
+        to="/flyers/new"
+        className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground hover:text-amber"
+      >
+        <span aria-hidden>←</span>
+        New flyer
       </Link>
-      <h1 className="text-2xl font-semibold">Flyer job</h1>
-      <JobStatusCard jobId={id} title="Flyer" />
+      <div className="mt-6">
+        <div className="font-mono text-[11px] tracking-[0.2em] uppercase text-muted-foreground">
+          <span className="text-amber">02</span>
+          <span aria-hidden className="mx-3">/</span>
+          Job ·{" "}
+          <span className="normal-case tracking-wider">
+            {id.slice(0, 14)}…
+          </span>
+        </div>
+        <h1
+          className="mt-5 font-display text-5xl leading-[0.95] tracking-[-0.025em] text-foreground"
+          style={{
+            fontVariationSettings: '"opsz" 144, "SOFT" 40, "WONK" 0',
+          }}
+        >
+          Flyer job
+        </h1>
+      </div>
+      <div className="mt-10">
+        <JobStatusCard jobId={id} title="Flyer" />
+      </div>
     </div>
   );
 }

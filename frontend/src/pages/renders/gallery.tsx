@@ -1,27 +1,16 @@
 // Plan 21-11 Task 2 — replaces the plan-21-03 stub.
 //
-// Renders gallery (FE-10): a CSS-grid of RenderCard items. Each card shows
-// the render kind, a truncated id, created_at, and either an inline <img>
-// (PNG / JPG) or a download <a> (PDF). Kind filter narrows the list; the
-// Previous / Next pager handles offset-based pagination.
-//
-// Per 21-CONTEXT.md <specifics> "Render preview pattern" — PNG inline,
-// PDF download. Per 21-PATTERNS.md "Backend addition: list_renders" the
-// file bytes are NOT inlined in /api/v1/renders; we compute the preview URL
-// client-side as /api/v1/renders/{id}/image (which flows through the
-// existing streaming route with full T-1 path-containment defenses).
+// Renders gallery (FE-10): a CSS-grid of RenderCard items. Editorial restyle:
+// oversized thumbnails in tall frames, numbered overlay, mono metadata,
+// thin rule separators. PDF items show a typographic download link.
 //
 // Security (plan threat model T-2 / T-4): every server-supplied string
 // (r.id, r.kind, r.created_at) is rendered as JSX children — React escapes.
-// No dangerouslySetInnerHTML anywhere.
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { client } from "@/api/client";
 import { queryKeys } from "@/lib/queryKeys";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -31,10 +20,8 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { RenderPreview } from "@/components/RenderPreview";
+import { PageHeader } from "@/components/PageHeader";
 
-// Valid RenderRecord.kind values (flyer_generator/api/models/render.py:23).
-// Hard-coded; a schema-divergence would surface as a dropdown with a
-// missing option + a 422 on submit (both obvious in manual testing).
 const KINDS = [
   "flyer_final",
   "brochure_front",
@@ -44,17 +31,10 @@ const KINDS = [
   "brand_kit_logo",
 ] as const;
 
-/** Build the inline-stream URL for a render id. */
 function previewUrlFor(id: string): string {
   return `/api/v1/renders/${id}/image`;
 }
 
-/**
- * PDF rendering is keyed off the RenderRecord.kind, not the URL suffix.
- * RenderPreview's URL-based ".pdf" detection would fail on our
- * /renders/{id}/image URL (no extension), so we branch on kind directly
- * and use <RenderPreview/> only for image kinds.
- */
 function isPdfKind(kind: string): boolean {
   return kind.endsWith("_pdf");
 }
@@ -67,10 +47,6 @@ export function RenderGalleryPage() {
   const { data, isPending, error } = useQuery({
     queryKey: queryKeys.renders({ kind, limit, offset }),
     queryFn: async () => {
-      // Blank-filter elision (plan 21-10 Rule 2 pattern): only include
-      // ``kind`` in the query object when non-empty, so toggling back to
-      // "All" never serializes ``?kind=`` (which FastAPI accepts for a
-      // str|None Query but is still cleaner to omit).
       const query: Record<string, unknown> = { limit, offset };
       if (kind) query.kind = kind;
       const { data, error } = await client.GET("/api/v1/renders", {
@@ -82,93 +58,125 @@ export function RenderGalleryPage() {
   });
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Renders</h1>
+    <div className="mx-auto max-w-screen-2xl px-10 pt-14 pb-24 md:px-14">
+      <PageHeader
+        number="07"
+        kicker="The Archive"
+        title="Renders"
+        dek="Every flyer, brochure, post, and logo this pipeline has shipped — ordered newest to oldest, filterable by kind."
+      />
 
-      <div className="min-w-[220px]">
-        <label className="text-muted-foreground text-xs">Kind</label>
-        <Select
-          value={kind || "all"}
-          onValueChange={(v) => {
-            setOffset(0);
-            setKind(v === "all" ? "" : v);
-          }}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="All" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            {KINDS.map((k) => (
-              <SelectItem key={k} value={k}>
-                {k}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="mb-10 flex flex-wrap items-end gap-10 border-b border-border pb-6">
+        <div className="min-w-[220px]">
+          <div className="kicker mb-2">Kind</div>
+          <Select
+            value={kind || "all"}
+            onValueChange={(v) => {
+              setOffset(0);
+              setKind(v === "all" ? "" : v);
+            }}
+          >
+            <SelectTrigger className="h-10 rounded-none border-0 border-b border-border bg-transparent px-0 font-mono text-xs uppercase tracking-[0.14em] shadow-none focus:border-amber focus-visible:ring-0">
+              <SelectValue placeholder="All" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              {KINDS.map((k) => (
+                <SelectItem key={k} value={k}>
+                  {k}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {isPending && <Skeleton className="h-64 w-full" />}
-      {error && (
-        <p className="text-destructive">Failed: {(error as Error).message}</p>
-      )}
-      {data && data.items.length === 0 && (
-        <p className="text-muted-foreground text-sm">No renders.</p>
-      )}
-      {data && data.items.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {data.items.map((r) => {
+      {isPending ? (
+        <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+          Loading…
+        </p>
+      ) : error ? (
+        <p className="font-mono text-sm text-destructive">
+          Failed: {(error as Error).message}
+        </p>
+      ) : data && data.items.length === 0 ? (
+        <div className="border-t border-border py-24 text-center">
+          <p className="font-display text-2xl italic text-muted-foreground">
+            Archive is empty.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {data?.items.map((r, i) => {
             const url = previewUrlFor(r.id);
             return (
-              <Card key={r.id}>
-                <CardHeader className="space-y-1 p-3">
-                  <Badge variant="secondary" className="self-start text-xs">
-                    {r.kind}
-                  </Badge>
-                  <p className="text-muted-foreground font-mono text-[10px]">
-                    {r.id.slice(0, 14)}...
-                  </p>
-                  <p className="text-muted-foreground text-[10px]">
-                    {new Date(r.created_at).toLocaleString()}
-                  </p>
-                </CardHeader>
-                <CardContent className="p-3">
+              <figure key={r.id} className="group">
+                <div className="relative aspect-[2/3] overflow-hidden bg-card">
                   {isPdfKind(r.kind) ? (
                     <a
                       href={url}
                       download={`${r.id}.pdf`}
-                      className="hover:bg-muted inline-flex items-center gap-2 rounded border px-3 py-2 text-sm"
+                      className="absolute inset-0 flex flex-col items-center justify-center gap-3 border border-border transition-colors hover:border-amber"
                     >
-                      Download PDF
+                      <span
+                        className="font-display text-6xl italic text-muted-foreground transition-colors group-hover:text-amber"
+                        style={{
+                          fontVariationSettings:
+                            '"opsz" 144, "SOFT" 80, "WONK" 1',
+                        }}
+                      >
+                        PDF
+                      </span>
+                      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                        Click to download →
+                      </span>
                     </a>
                   ) : (
                     <RenderPreview url={url} alt={r.kind} />
                   )}
-                </CardContent>
-              </Card>
+                  <span className="absolute top-3 left-3 font-mono text-[10px] tabular-nums tracking-widest text-muted-foreground mix-blend-multiply">
+                    {String(offset + i + 1).padStart(3, "0")}
+                  </span>
+                </div>
+                <figcaption className="mt-4 border-t border-border pt-3 font-mono text-[10px] uppercase tracking-[0.14em] leading-relaxed text-muted-foreground">
+                  <div className="text-foreground/85">
+                    {r.kind.replace(/_/g, " ")}
+                  </div>
+                  <div className="mt-1 tabular-nums">
+                    {new Date(r.created_at).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "2-digit",
+                      year: "numeric",
+                    })}
+                  </div>
+                </figcaption>
+              </figure>
             );
           })}
         </div>
       )}
+
       {data && data.total > limit && (
-        <div className="flex items-center justify-between">
+        <div className="mt-16 flex items-center justify-between border-t border-border pt-6">
           <Button
-            variant="outline"
+            variant="ghost"
             disabled={offset === 0}
             onClick={() => setOffset(Math.max(0, offset - limit))}
+            className="h-9 rounded-none font-mono text-[11px] uppercase tracking-[0.18em]"
           >
-            Previous
+            ← Previous
           </Button>
-          <span className="text-muted-foreground text-sm">
-            {offset + 1}&ndash;
-            {Math.min(offset + data.items.length, data.total)} of {data.total}
+          <span className="font-mono text-[11px] tabular-nums uppercase tracking-widest text-muted-foreground">
+            {offset + 1}–{Math.min(offset + data.items.length, data.total)} /{" "}
+            {data.total}
           </span>
           <Button
-            variant="outline"
+            variant="ghost"
             disabled={offset + limit >= data.total}
             onClick={() => setOffset(offset + limit)}
+            className="h-9 rounded-none font-mono text-[11px] uppercase tracking-[0.18em]"
           >
-            Next
+            Next →
           </Button>
         </div>
       )}

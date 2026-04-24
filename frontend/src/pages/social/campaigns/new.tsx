@@ -67,6 +67,7 @@ import {
   client,
 } from "@/api/client";
 import { queryKeys } from "@/lib/queryKeys";
+import { PageHeader } from "@/components/PageHeader";
 
 // Mirrors flyer_generator/api/schemas/social.py::CampaignCreateRequest
 // and flyer_generator/social/models.py Platform + Intent literal aliases.
@@ -164,17 +165,17 @@ export function NewCampaignPage() {
   });
 
   return (
-    <div className="max-w-2xl space-y-4">
-      <h1 className="text-2xl font-semibold">New campaign</h1>
-      <p className="text-muted-foreground text-sm">
-        Pick one or more platforms, describe the topic, and submit. The
-        pipeline enqueues ONE job that produces one rendered image per
-        selected platform; the status page shows the per-platform grid.
-      </p>
+    <div className="mx-auto max-w-3xl px-10 pt-14 pb-24 md:px-14">
+      <PageHeader
+        number="05"
+        kicker="The Chorus"
+        title="New campaign"
+        dek="Pick platforms, describe the topic, submit. The pipeline returns one rendered image per platform — the status page shows the full chorus as a grid."
+      />
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit((v) => enqueue.mutate(v))}
-          className="space-y-4"
+          className="space-y-8"
           noValidate
         >
           <FormField
@@ -213,13 +214,18 @@ export function NewCampaignPage() {
             render={({ field, fieldState }) => (
               <FormItem>
                 <FormLabel>Platforms</FormLabel>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {PLATFORMS.map((p) => {
                     const checked = field.value?.includes(p) ?? false;
                     return (
                       <label
                         key={p}
-                        className="flex items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm"
+                        className={[
+                          "flex cursor-pointer items-center gap-2 border px-3 py-2.5 text-sm transition-colors",
+                          checked
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border bg-transparent text-foreground hover:border-amber",
+                        ].join(" ")}
                       >
                         <Checkbox
                           checked={checked}
@@ -327,9 +333,16 @@ export function NewCampaignPage() {
               </FormItem>
             )}
           />
-          <Button type="submit" disabled={enqueue.isPending}>
-            {enqueue.isPending ? "Submitting..." : "Generate campaign"}
-          </Button>
+          <div className="border-t border-border pt-8">
+            <Button
+              type="submit"
+              size="lg"
+              disabled={enqueue.isPending}
+              className="w-full sm:w-auto"
+            >
+              {enqueue.isPending ? "Submitting…" : "Generate campaign →"}
+            </Button>
+          </div>
         </form>
       </Form>
     </div>

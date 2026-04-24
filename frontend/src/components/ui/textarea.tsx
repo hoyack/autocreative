@@ -1,12 +1,7 @@
-// ShadCN-style Textarea primitive (radix-nova).
-// Mirrors the Input primitive's look-and-feel with multi-line sizing and
-// matches the same focus-visible / disabled / aria-invalid token chain so
-// FormMessage error styling is consistent across Input and Textarea.
-//
-// Added in plan 21-08 for the social post creator form (image_hint + topic).
-import * as React from "react"
+// ShadCN-style Textarea primitive — editorial treatment matches Input.
+import * as React from "react";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 
 function Textarea({
   className,
@@ -16,12 +11,16 @@ function Textarea({
     <textarea
       data-slot="textarea"
       className={cn(
-        "field-sizing-content flex min-h-[60px] w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
-        className
+        "field-sizing-content flex min-h-[80px] w-full rounded-none border-0 border-b border-border bg-transparent px-0 py-2 text-base text-foreground transition-colors outline-none",
+        "placeholder:font-display placeholder:italic placeholder:text-muted-foreground/70",
+        "focus-visible:border-b-2 focus-visible:border-amber",
+        "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
+        "aria-invalid:border-destructive",
+        className,
       )}
       {...props}
     />
-  )
+  );
 }
 
-export { Textarea }
+export { Textarea };

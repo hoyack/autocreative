@@ -24,6 +24,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/PageHeader";
 
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
 
@@ -77,17 +78,17 @@ export function ScrapeBrandKitPage() {
   });
 
   return (
-    <div className="max-w-xl space-y-4">
-      <h1 className="text-2xl font-semibold">Scrape a brand kit</h1>
-      <p className="text-muted-foreground text-sm">
-        Provide a website URL and a unique slug. Phase 18&rsquo;s scraper
-        extracts palette, typography, logos, and voice into{" "}
-        <code>.brand-kits/&lt;slug&gt;/</code>.
-      </p>
+    <div className="mx-auto max-w-2xl px-10 pt-14 pb-24 md:px-14">
+      <PageHeader
+        number="01.1"
+        kicker="The Foundry"
+        title="Scrape a brand kit"
+        dek="Point the scraper at any website — it extracts palette, typography, logos, and voice into .brand-kits/<slug>/ for every future render to reference."
+      />
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit((values) => enqueue.mutate(values))}
-          className="space-y-4"
+          className="space-y-8"
           noValidate
         >
           <FormField
@@ -120,9 +121,16 @@ export function ScrapeBrandKitPage() {
               </FormItem>
             )}
           />
-          <Button type="submit" disabled={enqueue.isPending}>
-            {enqueue.isPending ? "Submitting..." : "Scrape"}
-          </Button>
+          <div className="border-t border-border pt-8">
+            <Button
+              type="submit"
+              size="lg"
+              disabled={enqueue.isPending}
+              className="w-full sm:w-auto"
+            >
+              {enqueue.isPending ? "Submitting…" : "Scrape →"}
+            </Button>
+          </div>
         </form>
       </Form>
     </div>

@@ -54,6 +54,7 @@ import {
   client,
 } from "@/api/client";
 import { queryKeys } from "@/lib/queryKeys";
+import { PageHeader } from "@/components/PageHeader";
 
 // Mirrors flyer_generator/api/schemas/social.py::PostCreateRequest and
 // flyer_generator/social/models.py Platform + Intent literal aliases.
@@ -151,17 +152,17 @@ export function NewSocialPostPage() {
   });
 
   return (
-    <div className="max-w-2xl space-y-4">
-      <h1 className="text-2xl font-semibold">New social post</h1>
-      <p className="text-muted-foreground text-sm">
-        Pick a platform + intent, describe the topic, and submit. The
-        pipeline enqueues a job and the next page polls it until the
-        rendered image appears.
-      </p>
+    <div className="mx-auto max-w-3xl px-10 pt-14 pb-24 md:px-14">
+      <PageHeader
+        number="04"
+        kicker="The Broadcast"
+        title="New social post"
+        dek="Pick a platform, intent, and topic. The pipeline composes copy + image to match the brand kit, then polls the job until the render lands."
+      />
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit((v) => enqueue.mutate(v))}
-          className="space-y-4"
+          className="space-y-8"
           noValidate
         >
           <FormField
@@ -177,7 +178,7 @@ export function NewSocialPostPage() {
               </FormItem>
             )}
           />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-8">
             <FormField
               control={form.control}
               name="platform"
@@ -302,9 +303,16 @@ export function NewSocialPostPage() {
               </FormItem>
             )}
           />
-          <Button type="submit" disabled={enqueue.isPending}>
-            {enqueue.isPending ? "Submitting..." : "Generate post"}
-          </Button>
+          <div className="border-t border-border pt-8">
+            <Button
+              type="submit"
+              size="lg"
+              disabled={enqueue.isPending}
+              className="w-full sm:w-auto"
+            >
+              {enqueue.isPending ? "Submitting…" : "Generate post →"}
+            </Button>
+          </div>
         </form>
       </Form>
     </div>

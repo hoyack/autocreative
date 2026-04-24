@@ -4,14 +4,6 @@
 // kind + status filter dropdowns and click-through to each creative's
 // status page.
 //
-// Per-row <JobStatusBadge> is the FE-09 row-level polling requirement:
-// non-terminal rows subscribe to useJob and update in place every second;
-// terminal rows render a static badge and cost zero per-row requests.
-//
-// List-level refresh: refetchInterval=60s picks up newly-enqueued jobs
-// without hammering the server (list churn is slow). Per-row polling
-// stays at 1s via JobStatusBadge -> useJob (plan 21-04 hook).
-//
 // Security (21-04 T-2 + 21-10 threat model T-2): every server string
 // (job.id, job.kind, job.status) is rendered as JSX children -> React
 // escapes. No dangerouslySetInnerHTML anywhere.
@@ -21,15 +13,7 @@ import { Link } from "react-router";
 
 import { client } from "@/api/client";
 import { queryKeys } from "@/lib/queryKeys";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/PageHeader";
 import { JobStatusBadge } from "@/components/JobStatusBadge";
 import {
   Select,
@@ -40,8 +24,6 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
-// Mirrors flyer_generator/api/models/job.py::JobKind + JobStatus. Keep in
-// sync when the server-side enum grows a new variant.
 const KINDS = [
   "brand_kit",
   "flyer",
@@ -57,12 +39,6 @@ const STATUSES = [
   "cancelled",
 ] as const;
 
-/**
- * Map a JobKind onto the FE route that renders its per-creative status
- * page. brand_kit intentionally falls back to /jobs/:id — there is no
- * dedicated brand-kit status page today (a future plan can ship one
- * under /brand-kits/jobs/:id, at which point this switch gains a case).
- */
 function statusPathFor(kind: string, id: string): string {
   switch (kind) {
     case "flyer":
@@ -75,13 +51,12 @@ function statusPathFor(kind: string, id: string): string {
       return `/social/campaigns/${id}`;
     case "brand_kit":
     default:
-      // Brand-kit jobs + any future JobKind we haven't special-cased yet
-      // route to the generic Jobs detail path (not yet implemented —
-      // clicking this link lands on the wildcard NotFoundPage at /jobs/:id
-      // which is an acceptable v1 fallback).
       return `/jobs/${id}`;
   }
 }
+
+const filterTriggerClasses =
+  "h-10 rounded-none border-0 border-b border-border bg-transparent px-0 font-mono text-xs uppercase tracking-[0.14em] shadow-none focus:border-amber focus-visible:ring-0";
 
 export function JobsListPage() {
   const [kind, setKind] = useState<string>("");
@@ -92,8 +67,6 @@ export function JobsListPage() {
   const { data, isPending, error } = useQuery({
     queryKey: queryKeys.jobs({ kind, status, limit, offset }),
     queryFn: async () => {
-      // Build the query object lazily so blank filters don't serialize as
-      // "kind=" which FastAPI would 422 (empty string is not a valid enum).
       const query: Record<string, unknown> = { limit, offset };
       if (kind) query.kind = kind;
       if (status) query.status = status;
@@ -103,18 +76,21 @@ export function JobsListPage() {
       if (error || !data) throw new Error("failed to load jobs");
       return data;
     },
-    // List refresh cadence — 60s picks up newly-enqueued jobs without
-    // being an annoying flicker. Per-row polling lives in JobStatusBadge.
     refetchInterval: 60_000,
   });
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Jobs</h1>
+    <div className="mx-auto max-w-screen-2xl px-10 pt-14 pb-24 md:px-14">
+      <PageHeader
+        number="06"
+        kicker="The Queue"
+        title="Jobs"
+        dek="A ledger of every render the pipeline has queued, run, or shipped. Non-terminal rows poll every second."
+      />
 
-      <div className="flex flex-wrap gap-3">
+      <div className="mb-10 flex flex-wrap items-end gap-10 border-b border-border pb-6">
         <div className="min-w-[180px]">
-          <label className="text-muted-foreground text-xs">Kind</label>
+          <div className="kicker mb-2">Kind</div>
           <Select
             value={kind || "all"}
             onValueChange={(v) => {
@@ -122,7 +98,7 @@ export function JobsListPage() {
               setKind(v === "all" ? "" : v);
             }}
           >
-            <SelectTrigger>
+            <SelectTrigger className={filterTriggerClasses}>
               <SelectValue placeholder="All" />
             </SelectTrigger>
             <SelectContent>
@@ -136,7 +112,7 @@ export function JobsListPage() {
           </Select>
         </div>
         <div className="min-w-[180px]">
-          <label className="text-muted-foreground text-xs">Status</label>
+          <div className="kicker mb-2">Status</div>
           <Select
             value={status || "all"}
             onValueChange={(v) => {
@@ -144,7 +120,7 @@ export function JobsListPage() {
               setStatus(v === "all" ? "" : v);
             }}
           >
-            <SelectTrigger>
+            <SelectTrigger className={filterTriggerClasses}>
               <SelectValue placeholder="All" />
             </SelectTrigger>
             <SelectContent>
@@ -159,80 +135,92 @@ export function JobsListPage() {
         </div>
       </div>
 
-      {isPending && <Skeleton className="h-64 w-full" />}
-      {error && (
-        <p className="text-destructive">Failed: {(error as Error).message}</p>
-      )}
-      {data && (
+      {isPending ? (
+        <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+          Loading…
+        </p>
+      ) : error ? (
+        <p className="font-mono text-sm text-destructive">
+          Failed: {(error as Error).message}
+        </p>
+      ) : (
         <>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Created</TableHead>
-                <TableHead>Kind</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Id</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.items.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={4}
-                    className="text-muted-foreground text-center text-sm"
-                  >
-                    No jobs.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                data.items.map((job) => (
-                  <TableRow key={job.id}>
-                    <TableCell className="text-xs">
-                      {new Date(job.created_at).toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-xs">{job.kind}</TableCell>
-                    <TableCell>
-                      {/* Per-row <JobStatusBadge> — terminal rows render
-                          statically; non-terminal rows poll /jobs/:id
-                          every 1s via useJob (FE-09 row-level polling). */}
-                      <JobStatusBadge
-                        jobId={job.id}
-                        initialStatus={job.status}
-                      />
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      <Link
-                        to={statusPathFor(job.kind, job.id)}
-                        className="underline"
-                      >
-                        {job.id.slice(0, 12)}...
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-          {data.total > limit && (
-            <div className="flex items-center justify-between">
+          {data && data.items.length === 0 ? (
+            <div className="border-t border-border py-24 text-center">
+              <p className="font-display text-2xl italic text-muted-foreground">
+                The queue is empty.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-y border-foreground/80 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                    <th className="py-3 pr-8 text-left font-medium">Created</th>
+                    <th className="py-3 pr-8 text-left font-medium">Kind</th>
+                    <th className="py-3 pr-8 text-left font-medium">Status</th>
+                    <th className="py-3 text-left font-medium">Id</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data?.items.map((job) => (
+                    <tr
+                      key={job.id}
+                      className="group border-b border-border/70 transition-colors hover:bg-card"
+                    >
+                      <td className="py-4 pr-8 font-mono text-xs tabular-nums text-foreground/85">
+                        {new Date(job.created_at).toLocaleString("en-US", {
+                          month: "short",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </td>
+                      <td className="py-4 pr-8 font-display text-base italic text-foreground/90">
+                        {job.kind.replace(/_/g, " ")}
+                      </td>
+                      <td className="py-4 pr-8">
+                        <JobStatusBadge
+                          jobId={job.id}
+                          initialStatus={job.status}
+                        />
+                      </td>
+                      <td className="py-4 font-mono text-xs">
+                        <Link
+                          to={statusPathFor(job.kind, job.id)}
+                          className="tabular-nums text-foreground/70 transition-colors hover:text-amber"
+                        >
+                          {job.id.slice(0, 14)}…
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {data && data.total > limit && (
+            <div className="mt-10 flex items-center justify-between border-t border-border pt-6">
               <Button
-                variant="outline"
+                variant="ghost"
                 disabled={offset === 0}
                 onClick={() => setOffset(Math.max(0, offset - limit))}
+                className="h-9 rounded-none font-mono text-[11px] uppercase tracking-[0.18em]"
               >
-                Previous
+                ← Previous
               </Button>
-              <span className="text-muted-foreground text-sm">
-                {offset + 1}&ndash;
-                {Math.min(offset + data.items.length, data.total)} of{" "}
-                {data.total}
+              <span className="font-mono text-[11px] tabular-nums uppercase tracking-widest text-muted-foreground">
+                {offset + 1}–{Math.min(offset + data.items.length, data.total)}{" "}
+                / {data.total}
               </span>
               <Button
-                variant="outline"
+                variant="ghost"
                 disabled={offset + limit >= data.total}
                 onClick={() => setOffset(offset + limit)}
+                className="h-9 rounded-none font-mono text-[11px] uppercase tracking-[0.18em]"
               >
-                Next
+                Next →
               </Button>
             </div>
           )}
