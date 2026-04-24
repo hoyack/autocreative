@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import uuid
+from typing import TYPE_CHECKING
 
 import httpx
 import structlog
@@ -11,7 +12,7 @@ import structlog
 from flyer_generator.config import Settings
 from flyer_generator.errors import MaxAttemptsExceededError
 from flyer_generator.logging_config import get_logger
-from flyer_generator.models import EventInput, FlyerOutput
+from flyer_generator.models import EventInput, FlyerInput, FlyerOutput
 from flyer_generator.presets import PresetRegistry, build_default_registry
 from flyer_generator.stages.composer import PosterComposer
 from flyer_generator.stages.comfy_client import ComfyClient
@@ -21,6 +22,11 @@ from flyer_generator.stages.prompt_builder import StylePromptBuilder
 from flyer_generator.stages.rasterizer import Rasterizer
 from flyer_generator.stages.vision import VisionEvaluator
 from flyer_generator.workflow_loader import load_workflow
+
+if TYPE_CHECKING:
+    from flyer_generator.flyer.schema_renderer.schema_model import (
+        FlyerTemplateSchema,
+    )
 
 
 class FlyerGenerator:
@@ -57,11 +63,25 @@ class FlyerGenerator:
         self._composer = PosterComposer()
         self._rasterizer = Rasterizer()
 
-    async def generate(self, event: EventInput) -> FlyerOutput:
+    async def generate(
+        self,
+        event: FlyerInput,
+        *,
+        template: "FlyerTemplateSchema | None" = None,
+    ) -> FlyerOutput:
         """Run the full flyer generation pipeline.
 
         Args:
-            event: Structured event data describing the flyer to generate.
+            event: FlyerInput (event or info subtype) — title + org +
+                style_concept + style_preset are required; event-specific
+                fields (date/time/location/fees) and info-specific fields
+                (description/call_to_action) are optional and gated on
+                ``event.subtype``.
+            template: Optional FlyerTemplateSchema. When supplied, the
+                composer reads typography / scrim opacity / accent color
+                from the template instead of the Phase-21 hardcoded
+                defaults. When ``None``, preserves pre-Phase-22 byte-
+                identical output (back-compat for CLI / direct callers).
 
         Returns:
             FlyerOutput with rasterized PNG bytes and metadata.
@@ -110,7 +130,9 @@ class FlyerGenerator:
                 layout = self._layout.resolve(verdict.zones)
 
                 # Stage 6: Compose SVG
-                svg = self._composer.compose(event, background, verdict, layout)
+                svg = self._composer.compose(
+                    event, background, verdict, layout, template=template
+                )
 
                 # Stage 7: Rasterize SVG to PNG
                 png_bytes = self._rasterizer.rasterize(svg)
