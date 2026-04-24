@@ -252,12 +252,43 @@
 | FE-08 | Phase 21 | Not Started |
 | FE-09 | Phase 21 | Not Started |
 | FE-10 | Phase 21 | Not Started |
+| FT-01 | Phase 22 | Not Started |
+| FT-02 | Phase 22 | Not Started |
+| FT-03 | Phase 22 | Not Started |
+| FT-04 | Phase 22 | Not Started |
+| FT-05 | Phase 22 | Not Started |
+| FT-06 | Phase 22 | Not Started |
+| FT-07 | Phase 22 | Not Started |
+| FT-08 | Phase 22 | Not Started |
+| PC-01 | Phase 23 | Not Started |
+| PC-02 | Phase 23 | Not Started |
+| PC-03 | Phase 23 | Not Started |
+| PC-04 | Phase 23 | Not Started |
+| PC-05 | Phase 23 | Not Started |
+| PC-06 | Phase 23 | Not Started |
+| PO-01 | Phase 24 | Not Started |
+| PO-02 | Phase 24 | Not Started |
+| PO-03 | Phase 24 | Not Started |
+| PO-04 | Phase 24 | Not Started |
+| IN-01 | Phase 25 | Not Started |
+| IN-02 | Phase 25 | Not Started |
+| IN-03 | Phase 25 | Not Started |
+| IN-04 | Phase 25 | Not Started |
+| ADV-01 | Phase 26 | Not Started |
+| ADV-02 | Phase 26 | Not Started |
+| ADV-03 | Phase 26 | Not Started |
+| ADV-04 | Phase 26 | Not Started |
+| ADV-05 | Phase 26 | Not Started |
+| ADV-06 | Phase 26 | Not Started |
+| ADV-07 | Phase 26 | Not Started |
 
 **Coverage:**
 - v1 requirements: 34 + Phase 19 (11) + Phase 20 (15) + Phase 21 (10) = 70 total
-- Mapped to phases: 70
+- v1.1 requirements: FT (8) + PC (6) + PO (4) + IN (4) + ADV (7) = 29 total
+- Grand total: 99 requirements
+- Mapped to phases: 99
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-16*
-*Last updated: 2026-04-22 after Phase 20 API-* and Phase 21 FE-* additions*
+*Last updated: 2026-04-24 after v1.1 creative expansion traceability for phases 22–26*

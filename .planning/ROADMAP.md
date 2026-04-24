@@ -35,6 +35,11 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 19: Social Media Posting System** - given a brand kit slug + a post brief (topic/intent/CTA), generate platform-specific social posts (LinkedIn, Twitter/X, Instagram, Facebook) with platform-appropriate copy, aspect-correct imagery, brand-kit-aware palette/typography, and adversarial audit against each platform's constraints (char limits, hashtag caps, aspect ratios, readability) (completed 2026-04-21)
 - [x] **Phase 20: FastAPI + SQLAlchemy Backend** - HTTP + DB wrapper over the four existing subsystems (flyer / brochure / brand_kit / social). Async FastAPI app at `/api/v1/*`, SQLAlchemy 2.x async over SQLite (dev) / Postgres (prod) with Alembic, arq + Redis job queue for long-running ComfyCloud runs, single-user v1 (no auth, no org model), existing Python APIs reused verbatim (no reimplementation), `.brand-kits/` and `.social-campaigns/` filesystem roots preserved with DB metadata layer on top (completed 2026-04-22)
 - [x] **Phase 21: React Frontend Dashboard** - React + Vite + ShadCN + Tailwind SPA consuming the Phase 20 API. Full dashboard: brand-kit list/detail + scrape, flyer creator, brochure creator, social post creator, campaign creator, job list + status stream, render gallery. Depends on Phase 20. (completed 2026-04-23)
+- [ ] **Phase 22: Flyer Templates & Subtype Split** - Flyer rendering becomes template-driven via a JSON-schema registry (5+ templates ship at launch) and splits into `event` and `info` subtypes on a single `FlyerInput`; FE flyer creator gains template and subtype pickers with conditional fields
+- [ ] **Phase 23: Postcard Primitive** - `POST /api/v1/postcards` produces a front PNG + back PNG + print PDF (3 artifacts) with optional recipient address block; mirrors brochure's parallel-id / compensating-enqueue / detail-route pattern and lands in the editorial dashboard
+- [ ] **Phase 24: Poster Primitive** - `POST /api/v1/posters` renders a larger-canvas flyer variant at 18×24 / 24×36 / 27×40, reusing the flyer pipeline with injected canvas dimensions and a dedicated poster template registry
+- [ ] **Phase 25: Invitation Primitive** - `POST /api/v1/invitations` renders a 5×7 portrait RSVP card at 300 DPI with heavy brand-kit conditioning; 3+ visually-distinct templates (`classic_serif`, `modern_sans`, `ornamental`) share the same RSVP schema
+- [ ] **Phase 26: Adversarial Hardening Sweep** - Dedicated adversarial test suite covering prompt injection, path traversal, unicode/emoji stress, oversize payloads, PDF bombs, concurrent enqueue, and visual regression across every existing and v1.1 asset
 
 ## Phase Details
 
@@ -263,6 +268,68 @@ Plans:
 - [x] 21-13-PLAN.md -- Gap closure: WR-02 (list_brand_kits dedup + stable total + IN-03 sort) + WR-03 brand-kits half
 - [x] 21-14-PLAN.md -- Gap closure: WR-04 (RenderPreview strict .pdf detection + isPdf prop) + IN-01 companion
 
+### Phase 22: Flyer Templates & Subtype Split
+**Goal**: A user can render a flyer by picking one of 5+ JSON-defined templates and a subtype (`event` or `info`), and the API, worker, pipeline, database kind enum, and React creator page all honor the selection with event-only fields conditionally hidden for info flyers.
+**Depends on**: Phase 21
+**Requirements**: FT-01, FT-02, FT-03, FT-04, FT-05, FT-06, FT-07, FT-08
+**Success Criteria** (what must be TRUE):
+  1. `POST /api/v1/flyers` accepts a required `template` field and a `subtype` field defaulting to `"event"`; submitting with no subtype still produces the same artifact shape the Phase 20 API produced, preserving back-compat
+  2. The flyer template registry at `flyer_generator/flyer/schemas/*.json` ships 5+ templates validated by a `FlyerTemplateSchema` Pydantic model, and `PosterComposer.compose()` reads typography scale, scrim opacity, accent placement, and shape mix from the selected template instead of hardcoded values
+  3. A user can submit an info flyer with `description` + optional `call_to_action` (no date/venue/fees required), and the Claude vision prompt names TITLE + DESCRIPTION + ORG_CREDIT zones only (no DETAILS or FEE_BADGE) for that subtype
+  4. `RenderRecord.kind` stores `flyer_event_final` and `flyer_info_final`; the alembic migration rewrites pre-existing `flyer_final` rows by inspecting `FlyerRecord.event_payload.subtype` (defaulting to `event`)
+  5. `/flyers/new` in the FE exposes template and subtype `<Select>`s with event-only fields show/hide conditionally; `/tmp/check-e2e.mjs` submits every template×subtype permutation and the status page renders the PNG; Jobs filter + Renders gallery filter both include `flyer_event_final` and `flyer_info_final`
+**Plans:** 0/? (not yet planned)
+**UI hint**: yes
+
+### Phase 23: Postcard Primitive
+**Goal**: A user can `POST /api/v1/postcards` and receive a job that produces a front PNG + back PNG + print-ready PDF, then view all three artifacts (plus a recipient address block rendered on the back panel) through the editorial React dashboard.
+**Depends on**: Phase 22
+**Requirements**: PC-01, PC-02, PC-03, PC-04, PC-05, PC-06
+**Success Criteria** (what must be TRUE):
+  1. `POST /api/v1/postcards` enqueues a job with the parallel-id pattern (`id == job_id`) and compensating-enqueue transition (`error_detail = {"reason": "enqueue_failed", "type": ...}` — never `str(exc)`); `GET /api/v1/postcards/{id}` returns `PostcardDetail` with 3 artifact URLs
+  2. A user can supply an optional `address_block` (recipient name, street, city/state/zip) and the rendered back PNG shows a typographically precise address block in the template's designated region
+  3. At least 2 postcard templates (`classic_portrait`, `modern_landscape`) ship at launch; the renderer reuses the brochure SVG + rasterizer stack and the back-PDF path reuses or mirrors `assemble_brochure_pdf`
+  4. `/postcards/new` + `/postcards/:id` pages exist with an editorial PageHeader (kicker "08 / THE MAIL"), a sidebar nav entry, and a 3-artifact figure grid mirroring the brochure status page
+  5. Jobs filter, router (`statusPathFor`), and Renders gallery filter all include the new `postcard` JobKind and `postcard_front` / `postcard_back` / `postcard_pdf` RenderKinds
+**Plans:** 0/? (not yet planned)
+**UI hint**: yes
+
+### Phase 24: Poster Primitive
+**Goal**: A user can `POST /api/v1/posters` with a size preset (18×24, 24×36, or 27×40) and a template, and the existing flyer pipeline renders a single print-sized PNG with typography pre-scaled for the larger canvas.
+**Depends on**: Phase 22
+**Requirements**: PO-01, PO-02, PO-03, PO-04
+**Success Criteria** (what must be TRUE):
+  1. `POST /api/v1/posters` accepts `size: Literal["18x24", "24x36", "27x40"]` + `template` + flyer-like fields and produces a single PNG output (no PDF); each rendered PNG matches the canvas dimensions derived from its size preset
+  2. `FlyerGenerator.__init__` accepts injected canvas dimensions and the poster worker reuses the flyer pipeline (Comfy + vision + composer + rasterizer) end-to-end, with no forked rendering code path
+  3. The poster template registry at `flyer_generator/poster/schemas/*.json` ships 3+ templates whose typography scale is tuned for print (headlines sized for 18"+ reading distance)
+  4. `/posters/new` exposes size and template `<Select>`s; the status page uses `JobStatusCard` directly; a sidebar nav entry is added; Jobs filter + Renders gallery filter both include `poster` and `poster_final`
+**Plans:** 0/? (not yet planned)
+**UI hint**: yes
+
+### Phase 25: Invitation Primitive
+**Goal**: A user can `POST /api/v1/invitations` with RSVP-focused fields (host, event, date, time, venue, RSVP contact) and a brand kit, and the API returns a 5×7 portrait invitation PNG at 300 DPI rendered through one of three visually-distinct templates.
+**Depends on**: Phase 22
+**Requirements**: IN-01, IN-02, IN-03, IN-04
+**Success Criteria** (what must be TRUE):
+  1. `POST /api/v1/invitations` produces a 1500×2100 PNG (5×7 inches @ 300 DPI) with heavy brand-kit conditioning on palette, typography, and logo placement
+  2. The invitation request schema accepts `host_name`, `event_title`, `event_date`, `event_time`, `venue`, `rsvp_contact`, optional `rsvp_deadline`, `brand_kit_slug`, and `template`
+  3. At least 3 invitation templates (`classic_serif`, `modern_sans`, `ornamental`) ship at launch, and rendering the same content through each template produces visually distinct output
+  4. `/invitations/new` + `/invitations/:id` pages exist with a distinct RSVP-focused form layout (no style-preset picker; strong brand-kit coupling); Jobs filter + Renders gallery filter both include `invitation` and `invitation_final`
+**Plans:** 0/? (not yet planned)
+**UI hint**: yes
+
+### Phase 26: Adversarial Hardening Sweep
+**Goal**: Every asset primitive in the catalog (flyer event/info, brochure, postcard, poster, invitation, social post, social campaign, brand kit) is covered by a dedicated adversarial test suite that regresses prompt injection, path traversal, unicode stress, oversize payloads, PDF bombs, concurrent enqueue, and visual regression.
+**Depends on**: Phase 22, Phase 23, Phase 24, Phase 25
+**Requirements**: ADV-01, ADV-02, ADV-03, ADV-04, ADV-05, ADV-06, ADV-07
+**Success Criteria** (what must be TRUE):
+  1. A prompt-injection regression suite feeds known-malicious strings into every field routed to Claude vision or LLM text gen (`EventInput.title`, `BrochureContent.*`, `PostCreateRequest.topic`, etc.) and asserts the structured verdict schema is preserved and no injected directive alters the output contract
+  2. A path-traversal regression suite exercises every slug/id path-param (`/brand-kits/{slug}/logos/{filename}`, `/renders/{id}/image`, `/brochures/{id}`, `/postcards/{id}`) with `../../`, URL-encoded, and null-byte variants; every response is 404 or 422, never a 200 that leaks a file outside the configured artifact roots
+  3. Unicode/emoji stress tests render zalgo, RTL, mixed scripts, and emoji-cluster content through every primitive's text fields without crash, layout break, or byte-serialization error; oversize-payload tests return 422 cleanly at `max+1` without server-side truncation
+  4. A synthesized pathological SVG (nested groups, recursive filters, enormous paths) causes the rasterizer to fail fast (<30 seconds) with a typed error, and a concurrent-enqueue load test (100 jobs via `asyncio.gather`) lands all jobs as `queued` with no DB deadlocks or dropped jobs
+  5. A visual-regression suite renders each primitive with a fixed seed and asserts SHA-256 match (or SSIM > 0.99) against reference snapshots committed under `tests/adversarial/snapshots/`; reference updates require an explicit snapshot refresh step (not silent acceptance)
+**Plans:** 0/? (not yet planned)
+
 ## Progress
 
 **Execution Order:**
@@ -283,3 +350,8 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 19. Social Media Posting System | 9/9 | Complete   | 2026-04-21 |
 | 20. FastAPI + SQLAlchemy Backend | 13/12 | Complete   | 2026-04-22 |
 | 21. React Frontend Dashboard | 14/14 | Complete   | 2026-04-23 |
+| 22. Flyer Templates & Subtype Split | 0/? | Not Started | - |
+| 23. Postcard Primitive | 0/? | Not Started | - |
+| 24. Poster Primitive | 0/? | Not Started | - |
+| 25. Invitation Primitive | 0/? | Not Started | - |
+| 26. Adversarial Hardening Sweep | 0/? | Not Started | - |

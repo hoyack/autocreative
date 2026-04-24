@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: creative-expansion
-status: defining_requirements
-stopped_at: Milestone v1.0 complete — v1.1 creative expansion opened
+status: phases_defined
+stopped_at: v1.1 roadmap defined — phases 22–26 created, plans not yet drafted
 last_updated: "2026-04-24T00:00:00.000Z"
-last_activity: 2026-04-24 — v1.1 milestone opened
+last_activity: 2026-04-24 — v1.1 roadmap created (phases 22–26, 29 REQ-IDs mapped)
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -25,19 +25,35 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 22 (Flyer Templates & Subtype Split) — not yet planned
 Plan: —
-Plans: 0 of 0 complete
-Status: Defining v1.1 requirements
-Last activity: 2026-04-24 — v1.1 milestone opened
+Plans: 0 of 0 complete (v1.1 plans drafted during `/gsd-plan-phase 22`)
+Status: v1.1 roadmap defined; awaiting phase-22 planning
+Last activity: 2026-04-24 — v1.1 roadmap created (5 phases, 29 REQ-IDs)
 
-Progress: [██████████] 100%
+Progress: [          ] 0%
+
+## v1.1 Milestone Overview
+
+5 phases append to the existing roadmap; v1.0 phases 1–21 remain unchanged.
+
+| Phase | Name | Req-IDs | Plans |
+|-------|------|---------|-------|
+| 22 | Flyer Templates & Subtype Split | FT-01..FT-08 | 0/? |
+| 23 | Postcard Primitive | PC-01..PC-06 | 0/? |
+| 24 | Poster Primitive | PO-01..PO-04 | 0/? |
+| 25 | Invitation Primitive | IN-01..IN-04 | 0/? |
+| 26 | Adversarial Hardening Sweep | ADV-01..ADV-07 | 0/? |
+
+**Dependency graph (v1.1):**
+- 22 → 23, 24, 25 (template/subtype pattern lands first; new primitives reuse it)
+- 22, 23, 24, 25 → 26 (adversarial sweep covers the full catalog)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 11
+- Total plans completed: 11 (Phase 21)
 - Average duration: -
 - Total execution time: 0 hours
 
@@ -71,8 +87,11 @@ Progress: [██████████] 100%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
--
-
+- [v1.1 / Phase 22]: Flyer template mechanism mirrors the brochure JSON-schema pattern verbatim (`flyer_generator/flyer/schemas/*.json` + `FlyerTemplateSchema` + string-lookup loader) — no new abstraction
+- [v1.1 / Phase 22]: Flyer subtype split uses a single `FlyerInput` with `subtype: Literal["event", "info"] = "event"` (back-compat preserved when omitted); `RenderRecord.kind` deprecates `flyer_final` via migration
+- [v1.1 / Phase 23–25]: Each new primitive follows the parallel-id (`id == job_id`) + compensating-enqueue (`error_detail = {"reason": "enqueue_failed", "type": ...}`, NO `str(exc)`) + 3-artifact detail route pattern established in Phase 21-07/21-12
+- [v1.1 / Phase 24]: Poster reuses the flyer pipeline end-to-end — `FlyerGenerator.__init__` gains injected canvas dimensions rather than a forked renderer
+- [v1.1 / Phase 26]: Adversarial phase ships after all new primitives so the sweep covers the full catalog (existing + v1.1)
 - [Phase 01]: Used Pydantic v2 SettingsConfigDict pattern (not deprecated class Config)
 - [Phase 01]: API keys default to empty SecretStr for Phase 1 testability
 - [Phase 01]: ResolvedLayout uses BaseModel with arbitrary_types_allowed for ZoneCoord consistency
@@ -114,6 +133,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-17T01:40:46.043Z
-Stopped at: Completed 04-03-PLAN.md
+Last session: 2026-04-24T00:00:00.000Z
+Stopped at: v1.1 roadmap created — 5 phases (22–26) defined, 29 REQ-IDs mapped, plans not yet drafted
 Resume file: None
