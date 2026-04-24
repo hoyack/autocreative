@@ -394,7 +394,7 @@ def test_flyer_create_request_rejects_bad_accent(bad_accent: str) -> None:
 
 @pytest.mark.parametrize("good_accent", ["#F59E0B", "#000000", "#ffffff", "#aAbBcC"])
 def test_flyer_create_request_accepts_good_accent(good_accent: str) -> None:
-    req = FlyerCreateRequest(event=_event(), preset="p", accent=good_accent)
+    req = FlyerCreateRequest(event=_event(), template="t", preset="p", accent=good_accent)
     assert req.accent == good_accent
 
 
