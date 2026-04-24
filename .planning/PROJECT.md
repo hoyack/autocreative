@@ -2,11 +2,25 @@
 
 ## What This Is
 
-A Python application that generates event flyers as 1080x1920 PNG images by combining AI-generated background images (via ComfyCloud) with vision-evaluated text layout (via Claude). Each flyer is visually distinct — zone placement, text color, and scrim composition all adapt to the generated background. Designed as both a CLI tool and importable module.
+A Python + React application for automated creative-asset generation. It composes AI-generated imagery (via ComfyCloud), vision-evaluated text layout (via Claude), and brand-kit conditioning into print-ready deliverables. v1 shipped flyers, brochures, social posts, social campaigns, and brand-kit scraping as a FastAPI backend with an editorial React dashboard. v1.1 expands the creative catalog with flyer templates + subtypes (event / info) and adds three new asset primitives (postcard, poster, invitation), hardened by a dedicated adversarial test suite.
 
 ## Core Value
 
-Given structured event data and a style preset, produce a polished, print-ready 1080x1920 event flyer with AI-generated artwork and intelligently placed text — every time, without manual design work.
+Given structured event or informational data, a style preset, and optionally a brand kit, produce a polished, print-ready creative asset — flyer, brochure, postcard, poster, invitation, social post, or campaign — every time, without manual design work.
+
+## Current Milestone: v1.1 Creative Expansion
+
+**Goal:** Template-driven flyer rendering + event/info subtype split, plus 3 new creative primitives (postcard, poster, invitation), plus the codebase's first adversarial test suite.
+
+**Target features:**
+- Flyer templates: JSON-schema registry mirroring brochure templates; 5+ flyer templates shipping at launch
+- Flyer subtypes: `event` (current) and `info` (announcement / educational / non-date-bound) from one `FlyerInput` model
+- Postcard primitive: 2-sided direct-mail format (front PNG + back PNG + print PDF)
+- Poster primitive: larger-canvas flyer variant with size presets (18×24 / 24×36 / 27×40)
+- Invitation primitive: 5×7 portrait RSVP format with heavy brand-kit conditioning
+- Adversarial hardening: prompt injection, path traversal, unicode stress, oversize payloads, PDF bombs, concurrent enqueue, visual regression — across the entire catalog
+
+**Key context:** Every new asset mirrors the brochure pattern (parallel-id, compensating enqueue, 3-artifact detail route) and lands in the editorial Phase 21 dashboard (creator page + status page + Jobs/Renders filter entries). This milestone is scoped as 5 phases (22–26), each ending at a verified end-to-end state.
 
 ## Requirements
 

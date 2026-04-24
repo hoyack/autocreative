@@ -102,6 +102,55 @@
 - [ ] **FE-09**: Jobs page — global list of every job with filtering by status + kind, click-through to the originating creative; row-level status polling via `/jobs/{id}`
 - [ ] **FE-10**: Renders gallery — grid of all renders across all kinds, download button, inline preview (PNG inline, PDF via object tag); filter by kind + date
 
+## v1.1 Requirements — Creative Expansion
+
+**Defined:** 2026-04-24
+**Goal:** Template-driven flyer rendering + event/info subtype split, 3 new creative primitives (postcard, poster, invitation), dedicated adversarial test suite. Ships as phases 22–26.
+
+### Flyer Templates + Subtype Split (Phase 22)
+
+- [ ] **FT-01**: `POST /api/v1/flyers` accepts a required `template: str` field; worker loads the named template via a string-lookup registry (mirrors brochure pattern; error surfaces at worker, not schema)
+- [ ] **FT-02**: Flyer template registry lives at `flyer_generator/flyer/schemas/*.json` with a Pydantic `FlyerTemplateSchema` validating each file; 5+ templates ship at launch (`editorial_classic`, `bold_modern`, `minimal_photo`, `retro_poster`, `zine`, `tight_typographic`)
+- [ ] **FT-03**: Templates declare typography scale, scrim opacity, accent placement, and shape mix — not just color overrides; `PosterComposer.compose()` reads these template fields instead of its prior hardcoded values
+- [ ] **FT-04**: `FlyerInput` model adds `subtype: Literal["event", "info"] = "event"` and makes date/time/location_name/location_address/fees optional; default `"event"` preserves the existing API contract when omitted
+- [ ] **FT-05**: Info-flyer subtype accepts `description` + optional `call_to_action` fields and drops event-only fields; vision prompt conditionally names zones (info flyers: TITLE + DESCRIPTION + ORG_CREDIT; no DETAILS or FEE_BADGE)
+- [ ] **FT-06**: `RenderRecord.kind` gains `flyer_event_final` and `flyer_info_final`; alembic migration rewrites existing `flyer_final` rows by inspecting `FlyerRecord.event_payload.subtype` (defaulting to `event`)
+- [ ] **FT-07**: FE flyer creator at `/flyers/new` shows a template `<Select>` and a subtype `<Select>`; event-only fields show/hide conditionally on subtype; mirrors the existing editorial page styling
+- [ ] **FT-08**: Jobs filter + Renders gallery filter both include the new flyer kinds; `/tmp/check-e2e.mjs` harness extended to submit every template×subtype permutation and assert the status page renders the PNG
+
+### Postcard Primitive (Phase 23)
+
+- [ ] **PC-01**: `POST /api/v1/postcards` enqueues a job that returns a front PNG + back PNG + print PDF (3 artifacts); `GET /api/v1/postcards/{id}` returns `PostcardDetail` with all 3 URLs
+- [ ] **PC-02**: `PostcardRecord` uses the parallel-id pattern (`id == job_id`); enqueue wraps in try/except with compensating transition (`error_detail = {"reason": "enqueue_failed", "type": ...}`, no `str(exc)`)
+- [ ] **PC-03**: Postcard request schema supports optional `address_block` (recipient name, street, city/state/zip) rendered on the back panel as a typographically precise block
+- [ ] **PC-04**: At least 2 postcard templates ship at launch (`classic_portrait`, `modern_landscape`); renderer reuses brochure's SVG + rasterizer stack; back-PDF path reuses or mirrors `assemble_brochure_pdf`
+- [ ] **PC-05**: FE postcards creator at `/postcards/new`, status page at `/postcards/:id` with 3-artifact figure grid, sidebar nav entry, editorial PageHeader (kicker "08 / THE MAIL")
+- [ ] **PC-06**: Jobs filter + router + Renders gallery filter all include `postcard` JobKind and `postcard_front` / `postcard_back` / `postcard_pdf` RenderKinds
+
+### Poster Primitive (Phase 24)
+
+- [ ] **PO-01**: `POST /api/v1/posters` accepts `size: Literal["18x24", "24x36", "27x40"]` + `template` + existing flyer-like fields; single PNG output (no PDF)
+- [ ] **PO-02**: `FlyerGenerator.__init__` accepts injected canvas dimensions; poster worker reuses the flyer pipeline (Comfy + vision + composer + rasterizer) with size-derived dimensions
+- [ ] **PO-03**: Poster template registry at `flyer_generator/poster/schemas/*.json` with 3+ templates; typography pre-scaled for print canvas (headlines sized for 18"+ reading distance)
+- [ ] **PO-04**: FE posters creator at `/posters/new`, status page via `JobStatusCard` directly, size `<Select>` + template `<Select>`, sidebar nav entry, Jobs + Renders filter entries
+
+### Invitation Primitive (Phase 25)
+
+- [ ] **IN-01**: `POST /api/v1/invitations` renders a 5×7 portrait PNG at 300 DPI (1500×2100) with heavy brand-kit conditioning and RSVP-focused copy
+- [ ] **IN-02**: Invitation request schema fields: `host_name`, `event_title`, `event_date`, `event_time`, `venue`, `rsvp_contact`, optional `rsvp_deadline`, `brand_kit_slug`, `template`
+- [ ] **IN-03**: At least 3 invitation templates ship (`classic_serif`, `modern_sans`, `ornamental`); rendering identical content with different templates produces visually distinct output
+- [ ] **IN-04**: FE invitations creator + status + Jobs/Renders filters; distinct form layout (no style-preset complexity) with strong brand-kit coupling
+
+### Adversarial Hardening Sweep (Phase 26)
+
+- [ ] **ADV-01**: Prompt-injection regression tests cover every field fed to Claude vision or LLM (EventInput.title, BrochureContent.*, PostCreateRequest.topic, etc.); injected directives must not alter the structured verdict schema
+- [ ] **ADV-02**: Path-traversal regression tests cover every slug/id path-param (`/brand-kits/{slug}/logos/{filename}`, `/renders/{id}/image`, `/brochures/{id}`, `/postcards/{id}`); `../../`, URL-encoded, null-byte variants all return 404 or 422
+- [ ] **ADV-03**: Unicode / emoji stress tests cover every user-supplied text field (zalgo, RTL, mixed scripts, emoji clusters); renderer produces output without crash, layout break, or byte-serialization error
+- [ ] **ADV-04**: Oversize-payload tests exercise every list and string field at exact-max and max+1 lengths; API returns 422 cleanly on max+1 without server-side truncation
+- [ ] **ADV-05**: PDF-bomb tests synthesize pathological SVG (nested groups, recursive filters, enormous paths) and assert the rasterizer fails fast (<30s) rather than hangs
+- [ ] **ADV-06**: Concurrent-enqueue load test submits 100 jobs in parallel via `asyncio.gather`; all land with status queued, no DB deadlocks, no dropped jobs
+- [ ] **ADV-07**: Visual-regression suite renders each primitive with a fixed seed and asserts SHA-256 match (or SSIM > 0.99) against a committed reference; reference snapshots stored in `tests/adversarial/snapshots/`
+
 ## v2 Requirements
 
 ### Extensibility
