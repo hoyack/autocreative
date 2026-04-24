@@ -9,13 +9,13 @@ from flyer_generator.errors import (
     MaxAttemptsExceededError,
     VisionResponseParseError,
 )
-from flyer_generator.models import EventInput, FlyerOutput
+from flyer_generator.models import EventInput, FlyerInput, FlyerOutput
 from flyer_generator.pipeline import FlyerGenerator
 from flyer_generator.presets import PresetRegistry, StylePreset
 
 
 async def generate_flyer(
-    event: EventInput,
+    event: FlyerInput,
     settings: Settings | None = None,
     presets: PresetRegistry | None = None,
 ) -> FlyerOutput:
@@ -34,7 +34,8 @@ async def generate_flyer(
 __all__ = [
     "generate_flyer",
     "FlyerGenerator",
-    "EventInput",
+    "FlyerInput",
+    "EventInput",  # deprecated alias for FlyerInput
     "FlyerOutput",
     "Settings",
     "PresetRegistry",

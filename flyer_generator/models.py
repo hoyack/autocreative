@@ -24,15 +24,28 @@ class WorkflowConfig(BaseModel):
     workflow: dict  # raw ComfyUI node graph (meta stripped)
 
 
-class EventInput(BaseModel):
-    """Structured event data — the pipeline's primary input."""
+class FlyerInput(BaseModel):
+    """Structured flyer input — event-or-info.
+
+    All event-specific fields (date, time, location_*, fees) are optional;
+    `subtype` drives which are expected at the worker/vision/composer layer.
+    Vision prompt, composer, and template resolver branch on `subtype` to
+    avoid rendering empty event fields for info flyers.
+    """
 
     title: str = Field(max_length=120)
-    date: str = Field(max_length=120)
-    time: str = Field(max_length=120)
-    location_name: str = Field(max_length=120)
-    location_address: str = Field(max_length=120)
-    fees: str = Field(max_length=120)
+    subtype: Literal["event", "info"] = "event"
+    # Event-only — optional at the model layer; worker/vision prompt validate
+    # presence when subtype == "event".
+    date: str | None = Field(default=None, max_length=120)
+    time: str | None = Field(default=None, max_length=120)
+    location_name: str | None = Field(default=None, max_length=120)
+    location_address: str | None = Field(default=None, max_length=120)
+    fees: str | None = Field(default=None, max_length=120)
+    # Info-only
+    description: str | None = Field(default=None, max_length=600)
+    call_to_action: str | None = Field(default=None, max_length=120)
+    # Shared
     org: str = Field(max_length=120)
     url: str | None = None
     style_concept: str = Field(max_length=120)
@@ -46,6 +59,11 @@ class EventInput(BaseModel):
             msg = f"color_accent must be a 6-digit hex color (e.g. #F59E0B), got {v!r}"
             raise ValueError(msg)
         return v
+
+
+# Backward-compat alias. Deprecated — use FlyerInput in new code.
+# Kept through at least Phase 23 so external callers aren't broken mid-milestone.
+EventInput = FlyerInput
 
 
 class ComfyJob(BaseModel):
@@ -69,11 +87,16 @@ class GeneratedBackground(BaseModel):
 
 
 class LayoutZones(BaseModel):
-    """Zone assignments from vision evaluation."""
+    """Zone assignments from vision evaluation.
+
+    For event-subtype flyers, `details` and `fee_badge` are populated.
+    For info-subtype flyers, both are None (vision prompt omits those
+    zones; composer skips their rendering).
+    """
 
     title: ZoneName
-    details: ZoneName
-    fee_badge: ZoneName
+    details: ZoneName | None = None
+    fee_badge: ZoneName | None = None
     org_credit: ZoneName = "BOTTOM_CENTER"
 
 
@@ -97,13 +120,17 @@ class VisionVerdict(BaseModel):
 
 
 class ResolvedLayout(BaseModel):
-    """Pixel-resolved zone coordinates for SVG composition."""
+    """Pixel-resolved zone coordinates for SVG composition.
+
+    `details` and `fee_badge` are None for info-subtype flyers; the composer
+    (Plan 03) performs None checks before rendering those blocks.
+    """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     title: ZoneCoord
-    details: ZoneCoord
-    fee_badge: ZoneCoord
+    details: ZoneCoord | None = None
+    fee_badge: ZoneCoord | None = None
     org_credit: ZoneCoord
 
 
