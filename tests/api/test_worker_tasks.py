@@ -181,10 +181,66 @@ async def test_task_raises_on_failure_and_marks_failed(sessionmaker_fx, tmp_path
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Helpers shared by Phase 22 flyer-task tests
+# ---------------------------------------------------------------------------
+
+
+class _FakeFlyerOut:
+    """Mimics FlyerOutput.save(path) by writing PNG magic bytes."""
+
+    comfy_job_id = None
+    final_vision_verdict = None
+
+    def save(self, path):
+        from pathlib import Path as _P
+
+        _P(path).write_bytes(b"\x89PNG\r\n")
+
+
+def _flyer_event_payload(template: str = "editorial_classic", **event_overrides) -> dict:
+    """Valid event-subtype FlyerInput payload + template + preset."""
+    event = {
+        "title": "Test Gala",
+        "subtype": "event",
+        "date": "2026-05-01",
+        "time": "7pm",
+        "location_name": "Main Hall",
+        "location_address": "1 Main St",
+        "fees": "Free",
+        "org": "Acme",
+        "style_concept": "elegant",
+        "style_preset": "photorealistic",
+    }
+    event.update(event_overrides)
+    return {
+        "event": event,
+        "template": template,
+        "preset": "photorealistic",
+    }
+
+
+def _flyer_info_payload(template: str = "editorial_classic") -> dict:
+    """Valid info-subtype FlyerInput payload + template + preset."""
+    return {
+        "event": {
+            "title": "Notice",
+            "subtype": "info",
+            "description": "Public road closure notice.",
+            "org": "City",
+            "style_concept": "civic",
+            "style_preset": "photorealistic",
+        },
+        "template": template,
+        "preset": "photorealistic",
+    }
+
+
 @pytest.mark.asyncio
 async def test_task_generate_flyer_writes_render_and_flyer(
     sessionmaker_fx, tmp_path
 ) -> None:
+    """Smoke test: happy path produces RenderRecord + FlyerRecord rows."""
     from flyer_generator.api.config import AppSettings
     from flyer_generator.api.tasks.flyer import task_generate_flyer
 
@@ -195,37 +251,19 @@ async def test_task_generate_flyer_writes_render_and_flyer(
     jid = "01HTASKFLYER000000000000001"
     await _seed_job(sessionmaker_fx, jid, JobKind.FLYER)
 
-    # FakeOut mimics FlyerOutput.save(path) by writing PNG magic bytes.
-    class FakeOut:
-        comfy_job_id = None
-        final_vision_verdict = None
-
-        def save(self, path):
-            from pathlib import Path as _P
-
-            _P(path).write_bytes(b"\x89PNG\r\n")
-
     class FakeGen:
         def __init__(self, *a, **kw):
             pass
 
-        async def generate(self, event):
-            return FakeOut()
+        async def generate(self, event, *, template=None):
+            return _FakeFlyerOut()
 
-    payload = {
-        "event": {
-            "title": "T",
-            "date": "2026-01-01",
-            "time": "19:00",
-            "location": "X",
-        },
-        "preset": "event_poster",
-    }
+    payload = _flyer_event_payload(template="editorial_classic")
     with patch(
         "flyer_generator.api.tasks.flyer.FlyerGenerator", FakeGen
     ), patch(
-        "flyer_generator.api.tasks.flyer.EventInput.model_validate",
-        return_value=type("E", (), {"title": "T"})(),
+        "flyer_generator.api.tasks.flyer.load_template",
+        return_value=object(),
     ):
         render_id = await task_generate_flyer(ctx, job_id=jid, payload=payload)
 
@@ -238,6 +276,299 @@ async def test_task_generate_flyer_writes_render_and_flyer(
         assert job.result_ref == render_id
         assert (await s.execute(select(RenderRecord))).scalars().all()
         assert (await s.execute(select(FlyerRecord))).scalars().all()
+
+
+# ---------------------------------------------------------------------------
+# Phase 22 FT-01 + FT-06 — task_generate_flyer template loading + subtype kind
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_flyer_task_loads_template_at_module_scope(
+    sessionmaker_fx, tmp_path
+) -> None:
+    """BLOCKER-2 mirror: load_template must be patchable at the worker module path."""
+    from flyer_generator.api.config import AppSettings
+    from flyer_generator.api.tasks.flyer import task_generate_flyer
+
+    settings = AppSettings()
+    settings.artifact_root_flyer = tmp_path
+    ctx = {"sessionmaker": sessionmaker_fx, "settings": settings, "http_client": None}
+
+    jid = "01HTASKFLYERP22A000000000A"
+    await _seed_job(sessionmaker_fx, jid, JobKind.FLYER)
+
+    class FakeGen:
+        def __init__(self, *a, **kw):
+            pass
+
+        async def generate(self, event, *, template=None):
+            return _FakeFlyerOut()
+
+    payload = _flyer_event_payload(template="editorial_classic")
+    fake_template = object()
+    with patch(
+        "flyer_generator.api.tasks.flyer.FlyerGenerator", FakeGen
+    ), patch(
+        "flyer_generator.api.tasks.flyer.load_template",
+        return_value=fake_template,
+    ) as m_load:
+        await task_generate_flyer(ctx, job_id=jid, payload=payload)
+        m_load.assert_called_once_with("editorial_classic")
+
+
+@pytest.mark.asyncio
+async def test_flyer_task_bad_template_raises_and_marks_failed(
+    sessionmaker_fx, tmp_path
+) -> None:
+    """A non-existent template name surfaces FileNotFoundError + marks job failed."""
+    from flyer_generator.api.config import AppSettings
+    from flyer_generator.api.tasks.flyer import task_generate_flyer
+
+    settings = AppSettings()
+    settings.artifact_root_flyer = tmp_path
+    ctx = {"sessionmaker": sessionmaker_fx, "settings": settings, "http_client": None}
+
+    jid = "01HTASKFLYERP22B000000000B"
+    await _seed_job(sessionmaker_fx, jid, JobKind.FLYER)
+
+    payload = _flyer_event_payload(template="nonexistent_template_xyz")
+    # No patch on load_template — let the real loader raise FileNotFoundError.
+    with pytest.raises(FileNotFoundError):
+        await task_generate_flyer(ctx, job_id=jid, payload=payload)
+
+    async with sessionmaker_fx() as s:
+        job = (
+            await s.execute(select(JobRecord).where(JobRecord.id == jid))
+        ).scalar_one()
+        assert job.status == JobStatus.FAILED
+        assert job.error_detail["type"] == "FileNotFoundError"
+
+
+@pytest.mark.asyncio
+async def test_flyer_task_event_subtype_produces_event_render_kind(
+    sessionmaker_fx, tmp_path
+) -> None:
+    """subtype='event' → RenderRecord.kind == 'flyer_event_final'."""
+    from flyer_generator.api.config import AppSettings
+    from flyer_generator.api.tasks.flyer import task_generate_flyer
+
+    settings = AppSettings()
+    settings.artifact_root_flyer = tmp_path
+    ctx = {"sessionmaker": sessionmaker_fx, "settings": settings, "http_client": None}
+
+    jid = "01HTASKFLYERP22C000000000C"
+    await _seed_job(sessionmaker_fx, jid, JobKind.FLYER)
+
+    class FakeGen:
+        def __init__(self, *a, **kw):
+            pass
+
+        async def generate(self, event, *, template=None):
+            return _FakeFlyerOut()
+
+    payload = _flyer_event_payload(template="editorial_classic")
+    with patch(
+        "flyer_generator.api.tasks.flyer.FlyerGenerator", FakeGen
+    ), patch(
+        "flyer_generator.api.tasks.flyer.load_template",
+        return_value=object(),
+    ):
+        await task_generate_flyer(ctx, job_id=jid, payload=payload)
+
+    async with sessionmaker_fx() as s:
+        renders = (await s.execute(select(RenderRecord))).scalars().all()
+        assert len(renders) == 1
+        assert renders[0].kind == "flyer_event_final"
+        flyers = (await s.execute(select(FlyerRecord))).scalars().all()
+        assert len(flyers) == 1
+        assert flyers[0].template == "editorial_classic"
+
+
+@pytest.mark.asyncio
+async def test_flyer_task_info_subtype_produces_info_render_kind(
+    sessionmaker_fx, tmp_path
+) -> None:
+    """subtype='info' → RenderRecord.kind == 'flyer_info_final'."""
+    from flyer_generator.api.config import AppSettings
+    from flyer_generator.api.tasks.flyer import task_generate_flyer
+
+    settings = AppSettings()
+    settings.artifact_root_flyer = tmp_path
+    ctx = {"sessionmaker": sessionmaker_fx, "settings": settings, "http_client": None}
+
+    jid = "01HTASKFLYERP22D000000000D"
+    await _seed_job(sessionmaker_fx, jid, JobKind.FLYER)
+
+    class FakeGen:
+        def __init__(self, *a, **kw):
+            pass
+
+        async def generate(self, event, *, template=None):
+            return _FakeFlyerOut()
+
+    payload = _flyer_info_payload(template="editorial_classic")
+    with patch(
+        "flyer_generator.api.tasks.flyer.FlyerGenerator", FakeGen
+    ), patch(
+        "flyer_generator.api.tasks.flyer.load_template",
+        return_value=object(),
+    ):
+        await task_generate_flyer(ctx, job_id=jid, payload=payload)
+
+    async with sessionmaker_fx() as s:
+        renders = (await s.execute(select(RenderRecord))).scalars().all()
+        assert len(renders) == 1
+        assert renders[0].kind == "flyer_info_final"
+
+
+@pytest.mark.asyncio
+async def test_flyer_task_missing_subtype_defaults_to_event(
+    sessionmaker_fx, tmp_path
+) -> None:
+    """Back-compat: payloads without explicit subtype default to 'event' → flyer_event_final."""
+    from flyer_generator.api.config import AppSettings
+    from flyer_generator.api.tasks.flyer import task_generate_flyer
+
+    settings = AppSettings()
+    settings.artifact_root_flyer = tmp_path
+    ctx = {"sessionmaker": sessionmaker_fx, "settings": settings, "http_client": None}
+
+    jid = "01HTASKFLYERP22E000000000E"
+    await _seed_job(sessionmaker_fx, jid, JobKind.FLYER)
+
+    class FakeGen:
+        def __init__(self, *a, **kw):
+            pass
+
+        async def generate(self, event, *, template=None):
+            return _FakeFlyerOut()
+
+    payload = _flyer_event_payload(template="editorial_classic")
+    # Drop the subtype key — FlyerInput defaults to "event".
+    del payload["event"]["subtype"]
+    with patch(
+        "flyer_generator.api.tasks.flyer.FlyerGenerator", FakeGen
+    ), patch(
+        "flyer_generator.api.tasks.flyer.load_template",
+        return_value=object(),
+    ):
+        await task_generate_flyer(ctx, job_id=jid, payload=payload)
+
+    async with sessionmaker_fx() as s:
+        renders = (await s.execute(select(RenderRecord))).scalars().all()
+        assert renders[0].kind == "flyer_event_final"
+
+
+@pytest.mark.asyncio
+async def test_flyer_task_threads_template_kwarg_to_generator(
+    sessionmaker_fx, tmp_path
+) -> None:
+    """FlyerGenerator.generate must receive the loaded template as template= kwarg."""
+    from flyer_generator.api.config import AppSettings
+    from flyer_generator.api.tasks.flyer import task_generate_flyer
+
+    settings = AppSettings()
+    settings.artifact_root_flyer = tmp_path
+    ctx = {"sessionmaker": sessionmaker_fx, "settings": settings, "http_client": None}
+
+    jid = "01HTASKFLYERP22F000000000F"
+    await _seed_job(sessionmaker_fx, jid, JobKind.FLYER)
+
+    fake_template = object()
+    seen_kwargs: dict = {}
+
+    class CapturingGen:
+        def __init__(self, *a, **kw):
+            pass
+
+        async def generate(self, event, *, template=None):
+            seen_kwargs["template"] = template
+            return _FakeFlyerOut()
+
+    payload = _flyer_event_payload(template="bold_modern")
+    with patch(
+        "flyer_generator.api.tasks.flyer.FlyerGenerator", CapturingGen
+    ), patch(
+        "flyer_generator.api.tasks.flyer.load_template",
+        return_value=fake_template,
+    ):
+        await task_generate_flyer(ctx, job_id=jid, payload=payload)
+
+    assert seen_kwargs["template"] is fake_template
+
+
+@pytest.mark.asyncio
+async def test_flyer_task_writes_template_column(
+    sessionmaker_fx, tmp_path
+) -> None:
+    """FlyerRecord.template column populated from payload['template']."""
+    from flyer_generator.api.config import AppSettings
+    from flyer_generator.api.tasks.flyer import task_generate_flyer
+
+    settings = AppSettings()
+    settings.artifact_root_flyer = tmp_path
+    ctx = {"sessionmaker": sessionmaker_fx, "settings": settings, "http_client": None}
+
+    jid = "01HTASKFLYERP22G00000000GG"
+    await _seed_job(sessionmaker_fx, jid, JobKind.FLYER)
+
+    class FakeGen:
+        def __init__(self, *a, **kw):
+            pass
+
+        async def generate(self, event, *, template=None):
+            return _FakeFlyerOut()
+
+    payload = _flyer_event_payload(template="zine")
+    with patch(
+        "flyer_generator.api.tasks.flyer.FlyerGenerator", FakeGen
+    ), patch(
+        "flyer_generator.api.tasks.flyer.load_template",
+        return_value=object(),
+    ):
+        await task_generate_flyer(ctx, job_id=jid, payload=payload)
+
+    async with sessionmaker_fx() as s:
+        flyers = (await s.execute(select(FlyerRecord))).scalars().all()
+        assert len(flyers) == 1
+        assert flyers[0].template == "zine"
+
+
+@pytest.mark.parametrize(
+    "bad_name",
+    [
+        "../etc/passwd",  # path traversal
+        "foo.json",  # bypass attempt: makes load_template treat as file path
+        "subdir/template",  # forward slash
+        "subdir\\template",  # backslash (Windows-style)
+    ],
+)
+@pytest.mark.asyncio
+async def test_flyer_task_rejects_path_like_template_names(
+    sessionmaker_fx, tmp_path, bad_name
+) -> None:
+    """T-22-10 mitigation: worker refuses template names that look like paths."""
+    from flyer_generator.api.config import AppSettings
+    from flyer_generator.api.tasks.flyer import task_generate_flyer
+
+    settings = AppSettings()
+    settings.artifact_root_flyer = tmp_path
+    ctx = {"sessionmaker": sessionmaker_fx, "settings": settings, "http_client": None}
+
+    jid = "01HTASKFLYERP22H00000" + str(abs(hash(bad_name)))[:6]
+    await _seed_job(sessionmaker_fx, jid, JobKind.FLYER)
+
+    payload = _flyer_event_payload(template=bad_name)
+    with pytest.raises(ValueError):
+        await task_generate_flyer(ctx, job_id=jid, payload=payload)
+
+    async with sessionmaker_fx() as s:
+        job = (
+            await s.execute(select(JobRecord).where(JobRecord.id == jid))
+        ).scalar_one()
+        assert job.status == JobStatus.FAILED
+        assert job.error_detail["type"] == "ValueError"
 
 
 @pytest.mark.asyncio
