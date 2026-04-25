@@ -7,6 +7,7 @@ from flyer_generator.api.models.brand_kit import BrandKitRecord
 from flyer_generator.api.models.brochure import BrochureRecord
 from flyer_generator.api.models.flyer import FlyerRecord
 from flyer_generator.api.models.job import JobKind, JobRecord, JobStatus
+from flyer_generator.api.models.postcard import PostcardRecord
 from flyer_generator.api.models.render import RenderRecord
 from flyer_generator.api.models.social import CampaignRecord, PostRecord
 
@@ -21,6 +22,7 @@ __all__ = sorted(
         "JobRecord",
         "JobStatus",
         "PostRecord",
+        "PostcardRecord",
         "RenderRecord",
         "new_ulid",
         "utcnow",

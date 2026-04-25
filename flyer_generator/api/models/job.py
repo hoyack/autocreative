@@ -15,6 +15,7 @@ class JobKind(str, enum.Enum):
     BRAND_KIT = "brand_kit"
     FLYER = "flyer"
     BROCHURE = "brochure"
+    POSTCARD = "postcard"
     SOCIAL_POST = "social_post"
     SOCIAL_CAMPAIGN = "social_campaign"
 
