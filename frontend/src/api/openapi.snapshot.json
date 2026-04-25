@@ -811,6 +811,44 @@
         }
       }
     },
+    "/api/v1/renders/{render_id}": {
+      "delete": {
+        "tags": [
+          "renders"
+        ],
+        "summary": "Delete a render artifact (DB row + on-disk file). Idempotent path: re-delete returns 404.",
+        "description": "Delete a render row + best-effort unlink the on-disk artifact.\n\nReturns:\n    - 204 No Content on success (row deleted; file unlinked if present)\n    - 404 Not Found if ``render_id`` is unknown OR was already deleted\n\nThe on-disk file is unlinked ONLY when its resolved path lives inside one\nof the configured artifact roots \u2014 same containment guard as\n:func:`get_render_image` (T-1 defense-in-depth). If the file is missing,\noutside the allowed roots, or unwriteable, the row is still deleted and\na structured warning is logged (user intent: purge-from-gallery).",
+        "operationId": "delete_render_api_v1_renders__render_id__delete",
+        "parameters": [
+          {
+            "name": "render_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 26,
+              "maxLength": 26,
+              "title": "Render Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/healthz": {
       "get": {
         "tags": [
