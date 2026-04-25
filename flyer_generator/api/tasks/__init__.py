@@ -13,12 +13,14 @@ from flyer_generator.api.tasks.campaign import task_generate_campaign
 from flyer_generator.api.tasks.flyer import task_generate_flyer
 from flyer_generator.api.tasks.post import task_generate_post
 from flyer_generator.api.tasks.postcard import task_generate_postcard
+from flyer_generator.api.tasks.poster import task_generate_poster
 
 ALL_TASKS = [
     task_fetch_brand_kit,
     task_generate_flyer,
     task_generate_brochure,
     task_generate_postcard,
+    task_generate_poster,
     task_generate_post,
     task_generate_campaign,
 ]
@@ -29,6 +31,7 @@ __all__ = [
     "task_generate_flyer",
     "task_generate_brochure",
     "task_generate_postcard",
+    "task_generate_poster",
     "task_generate_post",
     "task_generate_campaign",
 ]
