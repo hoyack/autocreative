@@ -10,6 +10,7 @@ errors (400/401/403) raise immediately without retry or fallback.
 from __future__ import annotations
 
 import base64
+import io
 import json
 import re
 from typing import get_args
@@ -17,6 +18,7 @@ from typing import get_args
 import httpx
 import structlog
 from anthropic import APIError, AsyncAnthropic
+from PIL import Image
 from pydantic import ValidationError
 
 from flyer_generator.config import Settings
@@ -100,6 +102,60 @@ zones.details and zones.fee_badge MUST be null. Only zones.title and zones.org_c
 VISION_SYSTEM_PROMPT = VISION_SYSTEM_PROMPT_EVENT
 
 _VALID_ZONE_NAMES = set(get_args(ZoneName))
+
+
+def _downsample_for_vision(
+    image_bytes: bytes, *, max_long_edge: int = 1920
+) -> bytes:
+    """Resize to long_edge <= max_long_edge and re-encode as PNG.
+
+    Pure-Pillow. No-op when input is already within the limit (returns
+    the original bytes unchanged so flyer / brochure paths stay byte-
+    identical). For poster-sized 5400×7200 inputs, reduces the long
+    edge to exactly 1920 (height) and width to ~1440, shrinking the
+    base64 payload by ~30× and preventing httpx WriteTimeout on
+    residential uploads.
+
+    Failure-safe: if ``image_bytes`` cannot be opened by Pillow (test
+    mocks pass non-PNG sentinel bytes; production rarely-but-possibly
+    hits a corrupt buffer), the original bytes are returned unchanged.
+    The downstream LLM call already handles "image not understood" via
+    its existing rejection / retry path — degrading gracefully here
+    avoids cascading a transient PIL failure into a pipeline crash.
+
+    PLF-04 (2026-04-25 perception loop): vision evaluation no longer
+    ships the full canvas — internal-only optimization, no API
+    contract change. The downstream pipeline (composer, rasterizer)
+    still receives the full-resolution ``GeneratedBackground.image_bytes``
+    because this helper operates on a local copy passed into
+    ``_evaluate_with_text``.
+    """
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            img.load()
+            w, h = img.size
+            long_edge = max(w, h)
+            if long_edge <= max_long_edge:
+                return image_bytes
+            scale = max_long_edge / long_edge
+            new_size = (max(1, int(w * scale)), max(1, int(h * scale)))
+            resized = img.resize(new_size, Image.LANCZOS)
+            out = io.BytesIO()
+            # Always emit PNG so the hardcoded ``media_type: "image/png"``
+            # on the Anthropic + Ollama call sites stays correct.
+            resized.convert("RGB").save(out, format="PNG", optimize=True)
+            return out.getvalue()
+    except (OSError, ValueError) as exc:
+        # PIL.UnidentifiedImageError subclasses OSError; any other
+        # decoding fault also surfaces here. Pass-through preserves
+        # current upstream behavior for opaque-bytes test mocks and
+        # avoids fatal pipeline crashes on transient corruption.
+        logger.warning(
+            "vision_downsample_skipped_unreadable_bytes",
+            error=str(exc),
+            byte_len=len(image_bytes),
+        )
+        return image_bytes
 
 
 class VisionEvaluator:
@@ -230,8 +286,13 @@ class VisionEvaluator:
         ``system_prompt`` is an optional per-call override. When ``None``, falls
         back to ``self._system_prompt`` (the evaluator default — typically
         ``VISION_SYSTEM_PROMPT_EVENT`` or a brochure-specific prompt).
+
+        PLF-04: ``image_bytes`` is downsampled to a long-edge ≤ 1920 px before
+        base64 encoding. The original bytes (which the caller passed in) are
+        not mutated — this is a local optimization for the LLM payload only.
         """
-        img_b64 = base64.b64encode(image_bytes).decode()
+        vision_bytes = _downsample_for_vision(image_bytes, max_long_edge=1920)
+        img_b64 = base64.b64encode(vision_bytes).decode()
         effective_system = system_prompt or self._system_prompt
 
         if self._settings.vision_provider == "ollama":
