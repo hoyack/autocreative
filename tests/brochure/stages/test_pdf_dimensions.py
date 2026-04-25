@@ -1,16 +1,18 @@
-"""Mediabox dimension contract for the brochure print PDF (RM-01, plan 24.2-01).
+"""Mediabox dimension contract for the brochure print PDF.
 
-ReportLab interprets the ``Canvas(buf, pagesize=(w, h))`` tuple as PostScript
-points (1pt = 1/72in). The brochure assembler historically passed 300dpi pixel
-values directly, yielding a mediabox of 3376 x 2626 pt = 46.89 x 36.47 in
-(should be 11.25 x 8.75 in — letter-landscape + 0.125in bleed each edge).
+The PDF page size is derived from the source PNG dimensions at 300 dpi
+(``PT_PER_PX = 72.0 / 300.0``), so the image fills the page 1:1 — never
+stretched. If the renderer emits 1080×1920 portrait panels the PDF is
+3.6×6.4 in. If it emits 3376×2626 landscape sheets the PDF is 11.25×8.75 in.
 
-The fix: scale the pagesize tuple by ``PT_PER_PX = 72.0 / 300.0`` and call
-``canvas.scale(PT_PER_PX, PT_PER_PX)`` so user-space stays in 300dpi pixel units
-(drawImage and crop-mark coordinates unchanged).
-
-These tests assert the points-correct contract by decoding the produced PDF
-with ``pypdf`` and checking ``mediabox.width / 72`` reports inches.
+Bug history:
+  - RM-01 (260425, fixed): pagesize tuple was passed as pixels, treated by
+    reportlab as points → 46.89 in mediabox.
+  - 260425-nwj v1: pagesize was the bleed canvas (11.25 × 8.75) which
+    doesn't match consumer letter paper.
+  - 260425-nwj v2 (this contract): pagesize was forced to letter trim
+    (11 × 8.5) which stretched the 1080×1920 portrait PNG into landscape,
+    producing visible vertical squash. Now the page tracks the PNG.
 """
 
 from __future__ import annotations
@@ -23,8 +25,6 @@ from pypdf import PdfReader
 from flyer_generator.brochure.stages.layout import (
     BLEED_CANVAS_HEIGHT,
     BLEED_CANVAS_WIDTH,
-    TRIM_HEIGHT_PX,
-    TRIM_WIDTH_PX,
 )
 from flyer_generator.brochure.stages.pdf import assemble_brochure_pdf
 
@@ -34,71 +34,75 @@ from flyer_generator.brochure.stages.pdf import assemble_brochure_pdf
 PT_PER_PX: float = 72.0 / 300.0  # 0.24
 
 
-def _fake_sheet_png(color: tuple[int, int, int] = (200, 200, 255)) -> bytes:
-    """Generate a valid PNG at the bleed canvas size (3376 x 2626 px)."""
+def _fake_sheet_png(
+    color: tuple[int, int, int] = (200, 200, 255),
+    size: tuple[int, int] = (BLEED_CANVAS_WIDTH, BLEED_CANVAS_HEIGHT),
+) -> bytes:
+    """Generate a valid PNG at the requested ``size`` (default = bleed canvas)."""
     buf = io.BytesIO()
-    Image.new("RGB", (BLEED_CANVAS_WIDTH, BLEED_CANVAS_HEIGHT), color).save(buf, "PNG")
+    Image.new("RGB", size, color).save(buf, "PNG")
     return buf.getvalue()
 
 
-def test_brochure_pdf_mediabox_is_in_points_not_pixels() -> None:
-    """Mediabox width is TRIM_WIDTH_PX * 72/300 (= 792 pt), NOT 3300 px.
+def test_brochure_pdf_mediabox_matches_png_at_300dpi() -> None:
+    """Mediabox = (PNG_W * 72/300, PNG_H * 72/300). 1:1 mapping at 300dpi.
 
-    Anti-regression for two layered bugs:
-      - RM-01 (260425, fixed): pagesize tuple was passed as pixels (3376),
-        treated by reportlab as points → 46.89 in mediabox.
-      - 260425-nwj (this fix): pagesize was the bleed canvas (810.24 pt =
-        11.25 in) which doesn't match consumer letter paper (11 × 8.5) and
-        forced printers to scale/pad with bars. Page is now the trim size.
+    Anti-regression: page size must NOT be a hardcoded constant — it must
+    follow the source PNG. Use a non-default PNG size (1080x1920 portrait,
+    matching what the schema renderer actually produces today) and verify
+    the PDF page is 1080*0.24 × 1920*0.24 = 259.2 × 460.8 pt.
     """
-    outside = _fake_sheet_png((240, 240, 255))
-    inside = _fake_sheet_png((255, 240, 240))
-    pdf_bytes = assemble_brochure_pdf(outside, inside)
+    portrait = _fake_sheet_png(size=(1080, 1920))
+    pdf_bytes = assemble_brochure_pdf(portrait, portrait)
 
     reader = PdfReader(io.BytesIO(pdf_bytes))
     page = reader.pages[0]
-    expected_width_pt = TRIM_WIDTH_PX * PT_PER_PX  # 792.0
-    expected_height_pt = TRIM_HEIGHT_PX * PT_PER_PX  # 612.0
+    expected_w_pt = 1080 * PT_PER_PX  # 259.2
+    expected_h_pt = 1920 * PT_PER_PX  # 460.8
 
-    assert abs(float(page.mediabox.width) - expected_width_pt) < 0.01, (
-        f"mediabox.width should be {expected_width_pt:.4f} pt (TRIM_WIDTH_PX * PT_PER_PX), "
-        f"got {float(page.mediabox.width):.4f}"
+    assert abs(float(page.mediabox.width) - expected_w_pt) < 0.01, (
+        f"PDF page width should track PNG width (1080*0.24 = {expected_w_pt:.2f}), "
+        f"got {float(page.mediabox.width):.2f}"
     )
-    assert abs(float(page.mediabox.height) - expected_height_pt) < 0.01, (
-        f"mediabox.height should be {expected_height_pt:.4f} pt (TRIM_HEIGHT_PX * PT_PER_PX), "
-        f"got {float(page.mediabox.height):.4f}"
+    assert abs(float(page.mediabox.height) - expected_h_pt) < 0.01, (
+        f"PDF page height should track PNG height (1920*0.24 = {expected_h_pt:.2f}), "
+        f"got {float(page.mediabox.height):.2f}"
     )
-    # Anti-regression: explicitly NOT the pixel value.
-    assert float(page.mediabox.width) != float(TRIM_WIDTH_PX), (
-        "mediabox.width still equals the pixel value — the PT_PER_PX scale was not applied"
-    )
-    # Anti-regression: explicitly NOT the bleed canvas size.
-    assert abs(float(page.mediabox.width) - BLEED_CANVAS_WIDTH * PT_PER_PX) > 0.5, (
-        "mediabox is still the bleed canvas size; consumer printers will scale or pad — "
-        "see /tmp/perception/brochure-v3.pdf for the symptom that motivated 260425-nwj"
+    # Anti-regression: the PNG aspect ratio must be preserved on the PDF page.
+    png_aspect = 1080 / 1920
+    pdf_aspect = float(page.mediabox.width) / float(page.mediabox.height)
+    assert abs(pdf_aspect - png_aspect) < 0.001, (
+        f"PDF page aspect ({pdf_aspect:.4f}) must match PNG aspect ({png_aspect:.4f}); "
+        f"otherwise the image is stretched (the symptom that motivated 260425-nwj v2)"
     )
 
 
-def test_brochure_pdf_mediabox_in_inches() -> None:
-    """11 × 8.5 in = letter landscape, the actual paper size most users print on.
-
-    The previous contract was 11.25 × 8.75 (bleed canvas) which print shops
-    want but consumer printers can't fit on a letter sheet. 260425-nwj moved
-    the bleed area outside the page boundary so only the trim shows.
+def test_brochure_pdf_mediabox_tracks_bleed_canvas_when_renderer_emits_one() -> None:
+    """If the renderer ever emits a bleed-canvas PNG (3376×2626), the PDF
+    becomes 810.24 × 630.24 pt = 11.25 × 8.75 in — same 1:1 contract,
+    different PNG dims.
     """
-    pdf_bytes = assemble_brochure_pdf(_fake_sheet_png(), _fake_sheet_png())
-    reader = PdfReader(io.BytesIO(pdf_bytes))
-    page = reader.pages[0]
+    bleed = _fake_sheet_png()  # default = bleed canvas size
+    pdf_bytes = assemble_brochure_pdf(bleed, bleed)
+    page = PdfReader(io.BytesIO(pdf_bytes)).pages[0]
 
     width_in = float(page.mediabox.width) / 72.0
     height_in = float(page.mediabox.height) / 72.0
 
-    assert abs(width_in - 11.0) < 0.01, (
-        f"mediabox width in inches should be 11.0 (letter landscape trim), got {width_in:.4f}"
-    )
-    assert abs(height_in - 8.5) < 0.01, (
-        f"mediabox height in inches should be 8.5 (letter landscape trim), got {height_in:.4f}"
-    )
+    assert abs(width_in - 11.253333) < 0.01
+    assert abs(height_in - 8.753333) < 0.01
+
+
+def test_brochure_pdf_rejects_mismatched_png_dimensions() -> None:
+    """Both pages of the PDF must share dimensions; refuse mismatched input."""
+    import pytest
+
+    from flyer_generator.brochure.stages.pdf import BrochurePDFError
+
+    portrait = _fake_sheet_png(size=(1080, 1920))
+    landscape = _fake_sheet_png(size=(3376, 2626))
+    with pytest.raises(BrochurePDFError, match="must share dimensions"):
+        assemble_brochure_pdf(portrait, landscape)
 
 
 def test_brochure_both_pages_same_mediabox() -> None:
