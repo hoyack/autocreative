@@ -86,18 +86,20 @@ def test_render_smoke_all_permutations(template_name: str, with_address: bool) -
     assert len(front_png) > 1000
     assert len(back_png) > 1000
 
-    # PDF round-trip -- 2 pages, mediabox dims match the canvas.
+    # PDF round-trip -- 2 pages, mediabox dims match the canvas (in points).
     pdf_bytes = assemble_postcard_pdf(
         front_png, back_png, template.canvas.width, template.canvas.height
     )
     assert pdf_bytes.startswith(b"%PDF-")
     reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
     assert len(reader.pages) == 2
-    # Page dims (reportlab points; pagesize was passed as pixels -> 1:1 mapping).
-    assert int(reader.pages[0].mediabox.width) == template.canvas.width
-    assert int(reader.pages[0].mediabox.height) == template.canvas.height
-    assert int(reader.pages[1].mediabox.width) == template.canvas.width
-    assert int(reader.pages[1].mediabox.height) == template.canvas.height
+    # RM-01 (plan 24.2-01): mediabox is in PostScript points (canvas px * 72/300),
+    # NOT pixels. 1200 px portrait -> 288 pt = 4 in.
+    expected_w_pt = template.canvas.width * 72.0 / 300.0
+    expected_h_pt = template.canvas.height * 72.0 / 300.0
+    for page in reader.pages:
+        assert abs(float(page.mediabox.width) - expected_w_pt) < 0.01
+        assert abs(float(page.mediabox.height) - expected_h_pt) < 0.01
 
 
 def test_render_smoke_xml_escapes_headline() -> None:

@@ -23,6 +23,13 @@ from reportlab.pdfgen.canvas import Canvas
 
 from flyer_generator.errors import RasterizationError
 
+# 300dpi pixel -> PostScript-point conversion factor (RM-01, plan 24.2-01).
+# ReportLab interprets the ``Canvas(buf, pagesize=(w, h))`` tuple as points
+# (1 pt = 1/72 in). Scale pixel dims by this factor for the pagesize tuple,
+# then call ``canvas.scale(PT_PER_PX, PT_PER_PX)`` so user-space stays in
+# 300dpi pixels — drawImage calls keep their pixel coordinates unchanged.
+PT_PER_PX: float = 72.0 / 300.0  # 0.24
+
 
 class PostcardPDFError(RasterizationError):
     """Raised when postcard PDF assembly fails.
@@ -56,10 +63,12 @@ def assemble_postcard_pdf(
     back_png_bytes:
         Rasterized back-panel PNG. Must be non-empty.
     page_width, page_height:
-        Page dimensions in PDF units (reportlab treats the
-        ``pagesize=(w, h)`` tuple as PostScript points; passing pixel
-        values here gives us a 1:1 pixel-to-point page so the caller
-        does not need DPI math).
+        Page dimensions in 300dpi pixel units. Page size is computed in
+        PostScript points (1pt = 1/72in) by scaling pixel dims by
+        ``PT_PER_PX`` (= 72/300 = 0.24); after
+        ``canvas.scale(PT_PER_PX, PT_PER_PX)`` the user-space remains
+        300dpi pixels so the caller's ``drawImage(..., width=page_width,
+        height=page_height)`` call still spans the full page.
 
     Returns
     -------
@@ -82,9 +91,14 @@ def assemble_postcard_pdf(
             f"{page_width}x{page_height})"
         )
 
+    page_w_pt = page_width * PT_PER_PX
+    page_h_pt = page_height * PT_PER_PX
+
     buf = io.BytesIO()
     try:
-        canvas = Canvas(buf, pagesize=(page_width, page_height))
+        canvas = Canvas(buf, pagesize=(page_w_pt, page_h_pt))
+        # User-space stays in 300dpi pixels; pagesize is in points.
+        canvas.scale(PT_PER_PX, PT_PER_PX)
         # --- Page 1: front ---
         canvas.drawImage(
             ImageReader(io.BytesIO(front_png_bytes)),
@@ -96,6 +110,8 @@ def assemble_postcard_pdf(
         )
         canvas.showPage()
         # --- Page 2: back ---
+        # showPage() resets the CTM, so re-apply the user-space scale.
+        canvas.scale(PT_PER_PX, PT_PER_PX)
         canvas.drawImage(
             ImageReader(io.BytesIO(back_png_bytes)),
             0,

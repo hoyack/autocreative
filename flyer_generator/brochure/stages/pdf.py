@@ -29,6 +29,14 @@ class BrochurePDFError(RasterizationError):
     """Raised when PDF assembly fails."""
 
 
+# 300dpi pixel -> PostScript-point conversion factor (RM-01, plan 24.2-01).
+# ReportLab interprets the ``Canvas(buf, pagesize=(w, h))`` tuple as points
+# (1 pt = 1/72 in). Multiply pixel dims by this factor to get the correct
+# point-space pagesize, then call ``canvas.scale(PT_PER_PX, PT_PER_PX)`` so
+# user-space remains in 300dpi pixels — drawImage and crop-mark coordinates
+# stay in pixel units (no cascading edits).
+PT_PER_PX: float = 72.0 / 300.0  # 0.24
+
 _CROP_LEN = 36
 _CROP_STROKE = 3
 
@@ -67,9 +75,13 @@ def assemble_brochure_pdf(
 ) -> bytes:
     """Build a 2-page PDF: page 1 = outside sheet, page 2 = inside sheet.
 
-    Page size = bleed canvas (3376 x 2626 at 300 DPI). The PNG is placed to fill
-    the entire bleed canvas — caller is responsible for having pre-rasterized at
-    the bleed-canvas dimensions.
+    Design canvas is the bleed canvas (3376 x 2626 px at 300 DPI). Page size
+    is the bleed canvas converted to PostScript points via ``PT_PER_PX``
+    (72pt/in / 300px/in = 0.24); after ``canvas.scale(PT_PER_PX, PT_PER_PX)``
+    the user-space coordinate system is 300dpi pixels, so all subsequent
+    ``drawImage`` and crop-mark calls use pixel units. The PNG is placed to
+    fill the entire bleed canvas — caller is responsible for having
+    pre-rasterized at the bleed-canvas dimensions.
     """
     if not outside_png_bytes:
         raise BrochurePDFError("outside_png_bytes must be non-empty")
@@ -78,10 +90,14 @@ def assemble_brochure_pdf(
 
     page_w = BLEED_CANVAS_WIDTH
     page_h = BLEED_CANVAS_HEIGHT
+    page_w_pt = page_w * PT_PER_PX
+    page_h_pt = page_h * PT_PER_PX
 
     buf = io.BytesIO()
     try:
-        canvas = Canvas(buf, pagesize=(page_w, page_h))
+        canvas = Canvas(buf, pagesize=(page_w_pt, page_h_pt))
+        # User-space stays in 300dpi pixels; pagesize is in points.
+        canvas.scale(PT_PER_PX, PT_PER_PX)
         # --- Page 1: outside sheet ---
         canvas.drawImage(
             ImageReader(io.BytesIO(outside_png_bytes)),
@@ -92,6 +108,8 @@ def assemble_brochure_pdf(
         _draw_crop_marks(canvas, page_h)
         canvas.showPage()
         # --- Page 2: inside sheet ---
+        # showPage() resets the CTM, so re-apply the user-space scale.
+        canvas.scale(PT_PER_PX, PT_PER_PX)
         canvas.drawImage(
             ImageReader(io.BytesIO(inside_png_bytes)),
             0, 0,
