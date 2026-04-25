@@ -17,6 +17,9 @@ import { BrochureStatusPage } from "@/pages/brochures/status";
 import { NewPostcardPage } from "@/pages/postcards/new";
 import { PostcardStatusPage } from "@/pages/postcards/status";
 
+import { NewPosterPage } from "@/pages/posters/new";
+import { PosterStatusPage } from "@/pages/posters/status";
+
 import { NewSocialPostPage } from "@/pages/social/posts/new";
 import { SocialPostStatusPage } from "@/pages/social/posts/status";
 
@@ -47,6 +50,9 @@ export const router = createBrowserRouter([
 
       { path: "postcards/new", element: <NewPostcardPage /> },
       { path: "postcards/:id", element: <PostcardStatusPage /> },
+
+      { path: "posters/new", element: <NewPosterPage /> },
+      { path: "posters/:id", element: <PosterStatusPage /> },
 
       { path: "social/posts/new", element: <NewSocialPostPage /> },
       { path: "social/posts/:id", element: <SocialPostStatusPage /> },

@@ -58,6 +58,9 @@ export type PostcardCreateRequestBody =
 export type PostcardDetail =
   paths["/api/v1/postcards/{postcard_id}"]["get"]["responses"][200]["content"]["application/json"];
 
+export type PosterCreateRequestBody =
+  paths["/api/v1/posters"]["post"]["requestBody"]["content"]["application/json"];
+
 export type PostCreateRequestBody =
   paths["/api/v1/social/posts"]["post"]["requestBody"]["content"]["application/json"];
 

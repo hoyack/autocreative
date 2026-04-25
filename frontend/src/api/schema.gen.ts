@@ -240,6 +240,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/posters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enqueue a poster generation (single PNG at print canvas dims) */
+        post: operations["create_poster_api_v1_posters_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/social/posts": {
         parameters: {
             query?: never;
@@ -912,7 +929,7 @@ export interface components {
          * JobKind
          * @enum {string}
          */
-        JobKind: "brand_kit" | "flyer" | "brochure" | "postcard" | "social_post" | "social_campaign";
+        JobKind: "brand_kit" | "flyer" | "brochure" | "postcard" | "poster" | "social_post" | "social_campaign";
         /**
          * JobStatus
          * @enum {string}
@@ -1046,6 +1063,31 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * PosterCreateRequest
+         * @description Body of POST /api/v1/posters (PO-01).
+         */
+        PosterCreateRequest: {
+            /** Headline */
+            headline: string;
+            /** Subheading */
+            subheading?: string | null;
+            /** Cta Text */
+            cta_text?: string | null;
+            /** Image Hint */
+            image_hint?: string | null;
+            /** Brand Kit Slug */
+            brand_kit_slug?: string | null;
+            /** Style Preset */
+            style_preset: string;
+            /** Template */
+            template: string;
+            /**
+             * Size
+             * @enum {string}
+             */
+            size: "18x24" | "24x36" | "27x40";
         };
         /**
          * RenderSummary
@@ -1389,6 +1431,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PostcardDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_poster_api_v1_posters_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PosterCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobCreated"];
                 };
             };
             /** @description Validation Error */

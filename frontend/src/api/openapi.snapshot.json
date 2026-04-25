@@ -420,6 +420,47 @@
         }
       }
     },
+    "/api/v1/posters": {
+      "post": {
+        "tags": [
+          "posters"
+        ],
+        "summary": "Enqueue a poster generation (single PNG at print canvas dims)",
+        "operationId": "create_poster_api_v1_posters_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PosterCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobCreated"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/social/posts": {
       "post": {
         "tags": [
@@ -2200,6 +2241,7 @@
           "flyer",
           "brochure",
           "postcard",
+          "poster",
           "social_post",
           "social_campaign"
         ],
@@ -2530,6 +2572,95 @@
         ],
         "title": "PostcardDetail",
         "description": "Response for GET /api/v1/postcards/{id} \u2014 all 3 artifacts.\n\nMirrors BrochureDetail (Phase 21-07). The parallel-id pattern (PC-02)\nmeans id == job_id, so the FE can navigate from /jobs/{id} to\n/postcards/{id} without an extra lookup."
+      },
+      "PosterCreateRequest": {
+        "properties": {
+          "headline": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Headline"
+          },
+          "subheading": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subheading"
+          },
+          "cta_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cta Text"
+          },
+          "image_hint": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Hint"
+          },
+          "brand_kit_slug": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Brand Kit Slug"
+          },
+          "style_preset": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Style Preset"
+          },
+          "template": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Template"
+          },
+          "size": {
+            "type": "string",
+            "enum": [
+              "18x24",
+              "24x36",
+              "27x40"
+            ],
+            "title": "Size"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "headline",
+          "style_preset",
+          "template",
+          "size"
+        ],
+        "title": "PosterCreateRequest",
+        "description": "Body of POST /api/v1/posters (PO-01)."
       },
       "RenderSummary": {
         "properties": {
