@@ -1,2336 +1,2406 @@
 {
-  "openapi": "3.1.0",
-  "info": {
-    "title": "flyer-generator API",
-    "description": "Phase 20 \u2014 async HTTP surface wrapping the flyer / brochure / brand_kit / social generators. Single-user v1 (no auth).",
-    "version": "0.1.0"
-  },
-  "paths": {
-    "/api/v1/brand-kits/fetch": {
-      "post": {
-        "tags": [
-          "brand-kits"
-        ],
-        "summary": "Enqueue a brand-kit scrape from a URL",
-        "description": "Enqueue a scrape. Body validation (URL + slug regex) happens in the schema.\n\nSSRF protection is inherited from ``flyer_generator/brand_kit/scraper.py``\nwhich runs inside ``task_fetch_brand_kit``. This route DOES NOT bypass it \u2014\nit only forwards ``url`` + ``slug``.",
-        "operationId": "create_brand_kit_fetch_api_v1_brand_kits_fetch_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BrandKitFetchRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/JobCreated"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
+    "openapi": "3.1.0",
+    "info": {
+        "title": "flyer-generator API",
+        "description": "Phase 20 \u2014 async HTTP surface wrapping the flyer / brochure / brand_kit / social generators. Single-user v1 (no auth).",
+        "version": "0.1.0"
     },
-    "/api/v1/brand-kits": {
-      "get": {
-        "tags": [
-          "brand-kits"
-        ],
-        "summary": "List brand kits (DB + filesystem fuse)",
-        "description": "Return DB rows unioned with filesystem-only kits (lazy fuse \u2014 no INSERT).\n\nRESEARCH.md Open Question Q3 recommendation: synthesize ``BrandKitSummary``\nentries in-memory for slugs present on disk but not yet in the DB. This is\nsafe for v1 where at most a few dozen kits exist.  A real \"import to DB\"\nstep is a later phase.",
-        "operationId": "list_brand_kits_api_v1_brand_kits_get",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 200,
-              "minimum": 1,
-              "default": 50,
-              "title": "Limit"
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0,
-              "title": "Offset"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PaginatedBrandKits"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/brand-kits/{slug}": {
-      "get": {
-        "tags": [
-          "brand-kits"
-        ],
-        "summary": "Brand-kit detail (palette + typography + logos + voice)",
-        "description": "Load a single brand kit.\n\nResolution order:\n  1. DB row (fast path \u2014 preferred).\n  2. Filesystem via ``load_brand_kit(slug, base_dir=...)``.\n  3. Missing -> ``load_brand_kit`` raises ``BrandKitNotFoundError``\n     which the exception-handler bank maps to HTTP 404.",
-        "operationId": "get_brand_kit_api_v1_brand_kits__slug__get",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "maxLength": 64,
-              "pattern": "^[a-z0-9][a-z0-9-]*$",
-              "title": "Slug"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BrandKitDetail"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/brand-kits/{slug}/logos/{filename}": {
-      "get": {
-        "tags": [
-          "brand-kits"
-        ],
-        "summary": "Stream a brand-kit logo file (PNG / JPG / SVG)",
-        "description": "Serve a logo from ``.brand-kits/<slug>/logos/<filename>``.\n\nSECURITY (T-1 HIGH \u2014 path traversal). Returns 404 on EVERY failure:\n\n- slug regex mismatch (handled by FastAPI PathParam validation -> 422)\n- extension not in :data:`_LOGO_EXT_MIME`\n- resolved file path outside ``settings.brand_kits_dir``\n- file missing on disk\n\nWe deliberately do NOT distinguish (e.g. 403 vs 404) \u2014 any signal leaks\nfilesystem shape to attackers. See routes/renders.py for the same posture\n(Phase 20 T-1 mitigation).",
-        "operationId": "get_brand_kit_logo_api_v1_brand_kits__slug__logos__filename__get",
-        "parameters": [
-          {
-            "name": "slug",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "maxLength": 64,
-              "pattern": "^[a-z0-9][a-z0-9-]*$",
-              "title": "Slug"
-            }
-          },
-          {
-            "name": "filename",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "maxLength": 128,
-              "title": "Filename"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "404": {
-            "description": "Logo not found"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/flyers": {
-      "post": {
-        "tags": [
-          "flyers"
-        ],
-        "summary": "Enqueue a flyer generation",
-        "description": "Enqueue a flyer generation.\n\nCommit order is load-bearing:\n  1. INSERT JobRecord, COMMIT.\n  2. Then ``arq_pool.enqueue_job(...)`` \u2014 if we enqueued first, the worker\n     could pick the job up before our row is visible and ``mark_running``\n     would fail with a FK-style \"no such job\" error.",
-        "operationId": "create_flyer_api_v1_flyers_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FlyerCreateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/JobCreated"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/brochures": {
-      "post": {
-        "tags": [
-          "brochures"
-        ],
-        "summary": "Enqueue a brochure generation (3 artifacts: front PNG + back PNG + PDF)",
-        "operationId": "create_brochure_api_v1_brochures_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BrochureCreateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/JobCreated"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/brochures/{brochure_id}": {
-      "get": {
-        "tags": [
-          "brochures"
-        ],
-        "summary": "Brochure detail (front PNG + back PNG + print PDF)",
-        "description": "Return the 3 render URLs for a brochure.\n\nPer Plan 21-07 Task 1 parallel-id pattern: ``brochure_id`` == ``job_id``,\nso the FE can navigate from /jobs/{id} (or directly from a brochure-task\n``result_ref``) to this route without an extra lookup.\n\nReturns 404 when no ``BrochureRecord`` with the given id exists. No\ndistinction is made between \"no such id\" and \"id is malformed beyond\nthe 26-char PathParam guard\" \u2014 both surface as the same 404 to avoid\nleaking DB presence signals (T-16 disposition: trust the ULID guard,\ndon't leak existence).",
-        "operationId": "get_brochure_detail_api_v1_brochures__brochure_id__get",
-        "parameters": [
-          {
-            "name": "brochure_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 26,
-              "maxLength": 26,
-              "title": "Brochure Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BrochureDetail"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/social/posts": {
-      "post": {
-        "tags": [
-          "social"
-        ],
-        "summary": "Enqueue a single-platform social post generation",
-        "operationId": "create_social_post_api_v1_social_posts_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PostCreateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/JobCreated"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/social/campaigns": {
-      "post": {
-        "tags": [
-          "social"
-        ],
-        "summary": "Enqueue a multi-platform social campaign (shared hero)",
-        "operationId": "create_social_campaign_api_v1_social_campaigns_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CampaignCreateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "202": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/JobCreated"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/jobs/{job_id}": {
-      "get": {
-        "tags": [
-          "jobs"
-        ],
-        "summary": "Poll a job's status + result reference",
-        "description": "Return the current status of a job plus a stable result reference.\n\n- Single-artifact jobs (flyer, single post, brochure): ``result_ref`` is\n  a string URL path like ``/api/v1/renders/<ulid>/image``.\n- Campaign jobs: ``result_ref`` is a list of :class:`ResultLink`\n  (``platform``, ``url``) fused from ``CampaignRecord.posts`` +\n  each ``PostRecord.render``.\n- Not-yet-succeeded jobs: ``result_ref`` is ``None``.",
-        "operationId": "get_job_api_v1_jobs__job_id__get",
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 26,
-              "maxLength": 26,
-              "title": "Job Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/JobDetail"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/jobs": {
-      "get": {
-        "tags": [
-          "jobs"
-        ],
-        "summary": "List jobs (newest first; filter by kind / status)",
-        "description": "Return paginated jobs sorted by ``created_at`` DESC.\n\nFilters: optional ``kind`` + ``status`` enum constraints. FastAPI coerces\nquery strings to the two ``JobKind`` / ``JobStatus`` enums and returns\n422 on any value outside the enum \u2014 that's the SQL-smuggling mitigation\nfor T-18 in the plan threat model.",
-        "operationId": "list_jobs_api_v1_jobs_get",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 200,
-              "minimum": 1,
-              "default": 50,
-              "title": "Limit"
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0,
-              "title": "Offset"
-            }
-          },
-          {
-            "name": "kind",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/JobKind"
+    "paths": {
+        "/api/v1/brand-kits/fetch": {
+            "post": {
+                "tags": [
+                    "brand-kits"
+                ],
+                "summary": "Enqueue a brand-kit scrape from a URL",
+                "description": "Enqueue a scrape. Body validation (URL + slug regex) happens in the schema.\n\nSSRF protection is inherited from ``flyer_generator/brand_kit/scraper.py``\nwhich runs inside ``task_fetch_brand_kit``. This route DOES NOT bypass it \u2014\nit only forwards ``url`` + ``slug``.",
+                "operationId": "create_brand_kit_fetch_api_v1_brand_kits_fetch_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BrandKitFetchRequest"
+                            }
+                        }
+                    },
+                    "required": true
                 },
-                {
-                  "type": "null"
+                "responses": {
+                    "202": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JobCreated"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
                 }
-              ],
-              "title": "Kind"
             }
-          },
-          {
-            "name": "status",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "$ref": "#/components/schemas/JobStatus"
+        },
+        "/api/v1/brand-kits": {
+            "get": {
+                "tags": [
+                    "brand-kits"
+                ],
+                "summary": "List brand kits (DB + filesystem fuse)",
+                "description": "Return DB rows unioned with filesystem-only kits.\n\nWR-02 fix (Plan 21-13 Task 1): the dedup key set is the FULL set of DB\nslugs (cheap single indexed-column SELECT), not just the current page's\nslice. This makes the ``total`` count page-invariant and prevents a slug\nthat appears in the DB on page N from being misreported as \"FS-only\" on\npage N-1 (which previously produced both a duplicate row across pages and\nan inflated ``total``).\n\nIN-03 companion fix: the merged list (DB rows + FS-only summaries) is\nsorted by ``scraped_at`` descending BEFORE slicing, so FS-only entries no\nlonger always tail the page regardless of recency.\n\nScale note: v1 datasets are expected to be at most a few dozen kits\n(21-CONTEXT.md \u2014 single-user private instance), so full DB + FS\nenumeration on every list call is acceptable. Revisit if a future phase\nsees >1000 kits.",
+                "operationId": "list_brand_kits_api_v1_brand_kits_get",
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 200,
+                            "minimum": 1,
+                            "default": 50,
+                            "title": "Limit"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "default": 0,
+                            "title": "Offset"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedBrandKits"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/brand-kits/{slug}": {
+            "get": {
+                "tags": [
+                    "brand-kits"
+                ],
+                "summary": "Brand-kit detail (palette + typography + logos + voice)",
+                "description": "Load a single brand kit.\n\nResolution order:\n  1. DB row (fast path \u2014 preferred).\n  2. Filesystem via ``load_brand_kit(slug, base_dir=...)``.\n  3. Missing -> ``load_brand_kit`` raises ``BrandKitNotFoundError``\n     which the exception-handler bank maps to HTTP 404.",
+                "operationId": "get_brand_kit_api_v1_brand_kits__slug__get",
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 64,
+                            "pattern": "^[a-z0-9][a-z0-9-]*$",
+                            "title": "Slug"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BrandKitDetail"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/brand-kits/{slug}/logos/{filename}": {
+            "get": {
+                "tags": [
+                    "brand-kits"
+                ],
+                "summary": "Stream a brand-kit logo file (PNG / JPG / SVG)",
+                "description": "Serve a logo from ``.brand-kits/<slug>/logos/<filename>``.\n\nSECURITY (T-1 HIGH \u2014 path traversal). Returns 404 on EVERY failure:\n\n- slug regex mismatch (handled by FastAPI PathParam validation -> 422)\n- extension not in :data:`_LOGO_EXT_MIME`\n- resolved file path outside ``settings.brand_kits_dir``\n- file missing on disk\n\nWe deliberately do NOT distinguish (e.g. 403 vs 404) \u2014 any signal leaks\nfilesystem shape to attackers. See routes/renders.py for the same posture\n(Phase 20 T-1 mitigation).",
+                "operationId": "get_brand_kit_logo_api_v1_brand_kits__slug__logos__filename__get",
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 64,
+                            "pattern": "^[a-z0-9][a-z0-9-]*$",
+                            "title": "Slug"
+                        }
+                    },
+                    {
+                        "name": "filename",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 128,
+                            "title": "Filename"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Logo not found"
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/flyers": {
+            "post": {
+                "tags": [
+                    "flyers"
+                ],
+                "summary": "Enqueue a flyer generation",
+                "description": "Enqueue a flyer generation.\n\nCommit order is load-bearing:\n  1. INSERT JobRecord, COMMIT.\n  2. Then ``arq_pool.enqueue_job(...)`` \u2014 if we enqueued first, the worker\n     could pick the job up before our row is visible and ``mark_running``\n     would fail with a FK-style \"no such job\" error.",
+                "operationId": "create_flyer_api_v1_flyers_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FlyerCreateRequest"
+                            }
+                        }
+                    },
+                    "required": true
                 },
-                {
-                  "type": "null"
+                "responses": {
+                    "202": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JobCreated"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
                 }
-              ],
-              "title": "Status"
             }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PaginatedJobs"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/renders/{render_id}/image": {
-      "get": {
-        "tags": [
-          "renders"
-        ],
-        "summary": "Stream a render artifact (PNG / PDF / JPG)",
-        "description": "Stream a render artifact to the client.\n\nReturns 404 on ANY of the following (never distinguishing which):\n\n- ``render_id`` not present in the ``renders`` table\n- ``file_path`` missing on disk\n- resolved ``file_path`` outside every configured artifact root (T-1)\n- ``file_path`` suffix not in the allowed extension whitelist",
-        "operationId": "get_render_image_api_v1_renders__render_id__image_get",
-        "parameters": [
-          {
-            "name": "render_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 26,
-              "maxLength": 26,
-              "title": "Render Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/renders": {
-      "get": {
-        "tags": [
-          "renders"
-        ],
-        "summary": "List rendered artifacts (newest first; filter by kind / since)",
-        "description": "Return paginated render summaries sorted by ``created_at`` DESC.\n\nPer 21-RESEARCH.md Open Q2 + 21-PATTERNS.md \"Backend addition:\nlist_renders\" \u2014 this endpoint is a cheap metadata list; clients fetch\nthe bytes via :func:`get_render_image` using the id. T-5 DoS is\nmitigated by the ``le=200`` cap on ``limit``.",
-        "operationId": "list_renders_api_v1_renders_get",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 200,
-              "minimum": 1,
-              "default": 50,
-              "title": "Limit"
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "minimum": 0,
-              "default": 0,
-              "title": "Offset"
-            }
-          },
-          {
-            "name": "kind",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "maxLength": 40
+        },
+        "/api/v1/brochures": {
+            "post": {
+                "tags": [
+                    "brochures"
+                ],
+                "summary": "Enqueue a brochure generation (3 artifacts: front PNG + back PNG + PDF)",
+                "operationId": "create_brochure_api_v1_brochures_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BrochureCreateRequest"
+                            }
+                        }
+                    },
+                    "required": true
                 },
-                {
-                  "type": "null"
+                "responses": {
+                    "202": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JobCreated"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
                 }
-              ],
-              "title": "Kind"
             }
-          },
-          {
-            "name": "since",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "format": "date-time"
+        },
+        "/api/v1/brochures/{brochure_id}": {
+            "get": {
+                "tags": [
+                    "brochures"
+                ],
+                "summary": "Brochure detail (front PNG + back PNG + print PDF)",
+                "description": "Return the 3 render URLs for a brochure.\n\nPer Plan 21-07 Task 1 parallel-id pattern: ``brochure_id`` == ``job_id``,\nso the FE can navigate from /jobs/{id} (or directly from a brochure-task\n``result_ref``) to this route without an extra lookup.\n\nReturns 404 when no ``BrochureRecord`` with the given id exists. No\ndistinction is made between \"no such id\" and \"id is malformed beyond\nthe 26-char PathParam guard\" \u2014 both surface as the same 404 to avoid\nleaking DB presence signals (T-16 disposition: trust the ULID guard,\ndon't leak existence).",
+                "operationId": "get_brochure_detail_api_v1_brochures__brochure_id__get",
+                "parameters": [
+                    {
+                        "name": "brochure_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 26,
+                            "maxLength": 26,
+                            "title": "Brochure Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/BrochureDetail"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/social/posts": {
+            "post": {
+                "tags": [
+                    "social"
+                ],
+                "summary": "Enqueue a single-platform social post generation",
+                "operationId": "create_social_post_api_v1_social_posts_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PostCreateRequest"
+                            }
+                        }
+                    },
+                    "required": true
                 },
-                {
-                  "type": "null"
+                "responses": {
+                    "202": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JobCreated"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
                 }
-              ],
-              "title": "Since"
             }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PaginatedRenders"
+        },
+        "/api/v1/social/campaigns": {
+            "post": {
+                "tags": [
+                    "social"
+                ],
+                "summary": "Enqueue a multi-platform social campaign (shared hero)",
+                "operationId": "create_social_campaign_api_v1_social_campaigns_post",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CampaignCreateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JobCreated"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
                 }
-              }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+        },
+        "/api/v1/jobs/{job_id}": {
+            "get": {
+                "tags": [
+                    "jobs"
+                ],
+                "summary": "Poll a job's status + result reference",
+                "description": "Return the current status of a job plus a stable result reference.\n\n- Single-artifact jobs (flyer, single post, brochure): ``result_ref`` is\n  a string URL path like ``/api/v1/renders/<ulid>/image``.\n- Campaign jobs: ``result_ref`` is a list of :class:`ResultLink`\n  (``platform``, ``url``) fused from ``CampaignRecord.posts`` +\n  each ``PostRecord.render``.\n- Not-yet-succeeded jobs: ``result_ref`` is ``None``.",
+                "operationId": "get_job_api_v1_jobs__job_id__get",
+                "parameters": [
+                    {
+                        "name": "job_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 26,
+                            "maxLength": 26,
+                            "title": "Job Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/JobDetail"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
                 }
-              }
             }
-          }
+        },
+        "/api/v1/jobs": {
+            "get": {
+                "tags": [
+                    "jobs"
+                ],
+                "summary": "List jobs (newest first; filter by kind / status)",
+                "description": "Return paginated jobs sorted by ``created_at`` DESC.\n\nFilters: optional ``kind`` + ``status`` enum constraints. FastAPI coerces\nquery strings to the two ``JobKind`` / ``JobStatus`` enums and returns\n422 on any value outside the enum \u2014 that's the SQL-smuggling mitigation\nfor T-18 in the plan threat model.",
+                "operationId": "list_jobs_api_v1_jobs_get",
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 200,
+                            "minimum": 1,
+                            "default": 50,
+                            "title": "Limit"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "default": 0,
+                            "title": "Offset"
+                        }
+                    },
+                    {
+                        "name": "kind",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "$ref": "#/components/schemas/JobKind"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "Kind"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "$ref": "#/components/schemas/JobStatus"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "Status"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedJobs"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/renders/{render_id}/image": {
+            "get": {
+                "tags": [
+                    "renders"
+                ],
+                "summary": "Stream a render artifact (PNG / PDF / JPG)",
+                "description": "Stream a render artifact to the client.\n\nReturns 404 on ANY of the following (never distinguishing which):\n\n- ``render_id`` not present in the ``renders`` table\n- ``file_path`` missing on disk\n- resolved ``file_path`` outside every configured artifact root (T-1)\n- ``file_path`` suffix not in the allowed extension whitelist",
+                "operationId": "get_render_image_api_v1_renders__render_id__image_get",
+                "parameters": [
+                    {
+                        "name": "render_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "minLength": 26,
+                            "maxLength": 26,
+                            "title": "Render Id"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {}
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/renders": {
+            "get": {
+                "tags": [
+                    "renders"
+                ],
+                "summary": "List rendered artifacts (newest first; filter by kind / since)",
+                "description": "Return paginated render summaries sorted by ``created_at`` DESC.\n\nPer 21-RESEARCH.md Open Q2 + 21-PATTERNS.md \"Backend addition:\nlist_renders\" \u2014 this endpoint is a cheap metadata list; clients fetch\nthe bytes via :func:`get_render_image` using the id. T-5 DoS is\nmitigated by the ``le=200`` cap on ``limit``.",
+                "operationId": "list_renders_api_v1_renders_get",
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 200,
+                            "minimum": 1,
+                            "default": 50,
+                            "title": "Limit"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "default": 0,
+                            "title": "Offset"
+                        }
+                    },
+                    {
+                        "name": "kind",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string",
+                                    "maxLength": 40
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "Kind"
+                        }
+                    },
+                    {
+                        "name": "since",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "anyOf": [
+                                {
+                                    "type": "string",
+                                    "format": "date-time"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "title": "Since"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedRenders"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation Error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/HTTPValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/healthz": {
+            "get": {
+                "tags": [
+                    "health"
+                ],
+                "summary": "Healthz",
+                "description": "Liveness check \u2014 does NOT touch the DB or Redis.",
+                "operationId": "healthz_healthz_get",
+                "responses": {
+                    "200": {
+                        "description": "Successful Response",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    },
+                                    "type": "object",
+                                    "title": "Response Healthz Healthz Get"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-      }
     },
-    "/healthz": {
-      "get": {
-        "tags": [
-          "health"
-        ],
-        "summary": "Healthz",
-        "description": "Liveness check \u2014 does NOT touch the DB or Redis.",
-        "operationId": "healthz_healthz_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "type": "object",
-                  "title": "Response Healthz Healthz Get"
-                }
-              }
+    "components": {
+        "schemas": {
+            "BackPanelContent": {
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "title": "Kind",
+                        "default": "cta"
+                    },
+                    "heading": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Heading"
+                    },
+                    "body": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Body"
+                    },
+                    "bullets": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Bullets"
+                    },
+                    "cta_label": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Cta Label"
+                    },
+                    "cta_detail": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Cta Detail"
+                    },
+                    "footer_note": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Footer Note"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "title": "BackPanelContent",
+                "description": "Structured back-cover content.\n\nUnlike legacy BrochureBackPanel (which collapsed everything into a single\nstring), this is a real object: heading + body + bullets + optional\ncontact card + CTA button label."
+            },
+            "BrandKit": {
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "title": "Name"
+                    },
+                    "source_url": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Source Url"
+                    },
+                    "fetched_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Fetched At"
+                    },
+                    "palette": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/BrandPalette"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "typography": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/BrandTypography"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "logos": {
+                        "items": {
+                            "$ref": "#/components/schemas/BrandLogo"
+                        },
+                        "type": "array",
+                        "title": "Logos"
+                    },
+                    "voice": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/BrandVoice"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "photography": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/BrandPhotoHints"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "source_artifacts": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Source Artifacts"
+                    },
+                    "size_multiplier": {
+                        "type": "number",
+                        "maximum": 3.0,
+                        "exclusiveMinimum": 0.0,
+                        "title": "Size Multiplier",
+                        "default": 1.0
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "name",
+                    "fetched_at"
+                ],
+                "title": "BrandKit",
+                "description": "Top-level brand kit. Optional nested models allow partial scrapes."
+            },
+            "BrandKitDetail": {
+                "properties": {
+                    "slug": {
+                        "type": "string",
+                        "title": "Slug"
+                    },
+                    "record_created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Record Created At"
+                    },
+                    "brand_kit": {
+                        "$ref": "#/components/schemas/BrandKit"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "slug",
+                    "record_created_at",
+                    "brand_kit"
+                ],
+                "title": "BrandKitDetail",
+                "description": "Response for GET /api/v1/brand-kits/{slug}.\n\nWraps the existing :class:`BrandKit` Pydantic model (which already has all\npalette / typography / logos / voice fields). Exposed as-is \u2014 no reshape."
+            },
+            "BrandKitFetchRequest": {
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "minLength": 1,
+                        "format": "uri",
+                        "title": "Url"
+                    },
+                    "slug": {
+                        "type": "string",
+                        "maxLength": 64,
+                        "minLength": 1,
+                        "title": "Slug"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "url",
+                    "slug"
+                ],
+                "title": "BrandKitFetchRequest",
+                "description": "Body of POST /api/v1/brand-kits/fetch."
+            },
+            "BrandKitSummary": {
+                "properties": {
+                    "slug": {
+                        "type": "string",
+                        "title": "Slug"
+                    },
+                    "name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name"
+                    },
+                    "source_url": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Source Url"
+                    },
+                    "scraped_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Scraped At"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "slug",
+                    "scraped_at"
+                ],
+                "title": "BrandKitSummary",
+                "description": "Entry in GET /api/v1/brand-kits list."
+            },
+            "BrandLogo": {
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "title": "Path"
+                    },
+                    "variant": {
+                        "type": "string",
+                        "enum": [
+                            "primary",
+                            "mono_dark",
+                            "mono_light",
+                            "mark_only"
+                        ],
+                        "title": "Variant"
+                    },
+                    "format": {
+                        "type": "string",
+                        "enum": [
+                            "png",
+                            "jpg",
+                            "svg"
+                        ],
+                        "title": "Format"
+                    },
+                    "aspect_ratio": {
+                        "type": "number",
+                        "exclusiveMinimum": 0.0,
+                        "title": "Aspect Ratio"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "path",
+                    "variant",
+                    "format",
+                    "aspect_ratio"
+                ],
+                "title": "BrandLogo",
+                "description": "A single logo asset (stored at kit_dir / path)."
+            },
+            "BrandPalette": {
+                "properties": {
+                    "primary": {
+                        "$ref": "#/components/schemas/ColorUsage"
+                    },
+                    "secondary": {
+                        "$ref": "#/components/schemas/ColorUsage"
+                    },
+                    "accent": {
+                        "$ref": "#/components/schemas/ColorUsage"
+                    },
+                    "neutral_dark": {
+                        "$ref": "#/components/schemas/ColorUsage"
+                    },
+                    "neutral_light": {
+                        "$ref": "#/components/schemas/ColorUsage"
+                    },
+                    "extras": {
+                        "additionalProperties": {
+                            "$ref": "#/components/schemas/ColorUsage"
+                        },
+                        "type": "object",
+                        "title": "Extras"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "primary",
+                    "secondary",
+                    "accent",
+                    "neutral_dark",
+                    "neutral_light"
+                ],
+                "title": "BrandPalette",
+                "description": "Extracted brand color palette: five named roles + an extras dict."
+            },
+            "BrandPhotoHints": {
+                "properties": {
+                    "preferred_style_preset": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Preferred Style Preset"
+                    },
+                    "color_grade_notes": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Color Grade Notes"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "title": "BrandPhotoHints",
+                "description": "Optional photography guidance."
+            },
+            "BrandTypography": {
+                "properties": {
+                    "heading_family": {
+                        "type": "string",
+                        "title": "Heading Family"
+                    },
+                    "body_family": {
+                        "type": "string",
+                        "title": "Body Family"
+                    },
+                    "size_scale": {
+                        "additionalProperties": {
+                            "type": "integer"
+                        },
+                        "type": "object",
+                        "title": "Size Scale"
+                    },
+                    "font_sources": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Font Sources"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "heading_family",
+                    "body_family"
+                ],
+                "title": "BrandTypography",
+                "description": "Heading + body font stacks and a generic size scale.\n\n`size_scale` keys are role tokens (`hero`, `display`, `heading`,\n`subheading`, `body`, `caption`). The applier maps these to the\ntemplate's specific size fields."
+            },
+            "BrandVoice": {
+                "properties": {
+                    "tone": {
+                        "type": "string",
+                        "title": "Tone"
+                    },
+                    "example_phrases": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Example Phrases"
+                    },
+                    "banned_words": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Banned Words"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "tone"
+                ],
+                "title": "BrandVoice",
+                "description": "Optional brand voice hints (captured now, wired to text_gen later)."
+            },
+            "BrochureBrief": {
+                "properties": {
+                    "target_audience": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Target Audience"
+                    },
+                    "brand_voice": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Brand Voice"
+                    },
+                    "value_proposition": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Value Proposition"
+                    },
+                    "offerings": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Offerings"
+                    },
+                    "differentiators": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Differentiators"
+                    },
+                    "testimonials": {
+                        "items": {
+                            "$ref": "#/components/schemas/Testimonial"
+                        },
+                        "type": "array",
+                        "title": "Testimonials"
+                    },
+                    "awards": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Awards"
+                    },
+                    "key_stats": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Key Stats"
+                    },
+                    "founded_year": {
+                        "anyOf": [
+                            {
+                                "type": "integer"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Founded Year"
+                    },
+                    "hours": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Hours"
+                    },
+                    "locations": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Locations"
+                    },
+                    "primary_cta": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Primary Cta"
+                    },
+                    "secondary_cta": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Secondary Cta"
+                    },
+                    "keywords": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Keywords"
+                    },
+                    "source_urls": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Source Urls"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "title": "BrochureBrief",
+                "description": "Customer intake for brochure content.\n\nThis is the interrogative data you'd collect from a customer before\nwriting a brochure: what they do, who they serve, what sets them apart,\nwhat evidence they can show, what action they want the reader to take,\nwhat voice they speak in. The LLM consumes this as ground truth when\nwriting copy \u2014 anything in here should appear verbatim or nearly so in\nthe final brochure (instead of being invented by the model).\n\nIntended inputs:\n  * Hand-filled by the caller (CLI or API).\n  * Auto-populated by a future website scraper (firecrawl) \u2014 fields map\n    cleanly onto what you'd extract from a landing page + about + services."
+            },
+            "BrochureContent": {
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "title": "Title"
+                    },
+                    "subtitle": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Subtitle"
+                    },
+                    "tagline": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Tagline"
+                    },
+                    "org": {
+                        "type": "string",
+                        "title": "Org"
+                    },
+                    "hero_concept": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Hero Concept"
+                    },
+                    "color_accent": {
+                        "type": "string",
+                        "title": "Color Accent",
+                        "default": "#1E3A5F"
+                    },
+                    "contact": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/ContactBlock"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "sections": {
+                        "items": {
+                            "$ref": "#/components/schemas/ContentSection"
+                        },
+                        "type": "array",
+                        "maxItems": 8,
+                        "minItems": 1,
+                        "title": "Sections"
+                    },
+                    "back_panel": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/BackPanelContent"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "brief": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/BrochureBrief"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "extras": {
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "type": "object",
+                        "title": "Extras"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "title",
+                    "org",
+                    "sections"
+                ],
+                "title": "BrochureContent",
+                "description": "Primary content model for the schema renderer."
+            },
+            "BrochureCreateRequest": {
+                "properties": {
+                    "content": {
+                        "$ref": "#/components/schemas/BrochureContent"
+                    },
+                    "template": {
+                        "type": "string",
+                        "maxLength": 64,
+                        "minLength": 1,
+                        "title": "Template"
+                    },
+                    "brand_kit_slug": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 64
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Brand Kit Slug"
+                    },
+                    "generate_images": {
+                        "type": "boolean",
+                        "title": "Generate Images",
+                        "default": true
+                    },
+                    "workflow": {
+                        "type": "string",
+                        "title": "Workflow",
+                        "default": "turbo_landscape"
+                    },
+                    "style_preset": {
+                        "type": "string",
+                        "title": "Style Preset",
+                        "default": "photorealistic"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "content",
+                    "template"
+                ],
+                "title": "BrochureCreateRequest",
+                "description": "Body of POST /api/v1/brochures."
+            },
+            "BrochureDetail": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "template": {
+                        "type": "string",
+                        "title": "Template"
+                    },
+                    "brand_kit_slug": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Brand Kit Slug"
+                    },
+                    "front_render_url": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Front Render Url"
+                    },
+                    "back_render_url": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Back Render Url"
+                    },
+                    "pdf_render_url": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Pdf Render Url"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "id",
+                    "template",
+                    "created_at"
+                ],
+                "title": "BrochureDetail",
+                "description": "Response for GET /api/v1/brochures/{id} \u2014 all 3 artifacts.\n\nPer 21-PATTERNS.md lines 577-589: brochures uniquely produce 3 artifacts\n(front PNG, back PNG, print PDF). JobRecord.result_ref is a single string,\nso the FE status page cannot reach all 3 through /jobs/{id} alone. The\nparallel-id pattern (plan 21-07 Task 1) sets BrochureRecord.id == JobRecord.id\nso the FE can GET /brochures/{job_id} and fan out to the 3 render URLs."
+            },
+            "CampaignCreateRequest": {
+                "properties": {
+                    "brand_kit_slug": {
+                        "type": "string",
+                        "maxLength": 64,
+                        "minLength": 1,
+                        "title": "Brand Kit Slug"
+                    },
+                    "platforms": {
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "linkedin",
+                                "twitter",
+                                "instagram",
+                                "facebook"
+                            ]
+                        },
+                        "type": "array",
+                        "maxItems": 10,
+                        "minItems": 1,
+                        "title": "Platforms"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "announcement",
+                            "value-prop",
+                            "testimonial"
+                        ],
+                        "title": "Intent"
+                    },
+                    "topic": {
+                        "type": "string",
+                        "maxLength": 400,
+                        "minLength": 1,
+                        "title": "Topic"
+                    },
+                    "cta": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 200
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Cta"
+                    },
+                    "style_preset": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 64
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Style Preset"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "brand_kit_slug",
+                    "platforms",
+                    "intent",
+                    "topic"
+                ],
+                "title": "CampaignCreateRequest",
+                "description": "Body of POST /api/v1/social/campaigns."
+            },
+            "ColorUsage": {
+                "properties": {
+                    "hex": {
+                        "type": "string",
+                        "title": "Hex"
+                    },
+                    "usage_hint": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Usage Hint"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "hex"
+                ],
+                "title": "ColorUsage",
+                "description": "A single color with an optional semantic usage hint."
+            },
+            "ContactBlock": {
+                "properties": {
+                    "name": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Name"
+                    },
+                    "phone": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Phone"
+                    },
+                    "email": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Email"
+                    },
+                    "url": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Url"
+                    },
+                    "address": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Address"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "title": "ContactBlock",
+                "description": "Optional contact block used on the back cover panel."
+            },
+            "ContentSection": {
+                "properties": {
+                    "heading": {
+                        "type": "string",
+                        "title": "Heading"
+                    },
+                    "lead_paragraph": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Lead Paragraph"
+                    },
+                    "body_paragraphs": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Body Paragraphs"
+                    },
+                    "bullets": {
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array",
+                        "title": "Bullets"
+                    },
+                    "quote": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Quote"
+                    },
+                    "quote_attribution": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Quote Attribution"
+                    },
+                    "icon_hint": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Icon Hint"
+                    },
+                    "image_concept": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Image Concept"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "heading"
+                ],
+                "title": "ContentSection",
+                "description": "One content section mapped onto tuck_flap or inner_{left,center,right}."
+            },
+            "FlyerCreateRequest": {
+                "properties": {
+                    "event": {
+                        "$ref": "#/components/schemas/FlyerInput"
+                    },
+                    "template": {
+                        "type": "string",
+                        "maxLength": 64,
+                        "minLength": 1,
+                        "title": "Template"
+                    },
+                    "preset": {
+                        "type": "string",
+                        "maxLength": 64,
+                        "minLength": 1,
+                        "title": "Preset"
+                    },
+                    "brand_kit_slug": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 64
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Brand Kit Slug"
+                    },
+                    "accent": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "pattern": "^#[0-9A-Fa-f]{6}$"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Accent"
+                    },
+                    "max_bg_attempts": {
+                        "anyOf": [
+                            {
+                                "type": "integer",
+                                "maximum": 10.0,
+                                "minimum": 1.0
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Max Bg Attempts"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "event",
+                    "template",
+                    "preset"
+                ],
+                "title": "FlyerCreateRequest",
+                "description": "Body of POST /api/v1/flyers.\n\nRe-uses FlyerInput verbatim (no field-by-field redefinition). Adds API-layer\noptions: template slug (mirrors brochure; validated at worker-time via\nload_template()), preset, optional brand-kit slug, optional accent\noverride, optional max background retry cap."
+            },
+            "FlyerInput": {
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "title": "Title"
+                    },
+                    "subtype": {
+                        "type": "string",
+                        "enum": [
+                            "event",
+                            "info"
+                        ],
+                        "title": "Subtype",
+                        "default": "event"
+                    },
+                    "date": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 120
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Date"
+                    },
+                    "time": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 120
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Time"
+                    },
+                    "location_name": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 120
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Location Name"
+                    },
+                    "location_address": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 120
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Location Address"
+                    },
+                    "fees": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 120
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Fees"
+                    },
+                    "description": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 600
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Description"
+                    },
+                    "call_to_action": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 120
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Call To Action"
+                    },
+                    "org": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "title": "Org"
+                    },
+                    "url": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Url"
+                    },
+                    "style_concept": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "title": "Style Concept"
+                    },
+                    "style_preset": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "title": "Style Preset"
+                    },
+                    "color_accent": {
+                        "type": "string",
+                        "title": "Color Accent",
+                        "default": "#F59E0B"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "title",
+                    "org",
+                    "style_concept",
+                    "style_preset"
+                ],
+                "title": "FlyerInput",
+                "description": "Structured flyer input \u2014 event-or-info.\n\nAll event-specific fields (date, time, location_*, fees) are optional;\n`subtype` drives which are expected at the worker/vision/composer layer.\nVision prompt, composer, and template resolver branch on `subtype` to\navoid rendering empty event fields for info flyers."
+            },
+            "HTTPValidationError": {
+                "properties": {
+                    "detail": {
+                        "items": {
+                            "$ref": "#/components/schemas/ValidationError"
+                        },
+                        "type": "array",
+                        "title": "Detail"
+                    }
+                },
+                "type": "object",
+                "title": "HTTPValidationError"
+            },
+            "JobCreated": {
+                "properties": {
+                    "job_id": {
+                        "type": "string",
+                        "maxLength": 26,
+                        "minLength": 26,
+                        "title": "Job Id",
+                        "description": "ULID job id"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "job_id"
+                ],
+                "title": "JobCreated",
+                "description": "Response body for every async-job-starting endpoint (202 Accepted)."
+            },
+            "JobDetail": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "kind": {
+                        "$ref": "#/components/schemas/JobKind"
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/JobStatus"
+                    },
+                    "started_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Started At"
+                    },
+                    "completed_at": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "format": "date-time"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Completed At"
+                    },
+                    "error_detail": {
+                        "anyOf": [
+                            {
+                                "additionalProperties": true,
+                                "type": "object"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Error Detail"
+                    },
+                    "result_ref": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "items": {
+                                    "$ref": "#/components/schemas/ResultLink"
+                                },
+                                "type": "array"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Result Ref"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "id",
+                    "kind",
+                    "status",
+                    "created_at"
+                ],
+                "title": "JobDetail",
+                "description": "GET /api/v1/jobs/{id} response."
+            },
+            "JobKind": {
+                "type": "string",
+                "enum": [
+                    "brand_kit",
+                    "flyer",
+                    "brochure",
+                    "social_post",
+                    "social_campaign"
+                ],
+                "title": "JobKind"
+            },
+            "JobStatus": {
+                "type": "string",
+                "enum": [
+                    "queued",
+                    "running",
+                    "succeeded",
+                    "failed",
+                    "cancelled"
+                ],
+                "title": "JobStatus"
+            },
+            "PaginatedBrandKits": {
+                "properties": {
+                    "items": {
+                        "items": {
+                            "$ref": "#/components/schemas/BrandKitSummary"
+                        },
+                        "type": "array",
+                        "title": "Items"
+                    },
+                    "total": {
+                        "type": "integer",
+                        "title": "Total"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "title": "Limit"
+                    },
+                    "offset": {
+                        "type": "integer",
+                        "title": "Offset"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "items",
+                    "total",
+                    "limit",
+                    "offset"
+                ],
+                "title": "PaginatedBrandKits",
+                "description": "Response for GET /api/v1/brand-kits?limit=&offset=."
+            },
+            "PaginatedJobs": {
+                "properties": {
+                    "items": {
+                        "items": {
+                            "$ref": "#/components/schemas/JobDetail"
+                        },
+                        "type": "array",
+                        "title": "Items"
+                    },
+                    "total": {
+                        "type": "integer",
+                        "title": "Total"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "title": "Limit"
+                    },
+                    "offset": {
+                        "type": "integer",
+                        "title": "Offset"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "items",
+                    "total",
+                    "limit",
+                    "offset"
+                ],
+                "title": "PaginatedJobs",
+                "description": "Response for ``GET /api/v1/jobs?limit=&offset=&kind=&status=``.\n\nMirrors :class:`PaginatedBrandKits`. Items reuse the existing\n:class:`JobDetail` schema so clients can share a single row type between\nthe list view and the single-job poll.\n\nPer Plan 21-10 + 21-RESEARCH.md Open Q1 (cheap path): campaigns whose\ndetail route would fuse a ``list[ResultLink]`` instead have\n``result_ref=None`` in the list view \u2014 callers fetch the full fuse from\n``GET /api/v1/jobs/{id}``."
+            },
+            "PaginatedRenders": {
+                "properties": {
+                    "items": {
+                        "items": {
+                            "$ref": "#/components/schemas/RenderSummary"
+                        },
+                        "type": "array",
+                        "title": "Items"
+                    },
+                    "total": {
+                        "type": "integer",
+                        "title": "Total"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "title": "Limit"
+                    },
+                    "offset": {
+                        "type": "integer",
+                        "title": "Offset"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "items",
+                    "total",
+                    "limit",
+                    "offset"
+                ],
+                "title": "PaginatedRenders",
+                "description": "Response for ``GET /api/v1/renders?limit=&offset=&kind=&since=``.\n\nMirrors :class:`PaginatedBrandKits` / :class:`PaginatedJobs`. Items reuse\n:class:`RenderSummary` \u2014 file bytes are NOT inlined; clients build the\ndownload URL as ``/api/v1/renders/{id}/image`` via the existing\n:func:`flyer_generator.api.routes.renders.get_render_image` route."
+            },
+            "PostCreateRequest": {
+                "properties": {
+                    "brand_kit_slug": {
+                        "type": "string",
+                        "maxLength": 64,
+                        "minLength": 1,
+                        "title": "Brand Kit Slug"
+                    },
+                    "platform": {
+                        "type": "string",
+                        "enum": [
+                            "linkedin",
+                            "twitter",
+                            "instagram",
+                            "facebook"
+                        ],
+                        "title": "Platform"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "announcement",
+                            "value-prop",
+                            "testimonial"
+                        ],
+                        "title": "Intent"
+                    },
+                    "topic": {
+                        "type": "string",
+                        "maxLength": 400,
+                        "minLength": 1,
+                        "title": "Topic"
+                    },
+                    "cta": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 200
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Cta"
+                    },
+                    "image_hint": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 400
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Image Hint"
+                    },
+                    "style_preset": {
+                        "anyOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 64
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Style Preset"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "brand_kit_slug",
+                    "platform",
+                    "intent",
+                    "topic"
+                ],
+                "title": "PostCreateRequest",
+                "description": "Body of POST /api/v1/social/posts.\n\nMirrors PostBrief fields but ADDS brand_kit_slug + style_preset at the\nAPI boundary so the task can resolve the kit + pick a Comfy workflow."
+            },
+            "RenderSummary": {
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "title": "Id"
+                    },
+                    "kind": {
+                        "type": "string",
+                        "title": "Kind"
+                    },
+                    "comfy_job_id": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Comfy Job Id"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Created At"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "id",
+                    "kind",
+                    "created_at"
+                ],
+                "title": "RenderSummary",
+                "description": "Metadata row for GET /renders/{id} (no file bytes here)."
+            },
+            "ResultLink": {
+                "properties": {
+                    "platform": {
+                        "type": "string",
+                        "title": "Platform"
+                    },
+                    "url": {
+                        "type": "string",
+                        "title": "Url"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "platform",
+                    "url"
+                ],
+                "title": "ResultLink",
+                "description": "One entry in a campaign's `result_ref` list."
+            },
+            "Testimonial": {
+                "properties": {
+                    "quote": {
+                        "type": "string",
+                        "title": "Quote"
+                    },
+                    "attribution": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ],
+                        "title": "Attribution"
+                    }
+                },
+                "additionalProperties": false,
+                "type": "object",
+                "required": [
+                    "quote"
+                ],
+                "title": "Testimonial",
+                "description": "A single customer quote."
+            },
+            "ValidationError": {
+                "properties": {
+                    "loc": {
+                        "items": {
+                            "anyOf": [
+                                {
+                                    "type": "string"
+                                },
+                                {
+                                    "type": "integer"
+                                }
+                            ]
+                        },
+                        "type": "array",
+                        "title": "Location"
+                    },
+                    "msg": {
+                        "type": "string",
+                        "title": "Message"
+                    },
+                    "type": {
+                        "type": "string",
+                        "title": "Error Type"
+                    },
+                    "input": {
+                        "title": "Input"
+                    },
+                    "ctx": {
+                        "type": "object",
+                        "title": "Context"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "loc",
+                    "msg",
+                    "type"
+                ],
+                "title": "ValidationError"
             }
-          }
         }
-      }
     }
-  },
-  "components": {
-    "schemas": {
-      "BackPanelContent": {
-        "properties": {
-          "kind": {
-            "type": "string",
-            "title": "Kind",
-            "default": "cta"
-          },
-          "heading": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Heading"
-          },
-          "body": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Body"
-          },
-          "bullets": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Bullets"
-          },
-          "cta_label": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cta Label"
-          },
-          "cta_detail": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cta Detail"
-          },
-          "footer_note": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Footer Note"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "BackPanelContent",
-        "description": "Structured back-cover content.\n\nUnlike legacy BrochureBackPanel (which collapsed everything into a single\nstring), this is a real object: heading + body + bullets + optional\ncontact card + CTA button label."
-      },
-      "BrandKit": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "source_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source Url"
-          },
-          "fetched_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Fetched At"
-          },
-          "palette": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/BrandPalette"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "typography": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/BrandTypography"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "logos": {
-            "items": {
-              "$ref": "#/components/schemas/BrandLogo"
-            },
-            "type": "array",
-            "title": "Logos"
-          },
-          "voice": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/BrandVoice"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "photography": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/BrandPhotoHints"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "source_artifacts": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Source Artifacts"
-          },
-          "size_multiplier": {
-            "type": "number",
-            "maximum": 3.0,
-            "exclusiveMinimum": 0.0,
-            "title": "Size Multiplier",
-            "default": 1.0
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name",
-          "fetched_at"
-        ],
-        "title": "BrandKit",
-        "description": "Top-level brand kit. Optional nested models allow partial scrapes."
-      },
-      "BrandKitDetail": {
-        "properties": {
-          "slug": {
-            "type": "string",
-            "title": "Slug"
-          },
-          "record_created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Record Created At"
-          },
-          "brand_kit": {
-            "$ref": "#/components/schemas/BrandKit"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "slug",
-          "record_created_at",
-          "brand_kit"
-        ],
-        "title": "BrandKitDetail",
-        "description": "Response for GET /api/v1/brand-kits/{slug}.\n\nWraps the existing :class:`BrandKit` Pydantic model (which already has all\npalette / typography / logos / voice fields). Exposed as-is \u2014 no reshape."
-      },
-      "BrandKitFetchRequest": {
-        "properties": {
-          "url": {
-            "type": "string",
-            "minLength": 1,
-            "format": "uri",
-            "title": "Url"
-          },
-          "slug": {
-            "type": "string",
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Slug"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "url",
-          "slug"
-        ],
-        "title": "BrandKitFetchRequest",
-        "description": "Body of POST /api/v1/brand-kits/fetch."
-      },
-      "BrandKitSummary": {
-        "properties": {
-          "slug": {
-            "type": "string",
-            "title": "Slug"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "source_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source Url"
-          },
-          "scraped_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Scraped At"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "slug",
-          "scraped_at"
-        ],
-        "title": "BrandKitSummary",
-        "description": "Entry in GET /api/v1/brand-kits list."
-      },
-      "BrandLogo": {
-        "properties": {
-          "path": {
-            "type": "string",
-            "title": "Path"
-          },
-          "variant": {
-            "type": "string",
-            "enum": [
-              "primary",
-              "mono_dark",
-              "mono_light",
-              "mark_only"
-            ],
-            "title": "Variant"
-          },
-          "format": {
-            "type": "string",
-            "enum": [
-              "png",
-              "jpg",
-              "svg"
-            ],
-            "title": "Format"
-          },
-          "aspect_ratio": {
-            "type": "number",
-            "exclusiveMinimum": 0.0,
-            "title": "Aspect Ratio"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "path",
-          "variant",
-          "format",
-          "aspect_ratio"
-        ],
-        "title": "BrandLogo",
-        "description": "A single logo asset (stored at kit_dir / path)."
-      },
-      "BrandPalette": {
-        "properties": {
-          "primary": {
-            "$ref": "#/components/schemas/ColorUsage"
-          },
-          "secondary": {
-            "$ref": "#/components/schemas/ColorUsage"
-          },
-          "accent": {
-            "$ref": "#/components/schemas/ColorUsage"
-          },
-          "neutral_dark": {
-            "$ref": "#/components/schemas/ColorUsage"
-          },
-          "neutral_light": {
-            "$ref": "#/components/schemas/ColorUsage"
-          },
-          "extras": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/ColorUsage"
-            },
-            "type": "object",
-            "title": "Extras"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "primary",
-          "secondary",
-          "accent",
-          "neutral_dark",
-          "neutral_light"
-        ],
-        "title": "BrandPalette",
-        "description": "Extracted brand color palette: five named roles + an extras dict."
-      },
-      "BrandPhotoHints": {
-        "properties": {
-          "preferred_style_preset": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Preferred Style Preset"
-          },
-          "color_grade_notes": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Color Grade Notes"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "BrandPhotoHints",
-        "description": "Optional photography guidance."
-      },
-      "BrandTypography": {
-        "properties": {
-          "heading_family": {
-            "type": "string",
-            "title": "Heading Family"
-          },
-          "body_family": {
-            "type": "string",
-            "title": "Body Family"
-          },
-          "size_scale": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "type": "object",
-            "title": "Size Scale"
-          },
-          "font_sources": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Font Sources"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "heading_family",
-          "body_family"
-        ],
-        "title": "BrandTypography",
-        "description": "Heading + body font stacks and a generic size scale.\n\n`size_scale` keys are role tokens (`hero`, `display`, `heading`,\n`subheading`, `body`, `caption`). The applier maps these to the\ntemplate's specific size fields."
-      },
-      "BrandVoice": {
-        "properties": {
-          "tone": {
-            "type": "string",
-            "title": "Tone"
-          },
-          "example_phrases": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Example Phrases"
-          },
-          "banned_words": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Banned Words"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "tone"
-        ],
-        "title": "BrandVoice",
-        "description": "Optional brand voice hints (captured now, wired to text_gen later)."
-      },
-      "BrochureBrief": {
-        "properties": {
-          "target_audience": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Target Audience"
-          },
-          "brand_voice": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Brand Voice"
-          },
-          "value_proposition": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Value Proposition"
-          },
-          "offerings": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Offerings"
-          },
-          "differentiators": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Differentiators"
-          },
-          "testimonials": {
-            "items": {
-              "$ref": "#/components/schemas/Testimonial"
-            },
-            "type": "array",
-            "title": "Testimonials"
-          },
-          "awards": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Awards"
-          },
-          "key_stats": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Key Stats"
-          },
-          "founded_year": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Founded Year"
-          },
-          "hours": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Hours"
-          },
-          "locations": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Locations"
-          },
-          "primary_cta": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Primary Cta"
-          },
-          "secondary_cta": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Secondary Cta"
-          },
-          "keywords": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Keywords"
-          },
-          "source_urls": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Source Urls"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "BrochureBrief",
-        "description": "Customer intake for brochure content.\n\nThis is the interrogative data you'd collect from a customer before\nwriting a brochure: what they do, who they serve, what sets them apart,\nwhat evidence they can show, what action they want the reader to take,\nwhat voice they speak in. The LLM consumes this as ground truth when\nwriting copy \u2014 anything in here should appear verbatim or nearly so in\nthe final brochure (instead of being invented by the model).\n\nIntended inputs:\n  * Hand-filled by the caller (CLI or API).\n  * Auto-populated by a future website scraper (firecrawl) \u2014 fields map\n    cleanly onto what you'd extract from a landing page + about + services."
-      },
-      "BrochureContent": {
-        "properties": {
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "subtitle": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Subtitle"
-          },
-          "tagline": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tagline"
-          },
-          "org": {
-            "type": "string",
-            "title": "Org"
-          },
-          "hero_concept": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Hero Concept"
-          },
-          "color_accent": {
-            "type": "string",
-            "title": "Color Accent",
-            "default": "#1E3A5F"
-          },
-          "contact": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ContactBlock"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "sections": {
-            "items": {
-              "$ref": "#/components/schemas/ContentSection"
-            },
-            "type": "array",
-            "maxItems": 8,
-            "minItems": 1,
-            "title": "Sections"
-          },
-          "back_panel": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/BackPanelContent"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "brief": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/BrochureBrief"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "extras": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object",
-            "title": "Extras"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "title",
-          "org",
-          "sections"
-        ],
-        "title": "BrochureContent",
-        "description": "Primary content model for the schema renderer."
-      },
-      "BrochureCreateRequest": {
-        "properties": {
-          "content": {
-            "$ref": "#/components/schemas/BrochureContent"
-          },
-          "template": {
-            "type": "string",
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Template"
-          },
-          "brand_kit_slug": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 64
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Brand Kit Slug"
-          },
-          "generate_images": {
-            "type": "boolean",
-            "title": "Generate Images",
-            "default": true
-          },
-          "workflow": {
-            "type": "string",
-            "title": "Workflow",
-            "default": "turbo_landscape"
-          },
-          "style_preset": {
-            "type": "string",
-            "title": "Style Preset",
-            "default": "photorealistic"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "content",
-          "template"
-        ],
-        "title": "BrochureCreateRequest",
-        "description": "Body of POST /api/v1/brochures."
-      },
-      "BrochureDetail": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "template": {
-            "type": "string",
-            "title": "Template"
-          },
-          "brand_kit_slug": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Brand Kit Slug"
-          },
-          "front_render_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Front Render Url"
-          },
-          "back_render_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Back Render Url"
-          },
-          "pdf_render_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Pdf Render Url"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "template",
-          "created_at"
-        ],
-        "title": "BrochureDetail",
-        "description": "Response for GET /api/v1/brochures/{id} \u2014 all 3 artifacts.\n\nPer 21-PATTERNS.md lines 577-589: brochures uniquely produce 3 artifacts\n(front PNG, back PNG, print PDF). JobRecord.result_ref is a single string,\nso the FE status page cannot reach all 3 through /jobs/{id} alone. The\nparallel-id pattern (plan 21-07 Task 1) sets BrochureRecord.id == JobRecord.id\nso the FE can GET /brochures/{job_id} and fan out to the 3 render URLs."
-      },
-      "CampaignCreateRequest": {
-        "properties": {
-          "brand_kit_slug": {
-            "type": "string",
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Brand Kit Slug"
-          },
-          "platforms": {
-            "items": {
-              "type": "string",
-              "enum": [
-                "linkedin",
-                "twitter",
-                "instagram",
-                "facebook"
-              ]
-            },
-            "type": "array",
-            "maxItems": 10,
-            "minItems": 1,
-            "title": "Platforms"
-          },
-          "intent": {
-            "type": "string",
-            "enum": [
-              "announcement",
-              "value-prop",
-              "testimonial"
-            ],
-            "title": "Intent"
-          },
-          "topic": {
-            "type": "string",
-            "maxLength": 400,
-            "minLength": 1,
-            "title": "Topic"
-          },
-          "cta": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cta"
-          },
-          "style_preset": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 64
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Style Preset"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "brand_kit_slug",
-          "platforms",
-          "intent",
-          "topic"
-        ],
-        "title": "CampaignCreateRequest",
-        "description": "Body of POST /api/v1/social/campaigns."
-      },
-      "ColorUsage": {
-        "properties": {
-          "hex": {
-            "type": "string",
-            "title": "Hex"
-          },
-          "usage_hint": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Usage Hint"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "hex"
-        ],
-        "title": "ColorUsage",
-        "description": "A single color with an optional semantic usage hint."
-      },
-      "ContactBlock": {
-        "properties": {
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "phone": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Phone"
-          },
-          "email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Email"
-          },
-          "url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Url"
-          },
-          "address": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Address"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "ContactBlock",
-        "description": "Optional contact block used on the back cover panel."
-      },
-      "ContentSection": {
-        "properties": {
-          "heading": {
-            "type": "string",
-            "title": "Heading"
-          },
-          "lead_paragraph": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Lead Paragraph"
-          },
-          "body_paragraphs": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Body Paragraphs"
-          },
-          "bullets": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Bullets"
-          },
-          "quote": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Quote"
-          },
-          "quote_attribution": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Quote Attribution"
-          },
-          "icon_hint": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Icon Hint"
-          },
-          "image_concept": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Image Concept"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "heading"
-        ],
-        "title": "ContentSection",
-        "description": "One content section mapped onto tuck_flap or inner_{left,center,right}."
-      },
-      "EventInput": {
-        "properties": {
-          "title": {
-            "type": "string",
-            "maxLength": 120,
-            "title": "Title"
-          },
-          "date": {
-            "type": "string",
-            "maxLength": 120,
-            "title": "Date"
-          },
-          "time": {
-            "type": "string",
-            "maxLength": 120,
-            "title": "Time"
-          },
-          "location_name": {
-            "type": "string",
-            "maxLength": 120,
-            "title": "Location Name"
-          },
-          "location_address": {
-            "type": "string",
-            "maxLength": 120,
-            "title": "Location Address"
-          },
-          "fees": {
-            "type": "string",
-            "maxLength": 120,
-            "title": "Fees"
-          },
-          "org": {
-            "type": "string",
-            "maxLength": 120,
-            "title": "Org"
-          },
-          "url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Url"
-          },
-          "style_concept": {
-            "type": "string",
-            "maxLength": 120,
-            "title": "Style Concept"
-          },
-          "style_preset": {
-            "type": "string",
-            "maxLength": 120,
-            "title": "Style Preset"
-          },
-          "color_accent": {
-            "type": "string",
-            "title": "Color Accent",
-            "default": "#F59E0B"
-          }
-        },
-        "type": "object",
-        "required": [
-          "title",
-          "date",
-          "time",
-          "location_name",
-          "location_address",
-          "fees",
-          "org",
-          "style_concept",
-          "style_preset"
-        ],
-        "title": "EventInput",
-        "description": "Structured event data \u2014 the pipeline's primary input."
-      },
-      "FlyerCreateRequest": {
-        "properties": {
-          "event": {
-            "$ref": "#/components/schemas/EventInput"
-          },
-          "preset": {
-            "type": "string",
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Preset"
-          },
-          "brand_kit_slug": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 64
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Brand Kit Slug"
-          },
-          "accent": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^#[0-9A-Fa-f]{6}$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Accent"
-          },
-          "max_bg_attempts": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "maximum": 10.0,
-                "minimum": 1.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max Bg Attempts"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "event",
-          "preset"
-        ],
-        "title": "FlyerCreateRequest",
-        "description": "Body of POST /api/v1/flyers.\n\nRe-uses EventInput verbatim (no field-by-field redefinition). Adds API-layer\noptions: optional brand-kit slug, optional accent override, optional max\nbackground retry cap."
-      },
-      "HTTPValidationError": {
-        "properties": {
-          "detail": {
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "type": "array",
-            "title": "Detail"
-          }
-        },
-        "type": "object",
-        "title": "HTTPValidationError"
-      },
-      "JobCreated": {
-        "properties": {
-          "job_id": {
-            "type": "string",
-            "maxLength": 26,
-            "minLength": 26,
-            "title": "Job Id",
-            "description": "ULID job id"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "job_id"
-        ],
-        "title": "JobCreated",
-        "description": "Response body for every async-job-starting endpoint (202 Accepted)."
-      },
-      "JobDetail": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "kind": {
-            "$ref": "#/components/schemas/JobKind"
-          },
-          "status": {
-            "$ref": "#/components/schemas/JobStatus"
-          },
-          "started_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Started At"
-          },
-          "completed_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Completed At"
-          },
-          "error_detail": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Error Detail"
-          },
-          "result_ref": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "items": {
-                  "$ref": "#/components/schemas/ResultLink"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Result Ref"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "kind",
-          "status",
-          "created_at"
-        ],
-        "title": "JobDetail",
-        "description": "GET /api/v1/jobs/{id} response."
-      },
-      "JobKind": {
-        "type": "string",
-        "enum": [
-          "brand_kit",
-          "flyer",
-          "brochure",
-          "social_post",
-          "social_campaign"
-        ],
-        "title": "JobKind"
-      },
-      "JobStatus": {
-        "type": "string",
-        "enum": [
-          "queued",
-          "running",
-          "succeeded",
-          "failed",
-          "cancelled"
-        ],
-        "title": "JobStatus"
-      },
-      "PaginatedBrandKits": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/BrandKitSummary"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          },
-          "limit": {
-            "type": "integer",
-            "title": "Limit"
-          },
-          "offset": {
-            "type": "integer",
-            "title": "Offset"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "items",
-          "total",
-          "limit",
-          "offset"
-        ],
-        "title": "PaginatedBrandKits",
-        "description": "Response for GET /api/v1/brand-kits?limit=&offset=."
-      },
-      "PaginatedJobs": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/JobDetail"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          },
-          "limit": {
-            "type": "integer",
-            "title": "Limit"
-          },
-          "offset": {
-            "type": "integer",
-            "title": "Offset"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "items",
-          "total",
-          "limit",
-          "offset"
-        ],
-        "title": "PaginatedJobs",
-        "description": "Response for ``GET /api/v1/jobs?limit=&offset=&kind=&status=``.\n\nMirrors :class:`PaginatedBrandKits`. Items reuse the existing\n:class:`JobDetail` schema so clients can share a single row type between\nthe list view and the single-job poll.\n\nPer Plan 21-10 + 21-RESEARCH.md Open Q1 (cheap path): campaigns whose\ndetail route would fuse a ``list[ResultLink]`` instead have\n``result_ref=None`` in the list view \u2014 callers fetch the full fuse from\n``GET /api/v1/jobs/{id}``."
-      },
-      "PaginatedRenders": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/RenderSummary"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          },
-          "limit": {
-            "type": "integer",
-            "title": "Limit"
-          },
-          "offset": {
-            "type": "integer",
-            "title": "Offset"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "items",
-          "total",
-          "limit",
-          "offset"
-        ],
-        "title": "PaginatedRenders",
-        "description": "Response for ``GET /api/v1/renders?limit=&offset=&kind=&since=``.\n\nMirrors :class:`PaginatedBrandKits` / :class:`PaginatedJobs`. Items reuse\n:class:`RenderSummary` \u2014 file bytes are NOT inlined; clients build the\ndownload URL as ``/api/v1/renders/{id}/image`` via the existing\n:func:`flyer_generator.api.routes.renders.get_render_image` route."
-      },
-      "PostCreateRequest": {
-        "properties": {
-          "brand_kit_slug": {
-            "type": "string",
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Brand Kit Slug"
-          },
-          "platform": {
-            "type": "string",
-            "enum": [
-              "linkedin",
-              "twitter",
-              "instagram",
-              "facebook"
-            ],
-            "title": "Platform"
-          },
-          "intent": {
-            "type": "string",
-            "enum": [
-              "announcement",
-              "value-prop",
-              "testimonial"
-            ],
-            "title": "Intent"
-          },
-          "topic": {
-            "type": "string",
-            "maxLength": 400,
-            "minLength": 1,
-            "title": "Topic"
-          },
-          "cta": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cta"
-          },
-          "image_hint": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 400
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Image Hint"
-          },
-          "style_preset": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 64
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Style Preset"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "brand_kit_slug",
-          "platform",
-          "intent",
-          "topic"
-        ],
-        "title": "PostCreateRequest",
-        "description": "Body of POST /api/v1/social/posts.\n\nMirrors PostBrief fields but ADDS brand_kit_slug + style_preset at the\nAPI boundary so the task can resolve the kit + pick a Comfy workflow."
-      },
-      "RenderSummary": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind"
-          },
-          "comfy_job_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Comfy Job Id"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "id",
-          "kind",
-          "created_at"
-        ],
-        "title": "RenderSummary",
-        "description": "Metadata row for GET /renders/{id} (no file bytes here)."
-      },
-      "ResultLink": {
-        "properties": {
-          "platform": {
-            "type": "string",
-            "title": "Platform"
-          },
-          "url": {
-            "type": "string",
-            "title": "Url"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "platform",
-          "url"
-        ],
-        "title": "ResultLink",
-        "description": "One entry in a campaign's `result_ref` list."
-      },
-      "Testimonial": {
-        "properties": {
-          "quote": {
-            "type": "string",
-            "title": "Quote"
-          },
-          "attribution": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Attribution"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "quote"
-        ],
-        "title": "Testimonial",
-        "description": "A single customer quote."
-      },
-      "ValidationError": {
-        "properties": {
-          "loc": {
-            "items": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "integer"
-                }
-              ]
-            },
-            "type": "array",
-            "title": "Location"
-          },
-          "msg": {
-            "type": "string",
-            "title": "Message"
-          },
-          "type": {
-            "type": "string",
-            "title": "Error Type"
-          },
-          "input": {
-            "title": "Input"
-          },
-          "ctx": {
-            "type": "object",
-            "title": "Context"
-          }
-        },
-        "type": "object",
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
-        "title": "ValidationError"
-      }
-    }
-  }
 }

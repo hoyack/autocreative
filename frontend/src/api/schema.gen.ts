@@ -37,12 +37,23 @@ export interface paths {
         };
         /**
          * List brand kits (DB + filesystem fuse)
-         * @description Return DB rows unioned with filesystem-only kits (lazy fuse — no INSERT).
+         * @description Return DB rows unioned with filesystem-only kits.
          *
-         *     RESEARCH.md Open Question Q3 recommendation: synthesize ``BrandKitSummary``
-         *     entries in-memory for slugs present on disk but not yet in the DB. This is
-         *     safe for v1 where at most a few dozen kits exist.  A real "import to DB"
-         *     step is a later phase.
+         *     WR-02 fix (Plan 21-13 Task 1): the dedup key set is the FULL set of DB
+         *     slugs (cheap single indexed-column SELECT), not just the current page's
+         *     slice. This makes the ``total`` count page-invariant and prevents a slug
+         *     that appears in the DB on page N from being misreported as "FS-only" on
+         *     page N-1 (which previously produced both a duplicate row across pages and
+         *     an inflated ``total``).
+         *
+         *     IN-03 companion fix: the merged list (DB rows + FS-only summaries) is
+         *     sorted by ``scraped_at`` descending BEFORE slicing, so FS-only entries no
+         *     longer always tail the page regardless of recency.
+         *
+         *     Scale note: v1 datasets are expected to be at most a few dozen kits
+         *     (21-CONTEXT.md — single-user private instance), so full DB + FS
+         *     enumeration on every list call is acceptable. Revisit if a future phase
+         *     sees >1000 kits.
          */
         get: operations["list_brand_kits_api_v1_brand_kits_get"];
         put?: never;
@@ -727,22 +738,59 @@ export interface components {
             image_concept?: string | null;
         };
         /**
-         * EventInput
-         * @description Structured event data — the pipeline's primary input.
+         * FlyerCreateRequest
+         * @description Body of POST /api/v1/flyers.
+         *
+         *     Re-uses FlyerInput verbatim (no field-by-field redefinition). Adds API-layer
+         *     options: template slug (mirrors brochure; validated at worker-time via
+         *     load_template()), preset, optional brand-kit slug, optional accent
+         *     override, optional max background retry cap.
          */
-        EventInput: {
+        FlyerCreateRequest: {
+            event: components["schemas"]["FlyerInput"];
+            /** Template */
+            template: string;
+            /** Preset */
+            preset: string;
+            /** Brand Kit Slug */
+            brand_kit_slug?: string | null;
+            /** Accent */
+            accent?: string | null;
+            /** Max Bg Attempts */
+            max_bg_attempts?: number | null;
+        };
+        /**
+         * FlyerInput
+         * @description Structured flyer input — event-or-info.
+         *
+         *     All event-specific fields (date, time, location_*, fees) are optional;
+         *     `subtype` drives which are expected at the worker/vision/composer layer.
+         *     Vision prompt, composer, and template resolver branch on `subtype` to
+         *     avoid rendering empty event fields for info flyers.
+         */
+        FlyerInput: {
             /** Title */
             title: string;
+            /**
+             * Subtype
+             * @default event
+             * @enum {string}
+             */
+            subtype: "event" | "info";
             /** Date */
-            date: string;
+            date?: string | null;
             /** Time */
-            time: string;
+            time?: string | null;
             /** Location Name */
-            location_name: string;
+            location_name?: string | null;
             /** Location Address */
-            location_address: string;
+            location_address?: string | null;
             /** Fees */
-            fees: string;
+            fees?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Call To Action */
+            call_to_action?: string | null;
             /** Org */
             org: string;
             /** Url */
@@ -756,25 +804,6 @@ export interface components {
              * @default #F59E0B
              */
             color_accent: string;
-        };
-        /**
-         * FlyerCreateRequest
-         * @description Body of POST /api/v1/flyers.
-         *
-         *     Re-uses EventInput verbatim (no field-by-field redefinition). Adds API-layer
-         *     options: optional brand-kit slug, optional accent override, optional max
-         *     background retry cap.
-         */
-        FlyerCreateRequest: {
-            event: components["schemas"]["EventInput"];
-            /** Preset */
-            preset: string;
-            /** Brand Kit Slug */
-            brand_kit_slug?: string | null;
-            /** Accent */
-            accent?: string | null;
-            /** Max Bg Attempts */
-            max_bg_attempts?: number | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
