@@ -134,6 +134,13 @@
 - [ ] **PO-03**: Poster template registry at `flyer_generator/poster/schemas/*.json` with 3+ templates; typography pre-scaled for print canvas (headlines sized for 18"+ reading distance)
 - [ ] **PO-04**: FE posters creator at `/posters/new`, status page via `JobStatusCard` directly, size `<Select>` + template `<Select>`, sidebar nav entry, Jobs + Renders filter entries
 
+### Perception Loop Fixes (Phase 24.1) — Cross-phase bug fixes from /tmp/perception/PERCEPTION-REPORT.md
+
+- [ ] **PLF-01**: `POST /api/v1/postcards` produces a render where `body` text is visible AND a Comfy-generated image fills the hero (no `[ hero ]` placeholder); `image_hint` drives a real Comfy call mirroring the flyer/brochure path; both shipped templates (`classic_portrait`, `modern_landscape`) honor the contract
+- [ ] **PLF-02**: `POST /api/v1/brochures` with `content.sections=[...]` and `generate_images: true` produces a render where every supplied section's heading + body_paragraphs are visible, the kicker is derived from the brief (not the hardcoded "ESTATE PLANNING"), and the hero panel contains a Comfy-generated image
+- [ ] **PLF-03**: `POST /api/v1/flyers` with `template="bold_modern"` produces a render where the headline coordinates and the date/time/venue text coordinates do not overlap; an `editorial_classic`-style baseline pytest catches the overlap (RED→GREEN gate)
+- [ ] **PLF-04**: Poster vision call sends a downsampled background (≤1920px on long edge) instead of the full 5400×7200 PNG; `POST /api/v1/posters` completes end-to-end on a typical residential connection within `FLYER_VISION_TIMEOUT_SECONDS=60` for all 3 sizes; the existing 9 render-smoke pytests still pass
+
 ### Invitation Primitive (Phase 25)
 
 - [ ] **IN-01**: `POST /api/v1/invitations` renders a 5×7 portrait PNG at 300 DPI (1500×2100) with heavy brand-kit conditioning and RSVP-focused copy
@@ -270,6 +277,10 @@
 | PO-02 | Phase 24 | Not Started |
 | PO-03 | Phase 24 | Not Started |
 | PO-04 | Phase 24 | Not Started |
+| PLF-01 | Phase 24.1 | Not Started |
+| PLF-02 | Phase 24.1 | Not Started |
+| PLF-03 | Phase 24.1 | Not Started |
+| PLF-04 | Phase 24.1 | Not Started |
 | IN-01 | Phase 25 | Not Started |
 | IN-02 | Phase 25 | Not Started |
 | IN-03 | Phase 25 | Not Started |

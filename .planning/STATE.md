@@ -86,6 +86,10 @@ Progress: [          ] 0%
 
 ## Accumulated Context
 
+### Roadmap Evolution
+
+- Phase 24.1 inserted after Phase 24: perception-loop-fixes (URGENT) — fixes for postcard/brochure/flyer/poster bugs surfaced by /tmp/perception-loop.mjs adversarial run on 2026-04-25
+
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.

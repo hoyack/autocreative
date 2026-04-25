@@ -328,6 +328,21 @@ Plans:
 - [x] 24-06-PLAN.md — 9-permutation render-smoke + HTTP perms + Playwright harness [Wave 4]
 **UI hint**: yes
 
+### Phase 24.1: perception-loop-fixes (INSERTED)
+
+**Goal:** Fix 4 cross-phase bugs surfaced by the 2026-04-25 perception loop run (`/tmp/perception/PERCEPTION-REPORT.md`). Postcards must render `body` text and produce an AI image from `image_hint` (not `[ hero ]` placeholder). Brochures must render the supplied `content.sections` with no hardcoded "ESTATE PLANNING" kicker, and `generate_images: true` must actually invoke Comfy. Flyer `bold_modern` template must not collide its detail text against the headline. Poster vision pipeline must downsample the background before sending to the LLM so 5400×7200 PNGs no longer time out the upload window.
+**Requirements**: PLF-01, PLF-02, PLF-03, PLF-04
+**Success Criteria** (what must be TRUE):
+  1. `POST /api/v1/postcards` with `body` and `image_hint` produces a render where the body text is visible AND a Comfy-generated image fills the hero area (no `[ hero ]` placeholder); both `classic_portrait` and `modern_landscape` templates honor body + image_hint
+  2. `POST /api/v1/brochures` with `content.sections=[...]` and `generate_images: true` produces a render where every supplied section's heading + body_paragraphs are visible, the kicker matches the brief (not the hardcoded "ESTATE PLANNING"), and the hero panel is a real Comfy-generated image
+  3. `POST /api/v1/flyers` with `template="bold_modern"` produces a render where the headline and the date/time/venue text do not visually overlap; the layout-collision pytest catches the overlap (RED→GREEN)
+  4. `POST /api/v1/posters` with any size completes successfully end-to-end on a 100Mbps consumer connection within `FLYER_VISION_TIMEOUT_SECONDS=60`; vision input is downsampled (e.g., to ≤1920px on long edge) before base64-encoding for the LLM call; the existing 9 render-smoke pytests still pass
+**Depends on:** Phase 24
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 24.1 to break down)
+
 ### Phase 25: Invitation Primitive
 **Goal**: A user can `POST /api/v1/invitations` with RSVP-focused fields (host, event, date, time, venue, RSVP contact) and a brand kit, and the API returns a 5×7 portrait invitation PNG at 300 DPI rendered through one of three visually-distinct templates.
 **Depends on**: Phase 22
