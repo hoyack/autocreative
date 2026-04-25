@@ -278,13 +278,13 @@ Plans:
   3. A user can submit an info flyer with `description` + optional `call_to_action` (no date/venue/fees required), and the Claude vision prompt names TITLE + DESCRIPTION + ORG_CREDIT zones only (no DETAILS or FEE_BADGE) for that subtype
   4. `RenderRecord.kind` stores `flyer_event_final` and `flyer_info_final`; the alembic migration rewrites pre-existing `flyer_final` rows by inspecting `FlyerRecord.event_payload.subtype` (defaulting to `event`)
   5. `/flyers/new` in the FE exposes template and subtype `<Select>`s with event-only fields show/hide conditionally; `/tmp/check-e2e.mjs` submits every template×subtype permutation and the status page renders the PNG; Jobs filter + Renders gallery filter both include `flyer_event_final` and `flyer_info_final`
-**Plans:** 4/7 plans executed
+**Plans:** 5/7 plans executed
 Plans:
 - [x] 22-01-PLAN.md — Flyer template registry foundation (schema_model + loader + 6 JSON templates + tests) [Wave 1]
 - [x] 22-02-PLAN.md — FlyerInput subtype evolution + LayoutZones relaxation + vision subtype-aware prompts [Wave 1]
 - [x] 22-03-PLAN.md — PosterComposer template kwarg + typography/scrim/accent extraction + subtype-aware rendering [Wave 2]
 - [x] 22-04-PLAN.md — FlyerCreateRequest.template field + FlyerGenerator.generate template kwarg threading [Wave 3]
-- [ ] 22-05-PLAN.md — FlyerRecord.template column + alembic migration + worker template loading + subtype-derived kind [Wave 4]
+- [x] 22-05-PLAN.md — FlyerRecord.template column + alembic migration + worker template loading + subtype-derived kind [Wave 4]
 - [ ] 22-06-PLAN.md — Frontend: OpenAPI regen + template/subtype Selects + conditional fields + gallery KINDS update [Wave 5]
 - [ ] 22-07-PLAN.md — Permutation test coverage: composer smoke + HTTP permutations + Playwright harness [Wave 6]
 **UI hint**: yes
@@ -358,7 +358,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 19. Social Media Posting System | 9/9 | Complete   | 2026-04-21 |
 | 20. FastAPI + SQLAlchemy Backend | 13/12 | Complete   | 2026-04-22 |
 | 21. React Frontend Dashboard | 14/14 | Complete   | 2026-04-23 |
-| 22. Flyer Templates & Subtype Split | 4/7 | In Progress|  |
+| 22. Flyer Templates & Subtype Split | 5/7 | In Progress|  |
 | 23. Postcard Primitive | 0/? | Not Started | - |
 | 24. Poster Primitive | 0/? | Not Started | - |
 | 25. Invitation Primitive | 0/? | Not Started | - |
