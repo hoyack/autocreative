@@ -299,7 +299,14 @@ Plans:
   3. At least 2 postcard templates (`classic_portrait`, `modern_landscape`) ship at launch; the renderer reuses the brochure SVG + rasterizer stack and the back-PDF path reuses or mirrors `assemble_brochure_pdf`
   4. `/postcards/new` + `/postcards/:id` pages exist with an editorial PageHeader (kicker "08 / THE MAIL"), a sidebar nav entry, and a 3-artifact figure grid mirroring the brochure status page
   5. Jobs filter, router (`statusPathFor`), and Renders gallery filter all include the new `postcard` JobKind and `postcard_front` / `postcard_back` / `postcard_pdf` RenderKinds
-**Plans:** 0/? (not yet planned)
+**Plans:** 6 plans
+Plans:
+- [ ] 23-01-PLAN.md — Postcard schema_renderer foundation (PostcardTemplateSchema + loader + 2 JSON templates + tests) [Wave 1]
+- [ ] 23-02-PLAN.md — Pydantic schemas + PostcardRecord ORM + JobKind.POSTCARD + alembic migration f23t01 [Wave 1]
+- [ ] 23-03-PLAN.md — PostcardContent + render_postcard renderer + assemble_postcard_pdf [Wave 2]
+- [ ] 23-04-PLAN.md — task_generate_postcard worker + POST/GET routes + barrels [Wave 3]
+- [ ] 23-05-PLAN.md — Frontend: OpenAPI regen + creator + status + sidebar nav + Jobs/Renders KINDS additions [Wave 4]
+- [ ] 23-06-PLAN.md — Render-smoke + HTTP permutation pytest + Playwright e2e harness [Wave 5]
 **UI hint**: yes
 
 ### Phase 24: Poster Primitive
