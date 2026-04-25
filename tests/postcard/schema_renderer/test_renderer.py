@@ -163,10 +163,15 @@ def test_front_svg_xml_escapes_headline() -> None:
     t = load_template("classic_portrait")
     raw = "Hello & Goodbye <World>"
     fr, _ = render_postcard(t, _content(headline=raw))
-    # The escaped version must be present
-    assert "Hello &amp; Goodbye &lt;World&gt;" in fr
-    # The raw, unescaped version must not appear
-    assert "Hello & Goodbye <World>" not in fr
+    # Each unsafe character must appear escaped (the headline may be
+    # wrapped across multiple <tspan> elements by fit_to_bbox, so we
+    # check each escaped token independently rather than the full string).
+    assert "&amp;" in fr
+    assert "&lt;World&gt;" in fr
+    # The raw, unescaped < and > characters must not appear adjacent to
+    # the headline tokens (we still allow `<svg>`, `<text>`, etc.).
+    assert "<World>" not in fr
+    assert " & " not in fr  # raw ampersand-with-spaces from the headline
 
 
 def test_back_svg_xml_escapes_body() -> None:
