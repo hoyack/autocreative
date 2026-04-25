@@ -1,0 +1,50 @@
+{
+  "schema_version": "1",
+  "name": "bold_announcement",
+  "description": "Sans display title with full-bleed scrim. Loud, modern. Tuned for high-impact announcements at any size.",
+  "tone_keywords": ["loud", "modern", "display"],
+  "canvas": { "width": 5400, "height": 7200 },
+  "palette": {
+    "accent_default": "#FF3B30",
+    "neutral_dark": "#0A0A0A",
+    "neutral_light": "#FFFFFF",
+    "muted": "#1F1F1F",
+    "scrim_opacity_top": 0.85,
+    "scrim_opacity_bottom": 0.50
+  },
+  "typography": {
+    "heading_family": "'Helvetica Neue', 'Arial Black', sans-serif",
+    "body_family": "'Helvetica Neue', Arial, sans-serif",
+    "cover_title_size": 420,
+    "cover_subtitle_size": 200,
+    "heading_size": 260,
+    "body_size": 130,
+    "body_line_height": 170
+  },
+  "panels": {
+    "hero": {
+      "description": "Full-bleed scrim over hero image, oversize sans display title centered upper, accent stripe and CTA tag along bottom.",
+      "elements": [
+        { "type": "image_placeholder", "bbox": [0, 0, 5400, 7200], "slot": "hero", "corner_radius": 0, "show_placeholder_label": true, "z": 0 },
+        {
+          "type": "shape",
+          "kind": "rect",
+          "rect": [0, 0, 5400, 7200],
+          "fill": {
+            "type": "linear_gradient",
+            "angle": 0,
+            "stops": [
+              { "offset": 0.0, "color": "#0A0A0A", "opacity": 0.85 },
+              { "offset": 1.0, "color": "#0A0A0A", "opacity": 0.50 }
+            ]
+          },
+          "z": 2
+        },
+        { "type": "shape", "kind": "rect", "rect": [0, 6960, 5400, 40], "fill": { "type": "solid", "color": "#FF3B30" }, "z": 5 },
+        { "type": "text", "bbox": [300, 1200, 4800, 2400], "role": "cover_title", "content_key": "event.title", "color": "#FFFFFF", "align": "center", "valign": "top", "uppercase": true, "weight": "bold", "z": 10 },
+        { "type": "text", "bbox": [300, 4200, 4800, 600], "role": "cover_subtitle", "content_key": "event.subheading", "color": "#FFFFFF", "align": "center", "valign": "top", "z": 10 },
+        { "type": "text", "bbox": [300, 6500, 4800, 300], "role": "cta_heading", "content_key": "event.cta_text", "color": "#FFFFFF", "align": "center", "uppercase": true, "letter_spacing": 12, "z": 10 }
+      ]
+    }
+  }
+}
