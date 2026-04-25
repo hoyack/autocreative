@@ -1,4 +1,5 @@
 // Plan 21-11 Task 2 — replaces the plan-21-03 stub.
+// Plan 24.2-02 — adds per-card delete (Trash2 + AlertDialog + optimistic mutation).
 //
 // Renders gallery (FE-10): a CSS-grid of RenderCard items. Editorial restyle:
 // oversized thumbnails in tall frames, numbered overlay, mono metadata,
@@ -7,9 +8,11 @@
 // Security (plan threat model T-2 / T-4): every server-supplied string
 // (r.id, r.kind, r.created_at) is rendered as JSX children — React escapes.
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
-import { client } from "@/api/client";
+import { type ApiErrorBody, client } from "@/api/client";
 import { queryKeys } from "@/lib/queryKeys";
 import {
   Select,
@@ -19,6 +22,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { RenderPreview } from "@/components/RenderPreview";
 import { PageHeader } from "@/components/PageHeader";
 
@@ -62,8 +78,11 @@ export function RenderGalleryPage() {
   const [offset, setOffset] = useState(0);
   const limit = 24;
 
+  const queryClient = useQueryClient();
+  const queryKey = queryKeys.renders({ kind, limit, offset });
+
   const { data, isPending, error } = useQuery({
-    queryKey: queryKeys.renders({ kind, limit, offset }),
+    queryKey,
     queryFn: async () => {
       const query: Record<string, unknown> = { limit, offset };
       if (kind) query.kind = kind;
@@ -72,6 +91,58 @@ export function RenderGalleryPage() {
       });
       if (error || !data) throw new Error("failed to load renders");
       return data;
+    },
+  });
+
+  // Plan 24.2-02 — render delete with optimistic update + rollback.
+  // The mutation:
+  //   onMutate     -> cancel in-flight queries; snapshot current page;
+  //                   filter the deleted card out of the cache.
+  //   onError      -> restore the snapshot; surface error toast.
+  //   onSuccess    -> invalidate queryKeys.renders() (every paginated/filtered
+  //                   variant) so the next refetch confirms the deletion;
+  //                   surface a small success toast.
+  // The DELETE signature is auto-derived by openapi-fetch from schema.gen.ts.
+  type RenderListData = NonNullable<typeof data>;
+  const deleteMutation = useMutation<
+    void,
+    Error,
+    string,
+    { previous: RenderListData | undefined }
+  >({
+    mutationFn: async (renderId: string) => {
+      const { error, response } = await client.DELETE(
+        "/api/v1/renders/{render_id}",
+        { params: { path: { render_id: renderId } } },
+      );
+      if (error) {
+        const e = error as ApiErrorBody;
+        throw new Error(
+          typeof e.detail === "string" ? e.detail : `HTTP ${response.status}`,
+        );
+      }
+    },
+    onMutate: async (renderId: string) => {
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<RenderListData>(queryKey);
+      if (previous) {
+        queryClient.setQueryData<RenderListData>(queryKey, {
+          ...previous,
+          items: previous.items.filter((r) => r.id !== renderId),
+          total: Math.max(0, previous.total - 1),
+        });
+      }
+      return { previous };
+    },
+    onError: (err, _renderId, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(queryKey, ctx.previous);
+      toast.error(err.message);
+    },
+    onSuccess: () => {
+      toast.success("Render deleted");
+      // Use the bare key form for prefix invalidation — every paginated /
+      // filtered variant of the gallery refetches.
+      queryClient.invalidateQueries({ queryKey: queryKeys.renders() });
     },
   });
 
@@ -155,6 +226,43 @@ export function RenderGalleryPage() {
                   <span className="absolute top-3 left-3 font-mono text-[10px] tabular-nums tracking-widest text-muted-foreground mix-blend-multiply">
                     {String(offset + i + 1).padStart(3, "0")}
                   </span>
+                  {/* Plan 24.2-02 — per-card delete trigger. Sits OUTSIDE the
+                      PDF download <a> so the click never bubbles into the
+                      anchor. AlertDialog handles its own focus + escape. */}
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Delete render"
+                        className="absolute top-2 right-2 z-10 bg-background/70 hover:bg-background"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete render?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete the file. Parent jobs,
+                          brochures, and postcards keep their record but the
+                          artifact will be gone. This cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => deleteMutation.mutate(r.id)}
+                          className={cn(
+                            buttonVariants({ variant: "destructive" }),
+                          )}
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
                 <figcaption className="mt-4 border-t border-border pt-3 font-mono text-[10px] uppercase tracking-[0.14em] leading-relaxed text-muted-foreground">
                   <div className="text-foreground/85">

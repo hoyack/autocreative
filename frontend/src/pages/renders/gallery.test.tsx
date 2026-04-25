@@ -1,4 +1,5 @@
-// Plan 21-11 Task 2 (TDD) + Plan 22-06 Task 3 (TDD KINDS update).
+// Plan 21-11 Task 2 (TDD) + Plan 22-06 Task 3 (TDD KINDS update) +
+// Plan 24.2-02 Task 2 (TDD render-delete flow).
 //
 // Tests for the renders gallery page:
 //   1. empty-state text when total=0
@@ -7,13 +8,18 @@
 //      as the preview URL (built client-side from the summary row).
 //   3. (Phase 22) KINDS filter dropdown includes flyer_event_final +
 //      flyer_info_final and does NOT include the deprecated flyer_final.
+//   4. (Plan 24.2-02) Trash button + AlertDialog + DELETE mutation flow:
+//      - Trash2 button on every card
+//      - Click opens AlertDialog with destructive confirm
+//      - Confirm fires DELETE + optimistic remove + success toast
+//      - Error response restores card + error toast
 //
 // Uses the project-standard renderWithProviders helper (QueryClient +
 // MemoryRouter + Toaster) and the msw server from src/test/msw-server.ts.
 import { describe, expect, it } from "vitest";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 
 import { server } from "@/test/msw-server";
 import { renderWithProviders } from "@/test/test-utils";
@@ -107,5 +113,160 @@ describe("RenderGalleryPage — Phase 22 KINDS", () => {
     // flyer_info_final both START with "flyer_" but not match "flyer_final"
     // exactly when pinned via the string overload.
     expect(within(listbox).queryByText("flyer_final")).not.toBeInTheDocument();
+  });
+});
+
+describe("RenderGalleryPage — delete flow (Plan 24.2-02)", () => {
+  // Helper: build N PNG render summary rows with predictable ULIDs.
+  function pngRows(n: number) {
+    return Array.from({ length: n }, (_, i) => ({
+      id: `01PNG${String(i).padStart(2, "0")}` + "A".repeat(19),
+      kind: "flyer_event_final",
+      comfy_job_id: null,
+      created_at: new Date().toISOString(),
+    }));
+  }
+
+  it("renders a Trash2 button on every render card", async () => {
+    const items = pngRows(2);
+    server.use(
+      http.get("/api/v1/renders", () =>
+        HttpResponse.json({
+          items,
+          total: items.length,
+          limit: 24,
+          offset: 0,
+        }),
+      ),
+    );
+    renderWithProviders(<RenderGalleryPage />);
+    // Wait for cards, then assert one delete button per card.
+    await screen.findAllByRole("img", { name: /flyer_event_final/i });
+    const deleteButtons = screen.getAllByRole("button", {
+      name: /delete render/i,
+    });
+    expect(deleteButtons).toHaveLength(items.length);
+  });
+
+  it("clicking trash opens an AlertDialog with destructive confirm and a cancel button", async () => {
+    const items = pngRows(1);
+    server.use(
+      http.get("/api/v1/renders", () =>
+        HttpResponse.json({
+          items,
+          total: items.length,
+          limit: 24,
+          offset: 0,
+        }),
+      ),
+    );
+    renderWithProviders(<RenderGalleryPage />);
+
+    const trashButton = await screen.findByRole("button", {
+      name: /delete render/i,
+    });
+    await userEvent.click(trashButton);
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText(/delete render\?/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/cannot be undone/i)).toBeInTheDocument();
+    // Cancel button (default focus per Radix convention).
+    expect(
+      within(dialog).getByRole("button", { name: /cancel/i }),
+    ).toBeInTheDocument();
+    // Destructive confirm button — name matches /delete/ (not /cancel/).
+    const confirm = within(dialog).getByRole("button", {
+      name: /^delete$/i,
+    });
+    expect(confirm).toBeInTheDocument();
+  });
+
+  it("confirming the dialog fires DELETE, removes the card optimistically, and shows a success toast", async () => {
+    const items = pngRows(1);
+    const targetId = items[0].id;
+    let deleteHits = 0;
+    // Stateful list — the GET handler reflects the current set so the
+    // post-delete invalidate-and-refetch sees the row really removed
+    // (otherwise the optimistic-removed card would reappear on refetch).
+    let currentItems = [...items];
+    server.use(
+      http.get("/api/v1/renders", () =>
+        HttpResponse.json({
+          items: currentItems,
+          total: currentItems.length,
+          limit: 24,
+          offset: 0,
+        }),
+      ),
+      http.delete("/api/v1/renders/:render_id", ({ params }) => {
+        deleteHits += 1;
+        expect(params.render_id).toBe(targetId);
+        currentItems = currentItems.filter((r) => r.id !== params.render_id);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    renderWithProviders(<RenderGalleryPage />);
+
+    // Wait for the card, then click trash + confirm.
+    await screen.findByRole("img", { name: /flyer_event_final/i });
+    await userEvent.click(
+      screen.getByRole("button", { name: /delete render/i }),
+    );
+
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: /^delete$/i }));
+
+    // Card disappears (optimistic update + invalidate).
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("img", { name: /flyer_event_final/i }),
+      ).not.toBeInTheDocument();
+    });
+    // DELETE was made exactly once with the right id.
+    expect(deleteHits).toBe(1);
+    // Success toast surfaces in the Toaster mounted by renderWithProviders.
+    expect(
+      await screen.findByText(/render deleted/i),
+    ).toBeInTheDocument();
+  });
+
+  it("error response restores the card and surfaces an error toast", async () => {
+    const items = pngRows(1);
+    server.use(
+      http.get("/api/v1/renders", () =>
+        HttpResponse.json({
+          items,
+          total: items.length,
+          limit: 24,
+          offset: 0,
+        }),
+      ),
+      http.delete("/api/v1/renders/:render_id", () =>
+        HttpResponse.json(
+          { detail: "boom", error_type: "Internal", trace_id: "" },
+          { status: 500 },
+        ),
+      ),
+    );
+
+    renderWithProviders(<RenderGalleryPage />);
+
+    await screen.findByRole("img", { name: /flyer_event_final/i });
+    await userEvent.click(
+      screen.getByRole("button", { name: /delete render/i }),
+    );
+
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: /^delete$/i }));
+
+    // Card restored after error path resolves.
+    await waitFor(() => {
+      expect(
+        screen.getByRole("img", { name: /flyer_event_final/i }),
+      ).toBeInTheDocument();
+    });
+    // Error toast surfaces in the Toaster.
+    expect(await screen.findByText(/boom/i)).toBeInTheDocument();
   });
 });

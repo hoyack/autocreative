@@ -339,3 +339,210 @@ async def test_list_renders_orders_newest_first(client, sessionmaker_fx) -> None
     # ids round-trip — the newest row's id is the "NEW" one we inserted.
     assert body["items"][0]["id"] == "01HABCRENDNEW0000000000002"
     assert body["items"][1]["id"] == "01HABCRENDOLD0000000000001"
+
+
+# --- DELETE /api/v1/renders/{render_id} (Plan 24.2-02 RM-02) ---------------
+#
+# Cascade choice (locked in 24.2-CONTEXT.md): null FK columns on every parent
+# table that may reference this render. SQLite test fixture does NOT have
+# ``PRAGMA foreign_keys=ON`` so schema-level ``ondelete="SET NULL"`` does not
+# fire automatically — the route handler MUST issue explicit UPDATE statements
+# before the DELETE. Re-delete on the same id MUST 404 (the row is gone).
+
+
+@pytest.mark.asyncio
+async def test_delete_render_204_on_happy_path(
+    client, sessionmaker_fx, app, tmp_path
+) -> None:
+    """Happy path: row deleted + on-disk file unlinked + 204 No Content."""
+    flyer_root = tmp_path / "flyers"
+    flyer_root.mkdir()
+    png_path = flyer_root / "sample.png"
+    png_path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 16)
+
+    app.state.settings.artifact_root_flyer = flyer_root
+
+    render_id = "01HABCRENDDELETE0001000000"  # 26 chars
+    async with sessionmaker_fx() as s:
+        s.add(
+            RenderRecord(
+                id=render_id,
+                kind="flyer_event_final",
+                file_path=str(png_path),
+            )
+        )
+        await s.commit()
+
+    r = await client.delete(f"/api/v1/renders/{render_id}")
+    assert r.status_code == 204
+    assert r.content == b""
+
+    async with sessionmaker_fx() as s:
+        assert await s.get(RenderRecord, render_id) is None
+
+    assert not png_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_delete_render_404_on_unknown_id(client) -> None:
+    """Unknown render id -> 404 + opaque ``render not found`` body."""
+    r = await client.delete("/api/v1/renders/01HABCNOPERENDER0000000000")
+    assert r.status_code == 404
+    body = r.json()
+    assert body.get("detail") == "render not found"
+
+
+@pytest.mark.asyncio
+async def test_delete_render_cascade_nulls_postcard_fks(
+    client, sessionmaker_fx, app, tmp_path
+) -> None:
+    """A PostcardRecord referencing the render via render_front_id has the FK nulled."""
+    from flyer_generator.api.models.postcard import PostcardRecord
+
+    flyer_root = tmp_path / "flyers"
+    flyer_root.mkdir()
+    png_path = flyer_root / "pc.png"
+    png_path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 16)
+
+    app.state.settings.artifact_root_flyer = flyer_root
+
+    render_id = "01HABCRENDDELPC000001000000"[:26]
+    postcard_id = "01HABCPOSTCARDDEL00010000"[:26].ljust(26, "X")
+    async with sessionmaker_fx() as s:
+        s.add(
+            RenderRecord(
+                id=render_id,
+                kind="postcard_front",
+                file_path=str(png_path),
+            )
+        )
+        s.add(
+            PostcardRecord(
+                id=postcard_id,
+                template="classic_portrait",
+                render_front_id=render_id,
+                content_payload={},
+            )
+        )
+        await s.commit()
+
+    r = await client.delete(f"/api/v1/renders/{render_id}")
+    assert r.status_code == 204
+
+    # Use a FRESH session so the SQLAlchemy identity map cannot hand back the
+    # stale in-memory PostcardRecord instance.
+    async with sessionmaker_fx() as s:
+        assert await s.get(RenderRecord, render_id) is None
+        pc = await s.get(PostcardRecord, postcard_id)
+        assert pc is not None
+        assert pc.render_front_id is None
+
+
+@pytest.mark.asyncio
+async def test_delete_render_cascade_nulls_brochure_fks(
+    client, sessionmaker_fx, app, tmp_path
+) -> None:
+    """A BrochureRecord referencing render via render_back_id has the FK nulled.
+
+    Vary which FK column is set (back, not front) to prove every column is
+    iterated by the route handler, not just the first one.
+    """
+    from flyer_generator.api.models.brochure import BrochureRecord
+
+    brochure_root = tmp_path / "brochures"
+    brochure_root.mkdir()
+    png_path = brochure_root / "br.png"
+    png_path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 16)
+
+    app.state.settings.artifact_root_brochure = brochure_root
+
+    render_id = "01HABCRENDDELBR000001000000"[:26]
+    brochure_id = "01HABCBROCHUREDEL000010000"[:26]
+    async with sessionmaker_fx() as s:
+        s.add(
+            RenderRecord(
+                id=render_id,
+                kind="brochure_back",
+                file_path=str(png_path),
+            )
+        )
+        s.add(
+            BrochureRecord(
+                id=brochure_id,
+                title="Test brochure",
+                template="editorial_classic",
+                render_back_id=render_id,
+                content_payload={},
+            )
+        )
+        await s.commit()
+
+    r = await client.delete(f"/api/v1/renders/{render_id}")
+    assert r.status_code == 204
+
+    async with sessionmaker_fx() as s:
+        assert await s.get(RenderRecord, render_id) is None
+        br = await s.get(BrochureRecord, brochure_id)
+        assert br is not None
+        assert br.render_back_id is None
+
+
+@pytest.mark.asyncio
+async def test_delete_render_204_when_file_already_missing(
+    client, sessionmaker_fx, app, tmp_path
+) -> None:
+    """Row deletes + 204 even if on-disk file is already gone (housekeeping failure)."""
+    flyer_root = tmp_path / "flyers"
+    flyer_root.mkdir()
+    app.state.settings.artifact_root_flyer = flyer_root
+
+    ghost = flyer_root / "missing.png"  # NOT created on disk
+
+    render_id = "01HABCRENDDELGHST00001000"[:26].ljust(26, "X")
+    async with sessionmaker_fx() as s:
+        s.add(
+            RenderRecord(
+                id=render_id,
+                kind="flyer_event_final",
+                file_path=str(ghost),
+            )
+        )
+        await s.commit()
+
+    r = await client.delete(f"/api/v1/renders/{render_id}")
+    assert r.status_code == 204
+
+    async with sessionmaker_fx() as s:
+        assert await s.get(RenderRecord, render_id) is None
+
+
+@pytest.mark.asyncio
+async def test_delete_render_re_delete_returns_404(
+    client, sessionmaker_fx, app, tmp_path
+) -> None:
+    """Second DELETE on same id -> 404 (CONTEXT.md decision: explicit not-found)."""
+    flyer_root = tmp_path / "flyers"
+    flyer_root.mkdir()
+    png_path = flyer_root / "redelete.png"
+    png_path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 16)
+
+    app.state.settings.artifact_root_flyer = flyer_root
+
+    render_id = "01HABCRENDDELRED00001000"[:26].ljust(26, "X")
+    async with sessionmaker_fx() as s:
+        s.add(
+            RenderRecord(
+                id=render_id,
+                kind="flyer_event_final",
+                file_path=str(png_path),
+            )
+        )
+        await s.commit()
+
+    first = await client.delete(f"/api/v1/renders/{render_id}")
+    assert first.status_code == 204
+
+    second = await client.delete(f"/api/v1/renders/{render_id}")
+    assert second.status_code == 404
+    body = second.json()
+    assert body.get("detail") == "render not found"

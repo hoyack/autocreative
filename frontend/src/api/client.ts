@@ -67,6 +67,14 @@ export type PostCreateRequestBody =
 export type CampaignCreateRequestBody =
   paths["/api/v1/social/campaigns"]["post"]["requestBody"]["content"]["application/json"];
 
+// --- Mutation availability notes ------------------------------------
+// Plan 24.2-02 (RM-02): the backend exposes
+//   DELETE /api/v1/renders/{render_id}
+// openapi-fetch derives the typed signature directly from the regenerated
+// schema.gen.ts paths entry, so call sites use:
+//   client.DELETE("/api/v1/renders/{render_id}", { params: { path: { render_id } } })
+// without a hand-written typed alias here.
+
 // --- Response aliases ------------------------------------------------
 export type JobCreated =
   paths["/api/v1/flyers"]["post"]["responses"][202]["content"]["application/json"];

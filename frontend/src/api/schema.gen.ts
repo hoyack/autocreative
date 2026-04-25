@@ -395,6 +395,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/renders/{render_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a render artifact (DB row + on-disk file). Idempotent path: re-delete returns 404.
+         * @description Delete a render row + best-effort unlink the on-disk artifact.
+         *
+         *     Returns:
+         *         - 204 No Content on success (row deleted; file unlinked if present)
+         *         - 404 Not Found if ``render_id`` is unknown OR was already deleted
+         *
+         *     The on-disk file is unlinked ONLY when its resolved path lives inside one
+         *     of the configured artifact roots — same containment guard as
+         *     :func:`get_render_image` (T-1 defense-in-depth). If the file is missing,
+         *     outside the allowed roots, or unwriteable, the row is still deleted and
+         *     a structured warning is logged (user intent: purge-from-gallery).
+         */
+        delete: operations["delete_render_api_v1_renders__render_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -1661,6 +1691,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PaginatedRenders"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_render_api_v1_renders__render_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                render_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

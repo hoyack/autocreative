@@ -17,19 +17,28 @@ missing. See analog: :func:`flyer_generator.brand_kit.storage._validate_containm
 
 from __future__ import annotations
 
+import os
 from datetime import datetime as _dt
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Path as PathParam, Query
+import structlog
+from fastapi import APIRouter, Depends, HTTPException, Path as PathParam, Query, status
 from fastapi.responses import FileResponse
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from flyer_generator.api.config import AppSettings
 from flyer_generator.api.db import get_session
 from flyer_generator.api.deps import get_settings
 from flyer_generator.api.models import RenderRecord
+from flyer_generator.api.models.brochure import BrochureRecord
+from flyer_generator.api.models.flyer import FlyerRecord
+from flyer_generator.api.models.postcard import PostcardRecord
+from flyer_generator.api.models.poster import PosterRecord
+from flyer_generator.api.models.social import PostRecord
 from flyer_generator.api.schemas.renders import PaginatedRenders, RenderSummary
+
+_log = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["renders"])
 
@@ -163,3 +172,109 @@ async def list_renders(
         for r in rows
     ]
     return PaginatedRenders(items=items, total=total, limit=limit, offset=offset)
+
+
+# --- DELETE /api/v1/renders/{render_id} (Plan 24.2-02 RM-02) ---------------
+#
+# Cascade choice (locked in 24.2-CONTEXT.md): null FK columns on every parent
+# table that may reference this render — do NOT hard-block the delete. The
+# parent rows stay; the missing render surfaces in detail routes as a null URL.
+#
+# Critical: SQLite does NOT enable ``PRAGMA foreign_keys=ON`` in this codebase
+# (see ``flyer_generator/api/db.py`` — neither ``build_engine`` nor any
+# ``listens_for("connect")`` event toggles it). Therefore the schema-level
+# ``ondelete="SET NULL"`` declared on every parent ForeignKey does NOT fire
+# automatically on SQLite. We must issue explicit UPDATE statements before
+# the DELETE so behavior is identical on Postgres (where it would fire) and
+# SQLite (where it would silently no-op).
+
+# Tuple of (model, [render-FK-columns]) used by the delete handler. Adding a
+# new parent table that references RenderRecord requires adding it here.
+_RENDER_PARENT_FK_COLS: tuple[tuple[type, tuple[str, ...]], ...] = (
+    (PostcardRecord, ("render_front_id", "render_back_id", "render_pdf_id")),
+    (BrochureRecord, ("render_front_id", "render_back_id", "render_pdf_id")),
+    (PosterRecord, ("render_id",)),
+    (FlyerRecord, ("render_id",)),
+    (PostRecord, ("render_id",)),
+)
+
+
+@router.delete(
+    "/renders/{render_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary=(
+        "Delete a render artifact (DB row + on-disk file). "
+        "Idempotent path: re-delete returns 404."
+    ),
+)
+async def delete_render(
+    render_id: str = PathParam(..., min_length=26, max_length=26),
+    session: AsyncSession = Depends(get_session),
+    settings: AppSettings = Depends(get_settings),
+) -> None:
+    """Delete a render row + best-effort unlink the on-disk artifact.
+
+    Returns:
+        - 204 No Content on success (row deleted; file unlinked if present)
+        - 404 Not Found if ``render_id`` is unknown OR was already deleted
+
+    The on-disk file is unlinked ONLY when its resolved path lives inside one
+    of the configured artifact roots — same containment guard as
+    :func:`get_render_image` (T-1 defense-in-depth). If the file is missing,
+    outside the allowed roots, or unwriteable, the row is still deleted and
+    a structured warning is logged (user intent: purge-from-gallery).
+    """
+    record = await session.get(RenderRecord, render_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="render not found")
+
+    # 1) Null every FK column on every parent table that may reference this
+    #    render. SQLite needs this explicit UPDATE because PRAGMA foreign_keys
+    #    is off; on Postgres the schema-level ``ondelete="SET NULL"`` would
+    #    fire automatically. Writing it explicitly makes behavior DB-agnostic.
+    for model, columns in _RENDER_PARENT_FK_COLS:
+        for col_name in columns:
+            col = getattr(model, col_name)
+            await session.execute(
+                update(model).where(col == render_id).values({col_name: None})
+            )
+
+    # 2) Capture file_path BEFORE deleting the row — once detached, accessing
+    #    ORM attributes is undefined behavior under expire_on_commit=False.
+    file_path = Path(record.file_path)
+
+    # 3) Delete the DB row. Commit happens in get_session on successful exit.
+    await session.delete(record)
+
+    # 4) Best-effort filesystem unlink with the same containment guard as
+    #    get_render_image. If the file lives outside every allowed root
+    #    (or is missing, or is unwriteable) we LOG and STILL return 204.
+    allowed_roots = [
+        Path(settings.artifact_root_flyer),
+        Path(settings.artifact_root_brochure),
+        Path(settings.brand_kits_dir),
+        Path(settings.social_campaigns_dir),
+    ]
+    if any(_is_within(file_path, root) for root in allowed_roots):
+        try:
+            os.unlink(file_path)
+        except FileNotFoundError:
+            _log.warning(
+                "render_delete_file_missing",
+                render_id=render_id,
+                file_path=str(file_path),
+            )
+        except OSError as exc:
+            _log.warning(
+                "render_delete_unlink_failed",
+                render_id=render_id,
+                file_path=str(file_path),
+                error=str(exc),
+            )
+    else:
+        _log.warning(
+            "render_delete_path_outside_roots",
+            render_id=render_id,
+            file_path=str(file_path),
+        )
+    # FastAPI emits 204 No Content automatically — do not return anything.
