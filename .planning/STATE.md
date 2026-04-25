@@ -4,14 +4,14 @@ milestone: v1.1
 milestone_name: milestone
 status: executing
 stopped_at: v1.1 roadmap created — 5 phases (22–26) defined, 29 REQ-IDs mapped, plans not yet drafted
-last_updated: "2026-04-25T14:56:07.648Z"
-last_activity: 2026-04-25 -- Phase 24.1 execution started
+last_updated: "2026-04-25T15:52:25.052Z"
+last_activity: 2026-04-25
 progress:
   total_phases: 19
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 78
-  completed_plans: 73
-  percent: 94
+  completed_plans: 77
+  percent: 99
 ---
 
 # Project State
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-04-24)
 
 ## Current Position
 
-Phase: 24.1 (perception-loop-fixes) — EXECUTING
-Plan: 1 of 4
+Phase: 25
+Plan: Not started
 Plans: 0 of 0 complete (v1.1 plans drafted during `/gsd-plan-phase 22`)
 Status: Executing Phase 24.1
-Last activity: 2026-04-25 -- Phase 24.1 execution started
+Last activity: 2026-04-25
 
 Progress: [          ] 0%
 
@@ -54,7 +54,7 @@ Progress: [          ] 0%
 
 **Velocity:**
 
-- Total plans completed: 30 (Phase 21)
+- Total plans completed: 34 (Phase 21)
 - Average duration: -
 - Total execution time: 0 hours
 
@@ -66,6 +66,7 @@ Progress: [          ] 0%
 | 22 | 7 | - | - |
 | 23 | 6 | - | - |
 | 24 | 6 | - | - |
+| 24.1 | 4 | - | - |
 
 **Recent Trend:**
 
