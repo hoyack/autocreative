@@ -11,6 +11,11 @@ from flyer_generator.api.schemas.brand_kits import (
 from flyer_generator.api.schemas.brochures import BrochureCreateRequest
 from flyer_generator.api.schemas.flyers import FlyerCreateRequest
 from flyer_generator.api.schemas.jobs import JobCreated, JobDetail, ResultLink
+from flyer_generator.api.schemas.postcards import (
+    AddressBlock,
+    PostcardCreateRequest,
+    PostcardDetail,
+)
 from flyer_generator.api.schemas.renders import RenderSummary
 from flyer_generator.api.schemas.social import (
     CampaignCreateRequest,
@@ -19,6 +24,7 @@ from flyer_generator.api.schemas.social import (
 
 __all__ = sorted(
     [
+        "AddressBlock",
         "BrandKitDetail",
         "BrandKitFetchRequest",
         "BrandKitSummary",
@@ -29,6 +35,8 @@ __all__ = sorted(
         "JobDetail",
         "PaginatedBrandKits",
         "PostCreateRequest",
+        "PostcardCreateRequest",
+        "PostcardDetail",
         "RenderSummary",
         "ResultLink",
     ]
