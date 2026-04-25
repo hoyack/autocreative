@@ -100,9 +100,11 @@ describe("NewFlyerPage — Phase 22 template + subtype", () => {
     renderWithProviders(<NewFlyerPage />);
     const trigger = await screen.findByTestId("template-select");
     await userEvent.click(trigger);
-    // Radix Select renders SelectContent in a portal — items show up in
-    // document.body. Use getAllByText with a regex to tolerate one node per
-    // template (the option text + visually-hidden label nodes).
+    // Radix Select renders SelectContent in a portal — query the open
+    // listbox specifically. The trigger also contains the current value text
+    // (e.g. "editorial_classic"), so a global findByText would match both
+    // the trigger and the option ("Found multiple elements").
+    const listbox = await screen.findByRole("listbox");
     for (const t of [
       "editorial_classic",
       "bold_modern",
@@ -111,7 +113,7 @@ describe("NewFlyerPage — Phase 22 template + subtype", () => {
       "zine",
       "tight_typographic",
     ]) {
-      expect(await screen.findByText(t)).toBeInTheDocument();
+      expect(within(listbox).getByText(t)).toBeInTheDocument();
     }
   });
 

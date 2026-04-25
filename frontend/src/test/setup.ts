@@ -58,6 +58,36 @@ if (typeof globalThis.ResizeObserver === "undefined") {
     NoopResizeObserver as unknown as typeof ResizeObserver;
 }
 
+// [Plan 22-06 Rule 3 - Blocking] jsdom does not implement
+// Element.hasPointerCapture / releasePointerCapture / setPointerCapture
+// nor Element.scrollIntoView. @radix-ui/react-select calls all four during
+// pointer/click handling on the SelectTrigger; without these shims any
+// userEvent.click(trigger) on a Radix Select throws "target.hasPointerCapture
+// is not a function" and tears down the test runner. Plan 22-06's flyer
+// form has two Selects (template + subtype) so several tests hit this.
+// Defining these on Element.prototype satisfies every instance Radix
+// constructs in jsdom.
+if (typeof window !== "undefined") {
+  const proto = window.Element.prototype as unknown as {
+    hasPointerCapture?: (id: number) => boolean;
+    releasePointerCapture?: (id: number) => void;
+    setPointerCapture?: (id: number) => void;
+    scrollIntoView?: () => void;
+  };
+  if (!proto.hasPointerCapture) {
+    proto.hasPointerCapture = () => false;
+  }
+  if (!proto.releasePointerCapture) {
+    proto.releasePointerCapture = () => {};
+  }
+  if (!proto.setPointerCapture) {
+    proto.setPointerCapture = () => {};
+  }
+  if (!proto.scrollIntoView) {
+    proto.scrollIntoView = () => {};
+  }
+}
+
 server.listen({ onUnhandledRequest: "error" });
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
