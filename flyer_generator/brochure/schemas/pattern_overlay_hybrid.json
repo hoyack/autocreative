@@ -308,6 +308,7 @@
       "elements": [
         {
           "type": "image_placeholder",
+          "show_placeholder_label": false,
           "bbox": [120, 180, 700, 500],
           "slot": "spot_1",
           "mask": "rounded",

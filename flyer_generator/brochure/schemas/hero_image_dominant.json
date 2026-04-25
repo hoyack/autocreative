@@ -39,6 +39,7 @@
       "elements": [
         {
           "type": "image_placeholder",
+          "show_placeholder_label": false,
           "bbox": [0, 0, 1100, 2550],
           "slot": "hero",
           "mask": "none",
@@ -92,6 +93,7 @@
       "elements": [
         {
           "type": "image_placeholder",
+          "show_placeholder_label": false,
           "bbox": [90, 120, 920, 540],
           "slot": "spot_2",
           "mask": "rounded",
@@ -145,6 +147,7 @@
       "elements": [
         {
           "type": "image_placeholder",
+          "show_placeholder_label": false,
           "bbox": [120, 160, 620, 900],
           "slot": "spot_3",
           "mask": "rounded",
@@ -182,6 +185,7 @@
       "elements": [
         {
           "type": "image_placeholder",
+          "show_placeholder_label": false,
           "bbox": [90, 120, 920, 960],
           "slot": "spot_1",
           "mask": "rounded",
@@ -226,6 +230,7 @@
       "elements": [
         {
           "type": "image_placeholder",
+          "show_placeholder_label": false,
           "bbox": [90, 120, 920, 820],
           "slot": "spot_2",
           "mask": "rounded",
@@ -272,6 +277,7 @@
       "elements": [
         {
           "type": "image_placeholder",
+          "show_placeholder_label": false,
           "bbox": [90, 120, 920, 1100],
           "slot": "spot_3",
           "mask": "rounded",

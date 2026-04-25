@@ -60,6 +60,7 @@
         },
         {
           "type": "image_placeholder",
+          "show_placeholder_label": false,
           "bbox": [170, 250, 680, 680],
           "slot": "hero",
           "mask": "circle",
@@ -285,6 +286,7 @@
         },
         {
           "type": "image_placeholder",
+          "show_placeholder_label": false,
           "bbox": [120, 240, 700, 520],
           "slot": "spot_1",
           "mask": "rounded",
