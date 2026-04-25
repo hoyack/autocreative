@@ -1,0 +1,47 @@
+{
+  "schema_version": "1",
+  "name": "modern_landscape",
+  "description": "Bold sans headline at left over hero; asymmetric back with full-width body and right-aligned address.",
+  "tone_keywords": ["modern", "bold", "sans"],
+  "canvas": { "width": 1800, "height": 1200 },
+  "palette": {
+    "accent_default": "#FF2E4D",
+    "neutral_dark": "#0D0D0D",
+    "neutral_light": "#FFFFFF",
+    "muted": "#EBEBEB",
+    "scrim_opacity_top": 0.0,
+    "scrim_opacity_bottom": 0.85
+  },
+  "typography": {
+    "heading_family": "'Inter', 'Helvetica Neue', sans-serif",
+    "body_family": "'Inter', 'Helvetica Neue', sans-serif",
+    "cover_title_size": 132,
+    "body_size": 30,
+    "body_line_height": 40
+  },
+  "panels": {
+    "front": {
+      "description": "Hero full-bleed; left third blacked out for headline; bottom red accent stripe.",
+      "elements": [
+        { "type": "image_placeholder", "bbox": [0, 0, 1800, 1200], "slot": "hero", "show_placeholder_label": true, "z": 0 },
+        { "type": "shape", "kind": "rect", "rect": [0, 0, 820, 1200], "fill": { "type": "solid", "color": "#0D0D0D", "opacity": 0.78 }, "z": 3 },
+        { "type": "text", "bbox": [80, 400, 720, 500], "role": "cover_title", "content_key": "headline", "color": "#FFFFFF", "valign": "top", "z": 10, "weight": "bold" },
+        { "type": "shape", "kind": "rect", "rect": [0, 1140, 1800, 60], "fill": { "type": "solid", "color": "#FF2E4D" }, "z": 5 }
+      ]
+    },
+    "back": {
+      "description": "Top accent stripe; body left wide; vertical hairline; address block right; stamp top-right.",
+      "background": { "type": "solid", "color": "#FFFFFF" },
+      "elements": [
+        { "type": "shape", "kind": "rect", "rect": [0, 0, 1800, 40], "fill": { "type": "solid", "color": "#FF2E4D" }, "z": 5 },
+        { "type": "text", "bbox": [80, 140, 1100, 900], "role": "body", "content_key": "body", "color": "#0D0D0D", "z": 10 },
+        { "type": "divider", "orientation": "vertical", "position": [1240, 140, 1240, 1080], "color": "#0D0D0D", "thickness": 1, "opacity": 0.25, "z": 5 },
+        { "type": "text", "bbox": [1300, 800, 440, 60], "role": "contact_name", "content_key": "address_block.recipient_name", "color": "#0D0D0D", "weight": "bold", "z": 10 },
+        { "type": "text", "bbox": [1300, 870, 440, 60], "role": "contact_address", "content_key": "address_block.street", "color": "#0D0D0D", "z": 10 },
+        { "type": "text", "bbox": [1300, 940, 440, 60], "role": "contact_address", "content_key": "address_block.city_state_zip", "color": "#0D0D0D", "z": 10 },
+        { "type": "shape", "kind": "rect", "rect": [1580, 140, 160, 200], "fill": { "type": "solid", "color": "#FFFFFF", "opacity": 0.0 }, "stroke": { "color": "#0D0D0D", "width": 2, "opacity": 0.35, "dash": [6, 6] }, "z": 2 },
+        { "type": "text", "bbox": [1580, 210, 160, 80], "role": "static", "static_text": "STAMP", "font_size": 24, "align": "center", "color": "#0D0D0D", "opacity": 0.5, "z": 10 }
+      ]
+    }
+  }
+}
