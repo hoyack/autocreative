@@ -16,6 +16,10 @@ from flyer_generator.api.schemas.postcards import (
     PostcardCreateRequest,
     PostcardDetail,
 )
+from flyer_generator.api.schemas.posters import (
+    PosterCreateRequest,
+    PosterSize,
+)
 from flyer_generator.api.schemas.renders import RenderSummary
 from flyer_generator.api.schemas.social import (
     CampaignCreateRequest,
@@ -37,6 +41,8 @@ __all__ = sorted(
         "PostCreateRequest",
         "PostcardCreateRequest",
         "PostcardDetail",
+        "PosterCreateRequest",
+        "PosterSize",
         "RenderSummary",
         "ResultLink",
     ]
