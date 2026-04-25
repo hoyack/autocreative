@@ -22,8 +22,14 @@ import { Button } from "@/components/ui/button";
 import { RenderPreview } from "@/components/RenderPreview";
 import { PageHeader } from "@/components/PageHeader";
 
+// Phase 22 FT-08 (gallery half): "flyer_final" was split into subtype-derived
+// kinds. The worker now emits "flyer_event_final" (subtype === "event") or
+// "flyer_info_final" (subtype === "info"); pre-Phase-22 rows are migrated
+// in-place by alembic f22t01. The legacy "flyer_final" value MUST NOT appear
+// in this tuple — it would surface a filter that returns 0 rows post-migration.
 const KINDS = [
-  "flyer_final",
+  "flyer_event_final",
+  "flyer_info_final",
   "brochure_front",
   "brochure_back",
   "brochure_pdf",

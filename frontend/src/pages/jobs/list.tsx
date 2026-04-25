@@ -24,6 +24,13 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
+// Phase 22 FT-08 (jobs half): intentionally unchanged from Phase 21. The
+// flyer subtype split is RenderKind-level (flyer_event_final / flyer_info_final
+// — see frontend/src/pages/renders/gallery.tsx::KINDS), NOT JobKind-level. The
+// worker's JobRecord.kind stays "flyer" for both event and info subtypes
+// because both go through the same task_generate_flyer handler. The
+// statusPathFor() switch below routes both back to /flyers/:id; the flyer
+// status page handles whichever subtype the render ends up being.
 const KINDS = [
   "brand_kit",
   "flyer",
