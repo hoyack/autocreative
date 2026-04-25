@@ -52,6 +52,12 @@ export type FlyerCreateRequestBody =
 export type BrochureCreateRequestBody =
   paths["/api/v1/brochures"]["post"]["requestBody"]["content"]["application/json"];
 
+export type PostcardCreateRequestBody =
+  paths["/api/v1/postcards"]["post"]["requestBody"]["content"]["application/json"];
+
+export type PostcardDetail =
+  paths["/api/v1/postcards/{postcard_id}"]["get"]["responses"][200]["content"]["application/json"];
+
 export type PostCreateRequestBody =
   paths["/api/v1/social/posts"]["post"]["requestBody"]["content"]["application/json"];
 

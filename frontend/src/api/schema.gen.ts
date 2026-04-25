@@ -194,6 +194,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/postcards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enqueue a postcard generation (3 artifacts: front PNG + back PNG + PDF) */
+        post: operations["create_postcard_api_v1_postcards_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/postcards/{postcard_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Postcard detail (front PNG + back PNG + print PDF)
+         * @description Return the 3 render URLs for a postcard.
+         *
+         *     Per PC-02 parallel-id: ``postcard_id == job_id``, so the FE can
+         *     navigate from /jobs/{id} (or directly from a postcard-task
+         *     ``result_ref``) to this route without an extra lookup.
+         *
+         *     Returns 404 when no ``PostcardRecord`` with the given id exists. No
+         *     distinction is made between "no such id" and "id is malformed beyond
+         *     the 26-char PathParam guard" — both surface as the same 404 (T-16
+         *     disposition: trust the ULID guard, do not leak DB-presence signals).
+         */
+        get: operations["get_postcard_detail_api_v1_postcards__postcard_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/social/posts": {
         parameters: {
             query?: never;
@@ -356,6 +402,22 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AddressBlock
+         * @description Optional recipient address rendered on the back panel.
+         *
+         *     Per PC-03: a typographically precise block (recipient + street + single-line
+         *     city/state/zip). All three fields are required when the block is supplied;
+         *     the block itself is optional on the request.
+         */
+        AddressBlock: {
+            /** Recipient Name */
+            recipient_name: string;
+            /** Street */
+            street: string;
+            /** City State Zip */
+            city_state_zip: string;
+        };
         /**
          * BackPanelContent
          * @description Structured back-cover content.
@@ -850,7 +912,7 @@ export interface components {
          * JobKind
          * @enum {string}
          */
-        JobKind: "brand_kit" | "flyer" | "brochure" | "social_post" | "social_campaign";
+        JobKind: "brand_kit" | "flyer" | "brochure" | "postcard" | "social_post" | "social_campaign";
         /**
          * JobStatus
          * @enum {string}
@@ -940,6 +1002,50 @@ export interface components {
             image_hint?: string | null;
             /** Style Preset */
             style_preset?: string | null;
+        };
+        /**
+         * PostcardCreateRequest
+         * @description Body of POST /api/v1/postcards (PC-01).
+         */
+        PostcardCreateRequest: {
+            /** Headline */
+            headline: string;
+            /** Body */
+            body: string;
+            /** Image Hint */
+            image_hint?: string | null;
+            /** Brand Kit Slug */
+            brand_kit_slug?: string | null;
+            /** Template */
+            template: string;
+            address_block?: components["schemas"]["AddressBlock"] | null;
+        };
+        /**
+         * PostcardDetail
+         * @description Response for GET /api/v1/postcards/{id} — all 3 artifacts.
+         *
+         *     Mirrors BrochureDetail (Phase 21-07). The parallel-id pattern (PC-02)
+         *     means id == job_id, so the FE can navigate from /jobs/{id} to
+         *     /postcards/{id} without an extra lookup.
+         */
+        PostcardDetail: {
+            /** Id */
+            id: string;
+            /** Template */
+            template: string;
+            /** Brand Kit Slug */
+            brand_kit_slug?: string | null;
+            /** Front Render Url */
+            front_render_url?: string | null;
+            /** Back Render Url */
+            back_render_url?: string | null;
+            /** Pdf Render Url */
+            pdf_render_url?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /**
          * RenderSummary
@@ -1219,6 +1325,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BrochureDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_postcard_api_v1_postcards_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PostcardCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_postcard_detail_api_v1_postcards__postcard_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                postcard_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PostcardDetail"];
                 };
             };
             /** @description Validation Error */

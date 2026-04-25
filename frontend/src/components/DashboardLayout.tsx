@@ -4,6 +4,7 @@ const NAV = [
   { to: "/brand-kits", label: "Brand kits" },
   { to: "/flyers/new", label: "New flyer" },
   { to: "/brochures/new", label: "New brochure" },
+  { to: "/postcards/new", label: "New postcard" },
   { to: "/social/posts/new", label: "New post" },
   { to: "/social/campaigns/new", label: "New campaign" },
   { to: "/jobs", label: "Jobs" },

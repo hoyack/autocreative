@@ -33,6 +33,8 @@ export const queryKeys = {
   }) => ["renders", filters ?? {}] as const,
   // Brochure detail — 3-artifact fuse (plan 21-07)
   brochure: (id: string) => ["brochure", id] as const,
+  // Postcard detail — 3-artifact fuse (plan 23-05)
+  postcard: (id: string) => ["postcard", id] as const,
 } as const;
 
 export type QueryKeys = typeof queryKeys;
