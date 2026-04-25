@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 19: Social Media Posting System** - given a brand kit slug + a post brief (topic/intent/CTA), generate platform-specific social posts (LinkedIn, Twitter/X, Instagram, Facebook) with platform-appropriate copy, aspect-correct imagery, brand-kit-aware palette/typography, and adversarial audit against each platform's constraints (char limits, hashtag caps, aspect ratios, readability) (completed 2026-04-21)
 - [x] **Phase 20: FastAPI + SQLAlchemy Backend** - HTTP + DB wrapper over the four existing subsystems (flyer / brochure / brand_kit / social). Async FastAPI app at `/api/v1/*`, SQLAlchemy 2.x async over SQLite (dev) / Postgres (prod) with Alembic, arq + Redis job queue for long-running ComfyCloud runs, single-user v1 (no auth, no org model), existing Python APIs reused verbatim (no reimplementation), `.brand-kits/` and `.social-campaigns/` filesystem roots preserved with DB metadata layer on top (completed 2026-04-22)
 - [x] **Phase 21: React Frontend Dashboard** - React + Vite + ShadCN + Tailwind SPA consuming the Phase 20 API. Full dashboard: brand-kit list/detail + scrape, flyer creator, brochure creator, social post creator, campaign creator, job list + status stream, render gallery. Depends on Phase 20. (completed 2026-04-23)
-- [ ] **Phase 22: Flyer Templates & Subtype Split** - Flyer rendering becomes template-driven via a JSON-schema registry (5+ templates ship at launch) and splits into `event` and `info` subtypes on a single `FlyerInput`; FE flyer creator gains template and subtype pickers with conditional fields
+- [x] **Phase 22: Flyer Templates & Subtype Split** - Flyer rendering becomes template-driven via a JSON-schema registry (5+ templates ship at launch) and splits into `event` and `info` subtypes on a single `FlyerInput`; FE flyer creator gains template and subtype pickers with conditional fields (completed 2026-04-25)
 - [ ] **Phase 23: Postcard Primitive** - `POST /api/v1/postcards` produces a front PNG + back PNG + print PDF (3 artifacts) with optional recipient address block; mirrors brochure's parallel-id / compensating-enqueue / detail-route pattern and lands in the editorial dashboard
 - [ ] **Phase 24: Poster Primitive** - `POST /api/v1/posters` renders a larger-canvas flyer variant at 18×24 / 24×36 / 27×40, reusing the flyer pipeline with injected canvas dimensions and a dedicated poster template registry
 - [ ] **Phase 25: Invitation Primitive** - `POST /api/v1/invitations` renders a 5×7 portrait RSVP card at 300 DPI with heavy brand-kit conditioning; 3+ visually-distinct templates (`classic_serif`, `modern_sans`, `ornamental`) share the same RSVP schema
@@ -278,7 +278,7 @@ Plans:
   3. A user can submit an info flyer with `description` + optional `call_to_action` (no date/venue/fees required), and the Claude vision prompt names TITLE + DESCRIPTION + ORG_CREDIT zones only (no DETAILS or FEE_BADGE) for that subtype
   4. `RenderRecord.kind` stores `flyer_event_final` and `flyer_info_final`; the alembic migration rewrites pre-existing `flyer_final` rows by inspecting `FlyerRecord.event_payload.subtype` (defaulting to `event`)
   5. `/flyers/new` in the FE exposes template and subtype `<Select>`s with event-only fields show/hide conditionally; `/tmp/check-e2e.mjs` submits every template×subtype permutation and the status page renders the PNG; Jobs filter + Renders gallery filter both include `flyer_event_final` and `flyer_info_final`
-**Plans:** 6/7 plans executed
+**Plans:** 7/7 plans complete
 Plans:
 - [x] 22-01-PLAN.md — Flyer template registry foundation (schema_model + loader + 6 JSON templates + tests) [Wave 1]
 - [x] 22-02-PLAN.md — FlyerInput subtype evolution + LayoutZones relaxation + vision subtype-aware prompts [Wave 1]
@@ -286,7 +286,7 @@ Plans:
 - [x] 22-04-PLAN.md — FlyerCreateRequest.template field + FlyerGenerator.generate template kwarg threading [Wave 3]
 - [x] 22-05-PLAN.md — FlyerRecord.template column + alembic migration + worker template loading + subtype-derived kind [Wave 4]
 - [x] 22-06-PLAN.md — Frontend: OpenAPI regen + template/subtype Selects + conditional fields + gallery KINDS update [Wave 5]
-- [ ] 22-07-PLAN.md — Permutation test coverage: composer smoke + HTTP permutations + Playwright harness [Wave 6]
+- [x] 22-07-PLAN.md — Permutation test coverage: composer smoke + HTTP permutations + Playwright harness [Wave 6]
 **UI hint**: yes
 
 ### Phase 23: Postcard Primitive
@@ -358,7 +358,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 19. Social Media Posting System | 9/9 | Complete   | 2026-04-21 |
 | 20. FastAPI + SQLAlchemy Backend | 13/12 | Complete   | 2026-04-22 |
 | 21. React Frontend Dashboard | 14/14 | Complete   | 2026-04-23 |
-| 22. Flyer Templates & Subtype Split | 6/7 | In Progress|  |
+| 22. Flyer Templates & Subtype Split | 7/7 | Complete   | 2026-04-25 |
 | 23. Postcard Primitive | 0/? | Not Started | - |
 | 24. Poster Primitive | 0/? | Not Started | - |
 | 25. Invitation Primitive | 0/? | Not Started | - |
