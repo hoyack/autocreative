@@ -36,6 +36,16 @@ class FlyerGenerator:
 
     On vision rejection, feeds refinement_hint back to prompt_builder and retries
     up to ``settings.max_bg_attempts`` times. Raises MaxAttemptsExceededError on exhaustion.
+
+    Phase 24-02 (PO-02): ``__init__`` accepts an optional
+    ``canvas_dimensions: tuple[int, int]`` keyword. When ``None`` (default),
+    the pipeline falls back to ``(1080, 1920)`` — preserving Phase 22 byte-
+    identical flyer behavior for the existing flyer worker which calls
+    ``FlyerGenerator(settings=..., http_client=...)`` with no kwarg. When
+    supplied (e.g. ``(5400, 7200)`` for 18×24" posters at 300 DPI), the
+    entire stage chain — preprocessor upscale target, composer canvas
+    math, rasterizer output, and ``FlyerOutput.dimensions`` — operates at
+    the injected size.
     """
 
     def __init__(
@@ -43,8 +53,14 @@ class FlyerGenerator:
         settings: Settings,
         presets: PresetRegistry | None = None,
         http_client: httpx.AsyncClient | None = None,
+        *,
+        canvas_dimensions: tuple[int, int] | None = None,
     ) -> None:
         self.settings = settings
+        # Default to the flyer canvas (1080, 1920) when callers omit the
+        # kwarg. The poster worker (Plan 24-04) injects a per-size tuple
+        # so the entire stage chain renders at the right print canvas.
+        self._canvas_dimensions: tuple[int, int] = canvas_dimensions or (1080, 1920)
 
         if presets is None:
             presets = build_default_registry()
@@ -57,11 +73,16 @@ class FlyerGenerator:
         wf_config = load_workflow(settings.workflow)
         self._prompt_builder = StylePromptBuilder(presets, workflow_config=wf_config)
         self._comfy_client = ComfyClient(settings, http_client)
-        self._preprocessor = ImagePreprocessor()
+        # Stage chain receives the injected canvas dimensions so upscale,
+        # composition, and rasterization all operate at the same size.
+        self._preprocessor = ImagePreprocessor(final_dimensions=self._canvas_dimensions)
         self._vision = VisionEvaluator(settings)
         self._layout = LayoutResolver()
-        self._composer = PosterComposer()
-        self._rasterizer = Rasterizer()
+        self._composer = PosterComposer(canvas_width=self._canvas_dimensions[0])
+        self._rasterizer = Rasterizer(
+            width=self._canvas_dimensions[0],
+            height=self._canvas_dimensions[1],
+        )
 
     async def generate(
         self,
@@ -145,7 +166,7 @@ class FlyerGenerator:
 
                 return FlyerOutput(
                     png_bytes=png_bytes,
-                    dimensions=(1080, 1920),
+                    dimensions=self._canvas_dimensions,
                     file_size_kb=len(png_bytes) // 1024,
                     event_title=event.title,
                     attempts_used=attempt,
