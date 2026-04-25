@@ -7,6 +7,7 @@ from flyer_generator.api.routes import (
     brochures,
     flyers,
     jobs,
+    postcards,
     renders,
     social,
 )
@@ -16,6 +17,7 @@ ROUTERS = [
     brand_kits.router,
     flyers.router,
     brochures.router,
+    postcards.router,
     social.router,
     jobs.router,
     renders.router,
@@ -27,6 +29,7 @@ __all__ = [
     "brochures",
     "flyers",
     "jobs",
+    "postcards",
     "renders",
     "social",
 ]
