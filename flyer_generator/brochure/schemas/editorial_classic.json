@@ -28,9 +28,9 @@
       "background": { "type": "solid", "color": "#FAFAF7" },
       "elements": [
         { "type": "shape", "kind": "rect", "rect": [0, 0, 1100, 8], "fill": { "type": "solid", "color": "#1E3A5F" }, "bleed": "top", "z": 0 },
-        { "type": "image_placeholder", "bbox": [0, 120, 1100, 1420], "slot": "hero", "corner_radius": 0, "show_placeholder_label": true, "z": 3 },
+        { "type": "image_placeholder", "bbox": [0, 120, 1100, 1420], "slot": "hero", "corner_radius": 0, "show_placeholder_label": false, "z": 3 },
         { "type": "shape", "kind": "rect", "rect": [0, 1540, 1100, 6], "fill": { "type": "solid", "color": "#1E3A5F", "opacity": 0.9 }, "z": 5 },
-        { "type": "text", "bbox": [80, 1580, 940, 60], "role": "static", "static_text": "ESTATE PLANNING", "font_size": 26, "letter_spacing": 6, "weight": "semibold", "color": "#1E3A5F", "uppercase": true, "font_family": "'Source Serif Pro', Georgia, serif", "z": 10 },
+        { "type": "text", "bbox": [80, 1580, 940, 60], "role": "tagline", "content_key": "tagline", "font_size": 26, "letter_spacing": 6, "weight": "semibold", "color": "#1E3A5F", "uppercase": true, "font_family": "'Source Serif Pro', Georgia, serif", "z": 10 },
         { "type": "text", "bbox": [80, 1650, 940, 540], "role": "cover_title", "content_key": "title", "color": "#1A1A1A", "valign": "top", "z": 10 },
         { "type": "text", "bbox": [80, 2200, 940, 90], "role": "cover_subtitle", "content_key": "subtitle", "color": "#4A4A4A", "font_size": 36, "italic": true, "z": 10 },
         { "type": "shape", "kind": "rect", "rect": [80, 2310, 140, 3], "fill": { "type": "solid", "color": "#1E3A5F" }, "z": 6 },
