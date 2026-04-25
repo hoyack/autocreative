@@ -95,7 +95,17 @@ async def task_generate_brochure(ctx: dict, *, job_id: str, payload: dict) -> st
         )
 
         # 3) Rasterize to PNG (SYNC — wrap in to_thread).
-        rast = Rasterizer()
+        # Brochure SVGs are emitted at the bleed canvas (3376 × 2626 px =
+        # letter landscape + 0.125" bleed). The Rasterizer default is the
+        # 1080 × 1920 flyer canvas, which would force cairosvg to letterbox
+        # the landscape SVG into a portrait PNG — produces the visible
+        # vertical squash + dead bands user flagged after 260425-nwj.
+        # See flyer_generator/brochure/stages/layout.py for the constants.
+        from flyer_generator.brochure.stages.layout import (
+            BLEED_CANVAS_HEIGHT,
+            BLEED_CANVAS_WIDTH,
+        )
+        rast = Rasterizer(width=BLEED_CANVAS_WIDTH, height=BLEED_CANVAS_HEIGHT)
 
         def _rasterize_both() -> tuple[bytes, bytes]:
             return rast.rasterize(outside_svg), rast.rasterize(inside_svg)
