@@ -36,6 +36,7 @@ const KINDS = [
   "flyer",
   "brochure",
   "postcard",
+  "poster",
   "social_post",
   "social_campaign",
 ] as const;
@@ -55,6 +56,8 @@ function statusPathFor(kind: string, id: string): string {
       return `/brochures/${id}`;
     case "postcard":
       return `/postcards/${id}`;
+    case "poster":
+      return `/posters/${id}`;
     case "social_post":
       return `/social/posts/${id}`;
     case "social_campaign":

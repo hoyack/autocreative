@@ -31,6 +31,10 @@ import { PageHeader } from "@/components/PageHeader";
 // Phase 23 PC-06 adds postcard_front / postcard_back / postcard_pdf — same
 // 3-artifact shape as brochures (front PNG + back PNG + print PDF), emitted
 // by task_generate_postcard.
+//
+// Phase 24 PO-04 adds poster_final — single-artifact (1 PNG, no front/back/pdf
+// split) emitted by task_generate_poster at print canvas dims (5400x7200,
+// 7200x10800, or 8100x12000 depending on the locked size literal).
 const KINDS = [
   "flyer_event_final",
   "flyer_info_final",
@@ -40,6 +44,7 @@ const KINDS = [
   "postcard_front",
   "postcard_back",
   "postcard_pdf",
+  "poster_final",
   "social_post_image",
   "brand_kit_logo",
 ] as const;
