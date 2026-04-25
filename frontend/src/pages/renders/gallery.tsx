@@ -27,12 +27,19 @@ import { PageHeader } from "@/components/PageHeader";
 // "flyer_info_final" (subtype === "info"); pre-Phase-22 rows are migrated
 // in-place by alembic f22t01. The legacy "flyer_final" value MUST NOT appear
 // in this tuple — it would surface a filter that returns 0 rows post-migration.
+//
+// Phase 23 PC-06 adds postcard_front / postcard_back / postcard_pdf — same
+// 3-artifact shape as brochures (front PNG + back PNG + print PDF), emitted
+// by task_generate_postcard.
 const KINDS = [
   "flyer_event_final",
   "flyer_info_final",
   "brochure_front",
   "brochure_back",
   "brochure_pdf",
+  "postcard_front",
+  "postcard_back",
+  "postcard_pdf",
   "social_post_image",
   "brand_kit_logo",
 ] as const;
