@@ -26,11 +26,11 @@
       "elements": [
         { "type": "image_placeholder", "bbox": [0, 0, 1080, 1920], "slot": "hero", "corner_radius": 0, "show_placeholder_label": true, "z": 0 },
         { "type": "shape", "kind": "rect", "rect": [0, 1800, 1080, 120], "fill": { "type": "solid", "color": "#FF2E4D" }, "z": 5 },
-        { "type": "text", "bbox": [60, 120, 960, 600], "role": "cover_title", "content_key": "event.title", "color": "#FFFFFF", "weight": "bold", "uppercase": true, "valign": "top", "z": 10 },
-        { "type": "text", "bbox": [60, 1300, 960, 60], "role": "body", "content_key": "event.date", "color": "#FFFFFF", "weight": "semibold", "uppercase": true, "z": 10 },
-        { "type": "text", "bbox": [60, 1370, 960, 60], "role": "body", "content_key": "event.time", "color": "#FFFFFF", "weight": "semibold", "z": 10 },
-        { "type": "text", "bbox": [60, 1440, 960, 60], "role": "body", "content_key": "event.location_name", "color": "#FFFFFF", "z": 10 },
-        { "type": "text", "bbox": [60, 1510, 960, 60], "role": "body", "content_key": "event.fees", "color": "#FFFFFF", "weight": "semibold", "z": 10 },
+        { "type": "text", "bbox": [60, 120, 960, 480], "role": "cover_title", "content_key": "event.title", "color": "#FFFFFF", "weight": "bold", "uppercase": true, "valign": "top", "z": 10 },
+        { "type": "text", "bbox": [60, 1200, 960, 60], "role": "body", "content_key": "event.date", "color": "#FFFFFF", "weight": "semibold", "uppercase": true, "z": 10 },
+        { "type": "text", "bbox": [60, 1270, 960, 60], "role": "body", "content_key": "event.time", "color": "#FFFFFF", "weight": "semibold", "z": 10 },
+        { "type": "text", "bbox": [60, 1340, 960, 60], "role": "body", "content_key": "event.location_name", "color": "#FFFFFF", "z": 10 },
+        { "type": "text", "bbox": [60, 1410, 960, 60], "role": "body", "content_key": "event.fees", "color": "#FFFFFF", "weight": "semibold", "z": 10 },
         { "type": "text", "bbox": [60, 1830, 960, 60], "role": "org_name", "content_key": "org", "color": "#FFFFFF", "font_size": 28, "letter_spacing": 4, "uppercase": true, "weight": "bold", "z": 20 }
       ]
     }
