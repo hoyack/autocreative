@@ -185,11 +185,15 @@ describe("RenderGalleryPage — delete flow (Plan 24.2-02)", () => {
     const items = pngRows(1);
     const targetId = items[0].id;
     let deleteHits = 0;
+    // Stateful list — the GET handler reflects the current set so the
+    // post-delete invalidate-and-refetch sees the row really removed
+    // (otherwise the optimistic-removed card would reappear on refetch).
+    let currentItems = [...items];
     server.use(
       http.get("/api/v1/renders", () =>
         HttpResponse.json({
-          items,
-          total: items.length,
+          items: currentItems,
+          total: currentItems.length,
           limit: 24,
           offset: 0,
         }),
@@ -197,6 +201,7 @@ describe("RenderGalleryPage — delete flow (Plan 24.2-02)", () => {
       http.delete("/api/v1/renders/:render_id", ({ params }) => {
         deleteHits += 1;
         expect(params.render_id).toBe(targetId);
+        currentItems = currentItems.filter((r) => r.id !== params.render_id);
         return new HttpResponse(null, { status: 204 });
       }),
     );
