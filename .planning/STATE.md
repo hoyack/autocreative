@@ -133,7 +133,7 @@ None yet.
 | 260421-c1n | Resilient Ollama LLM client: retry/backoff/fallback models | 2026-04-21 | 38361bf | [260421-c1n-resilient-ollama-llm-client-retry-backof](./quick/260421-c1n-resilient-ollama-llm-client-retry-backof/) |
 | 260421-epk | Auto-audit in schema_renderer CLI (--audit sidecar + --iterate-audit) | 2026-04-21 | a976152 | [260421-epk-auto-audit-in-schema-renderer-cli](./quick/260421-epk-auto-audit-in-schema-renderer-cli/) |
 | 260425-mvu | Strip text-priming function-words from BROCHURE_COVER_DIRECTIVES (fix vision-gate failures) | 2026-04-25 | e30d10f | [260425-mvu-brochure-directives-fix](./quick/260425-mvu-brochure-directives-fix/) |
-| 260425-nwj | Emit brochure PDF at trim size (11×8.5 letter landscape) instead of bleed canvas, so consumer printers don't scale/pad | 2026-04-25 | pending | [260425-nwj-brochure-trim-pdf](./quick/260425-nwj-brochure-trim-pdf/) |
+| 260425-nwj | Emit brochure PDF at trim size (11×8.5 letter landscape) instead of bleed canvas, so consumer printers don't scale/pad | 2026-04-25 | b0a182a | [260425-nwj-brochure-trim-pdf](./quick/260425-nwj-brochure-trim-pdf/) |
 
 ## Deferred Items
 
