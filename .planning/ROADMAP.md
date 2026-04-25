@@ -374,6 +374,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 21. React Frontend Dashboard | 14/14 | Complete   | 2026-04-23 |
 | 22. Flyer Templates & Subtype Split | 7/7 | Complete    | 2026-04-25 |
 | 23. Postcard Primitive | 6/6 | Complete    | 2026-04-25 |
-| 24. Poster Primitive | 6/6 | Complete   | 2026-04-25 |
+| 24. Poster Primitive | 6/6 | Complete    | 2026-04-25 |
 | 25. Invitation Primitive | 0/? | Not Started | - |
 | 26. Adversarial Hardening Sweep | 0/? | Not Started | - |
