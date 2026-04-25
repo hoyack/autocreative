@@ -109,6 +109,10 @@ def test_pdf_has_exactly_two_pages() -> None:
 
 
 def test_portrait_page_one_dimensions_match_input() -> None:
+    """Mediabox is the input pixel dims scaled by 72/300 (RM-01: points, not pixels).
+
+    1200 px * 72/300 = 288 pt = 4 in. 1800 px * 72/300 = 432 pt = 6 in.
+    """
     from flyer_generator.postcard.stages.pdf import assemble_postcard_pdf
 
     front = _png_bytes(1200, 1800)
@@ -116,11 +120,12 @@ def test_portrait_page_one_dimensions_match_input() -> None:
     pdf = assemble_postcard_pdf(front, back, 1200, 1800)
     reader = PdfReader(io.BytesIO(pdf))
     page1 = reader.pages[0]
-    assert float(page1.mediabox.width) == 1200.0
-    assert float(page1.mediabox.height) == 1800.0
+    assert abs(float(page1.mediabox.width) - 1200 * 72.0 / 300.0) < 0.01
+    assert abs(float(page1.mediabox.height) - 1800 * 72.0 / 300.0) < 0.01
 
 
 def test_portrait_page_two_dimensions_match_input() -> None:
+    """Page 2 mediabox is also 72/300-scaled (RM-01: points, not pixels)."""
     from flyer_generator.postcard.stages.pdf import assemble_postcard_pdf
 
     front = _png_bytes(1200, 1800)
@@ -128,8 +133,8 @@ def test_portrait_page_two_dimensions_match_input() -> None:
     pdf = assemble_postcard_pdf(front, back, 1200, 1800)
     reader = PdfReader(io.BytesIO(pdf))
     page2 = reader.pages[1]
-    assert float(page2.mediabox.width) == 1200.0
-    assert float(page2.mediabox.height) == 1800.0
+    assert abs(float(page2.mediabox.width) - 1200 * 72.0 / 300.0) < 0.01
+    assert abs(float(page2.mediabox.height) - 1800 * 72.0 / 300.0) < 0.01
 
 
 # ---------------------------------------------------------------------------
@@ -138,6 +143,7 @@ def test_portrait_page_two_dimensions_match_input() -> None:
 
 
 def test_landscape_dimensions_round_trip() -> None:
+    """Landscape 1800x1200 px → 432 x 288 pt = 6 x 4 in (RM-01)."""
     from flyer_generator.postcard.stages.pdf import assemble_postcard_pdf
 
     front = _png_bytes(1800, 1200)
@@ -146,8 +152,8 @@ def test_landscape_dimensions_round_trip() -> None:
     reader = PdfReader(io.BytesIO(pdf))
     assert len(reader.pages) == 2
     for page in reader.pages:
-        assert float(page.mediabox.width) == 1800.0
-        assert float(page.mediabox.height) == 1200.0
+        assert abs(float(page.mediabox.width) - 1800 * 72.0 / 300.0) < 0.01
+        assert abs(float(page.mediabox.height) - 1200 * 72.0 / 300.0) < 0.01
 
 
 # ---------------------------------------------------------------------------

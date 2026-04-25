@@ -41,14 +41,23 @@ def test_pdf_has_exactly_two_pages() -> None:
 
 
 def test_pdf_page_size_matches_bleed_canvas() -> None:
+    """Mediabox is the bleed canvas converted to PostScript points (RM-01).
+
+    reportlab interprets ``pagesize`` as PostScript points; we now pass
+    72/300-scaled values, so the mediabox is in points (= pixels * 0.24),
+    NOT pixels. Letter-landscape + 0.125in bleed each edge → 11.25 x 8.75 in
+    → 810.24 x 630.24 pt.
+    """
     pdf_bytes = assemble_brochure_pdf(_fake_sheet_png(), _fake_sheet_png())
     reader = PdfReader(io.BytesIO(pdf_bytes))
+    pt_per_px = 72.0 / 300.0
+    expected_w_pt = BLEED_CANVAS_WIDTH * pt_per_px
+    expected_h_pt = BLEED_CANVAS_HEIGHT * pt_per_px
     for page in reader.pages:
         box = page.mediabox
-        # reportlab sizes in PostScript points; we pass pixels directly.
         # Compare as floats since pypdf may return Decimal.
-        assert float(box.width) == float(BLEED_CANVAS_WIDTH)
-        assert float(box.height) == float(BLEED_CANVAS_HEIGHT)
+        assert abs(float(box.width) - expected_w_pt) < 0.01
+        assert abs(float(box.height) - expected_h_pt) < 0.01
 
 
 def test_empty_outside_png_raises() -> None:
