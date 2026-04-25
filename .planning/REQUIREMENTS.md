@@ -141,6 +141,11 @@
 - [ ] **PLF-03**: `POST /api/v1/flyers` with `template="bold_modern"` produces a render where the headline coordinates and the date/time/venue text coordinates do not overlap; an `editorial_classic`-style baseline pytest catches the overlap (RED→GREEN gate)
 - [ ] **PLF-04**: Poster vision call sends a downsampled background (≤1920px on long edge) instead of the full 5400×7200 PNG; `POST /api/v1/posters` completes end-to-end on a typical residential connection within `FLYER_VISION_TIMEOUT_SECONDS=60` for all 3 sizes; the existing 9 render-smoke pytests still pass
 
+### Renders Management (Phase 24.2) — PDF page-size bug + delete capability
+
+- [ ] **RM-01**: Brochure and postcard PDF artifacts use the correct PDF point dimensions derived from the design 300dpi pixel canvas (1 inch = 72 PDF points; 300px/inch). Brochure PDF page size is exactly 11.25×8.75in (810×630pt); postcard PDF page size matches the template canvas (4×6in or 6×4in / 288×432pt). pypdf-based pytest in `tests/{brochure,postcard}/test_pdf_dimensions.py` asserts mediabox.width / 72 and mediabox.height / 72 match the expected inches; existing PDF assembly pytests continue to pass.
+- [ ] **RM-02**: `DELETE /api/v1/renders/{render_id}` returns 204 on success, 404 if the render does not exist, idempotent on re-delete; deletes the underlying RenderRecord row + on-disk artifact file (PNG or PDF); cascades correctly when the render is referenced by a PostcardRecord/BrochureRecord (FK column set NULL or row-block — planner picks the safer path). Frontend Renders gallery (`frontend/src/pages/renders/gallery.tsx`) shows a trash icon on each card, clicking opens an AlertDialog ("Delete render? This cannot be undone."), confirming triggers the DELETE + list refresh; OpenAPI snapshot regenerated; vitest coverage for the dialog + mutation flow.
+
 ### Invitation Primitive (Phase 25)
 
 - [ ] **IN-01**: `POST /api/v1/invitations` renders a 5×7 portrait PNG at 300 DPI (1500×2100) with heavy brand-kit conditioning and RSVP-focused copy
@@ -281,6 +286,8 @@
 | PLF-02 | Phase 24.1 | Not Started |
 | PLF-03 | Phase 24.1 | Not Started |
 | PLF-04 | Phase 24.1 | Not Started |
+| RM-01 | Phase 24.2 | Not Started |
+| RM-02 | Phase 24.2 | Not Started |
 | IN-01 | Phase 25 | Not Started |
 | IN-02 | Phase 25 | Not Started |
 | IN-03 | Phase 25 | Not Started |

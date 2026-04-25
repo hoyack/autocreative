@@ -346,6 +346,21 @@ Plans:
 - [x] 24.1-03-PLAN.md — Poster vision input downsampling (PLF-04) [Wave 1]
 - [x] 24.1-04-PLAN.md — Flyer bold_modern z-order layout fix (PLF-03) [Wave 1]
 
+### Phase 24.2: renders-management (INSERTED)
+
+**Goal:** Two cross-cutting render-related fixes/features. (1) Fix the print PDF page-size bug discovered via the post-Phase 24.1 perception loop: brochure tri-fold PDF outputs at 46.89×36.47in instead of the correct 11.25×8.75in (postcard PDFs have the same bug — 16.67×25in instead of 4×6in) because both `flyer_generator/{brochure,postcard}/stages/pdf.py` pass 300dpi pixel dimensions directly to reportlab's Canvas which interprets them as PostScript points. (2) Add a delete capability to the Renders gallery: backend DELETE `/api/v1/renders/{id}` endpoint + frontend trash-icon button with confirmation modal in `frontend/src/pages/renders/gallery.tsx`.
+**Requirements**: RM-01, RM-02
+**Success Criteria** (what must be TRUE):
+  1. Brochure PDF artifacts have page size 11.25×8.75in (not 46.89×36.47in); postcard PDF artifacts have page size 4×6in or 6×4in depending on template orientation (not 16.67×25in or 25×16.67in); pdf metadata inspectable via `pypdf.PdfReader` confirms; existing pytest coverage extended to assert page dimensions in inches/points
+  2. `DELETE /api/v1/renders/{render_id}` returns 204 on success; returns 404 if render does not exist; deletes the underlying RenderRecord row + the on-disk PNG/PDF file at `<artifact_root>/.../<render_id>.{png,pdf}`; idempotent on re-delete
+  3. Renders gallery shows a trash icon on every card; clicking opens a confirmation modal ("Delete render? This cannot be undone."); confirming triggers DELETE + optimistic refresh of the list; rejected renders stay visible until backend confirms
+  4. No regressions: 1787 backend pytests + 43 frontend tests still pass; OpenAPI snapshot regenerated to expose the DELETE route + typed client alias
+**Depends on:** Phase 24.1
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 24.2 to break down)
+
 ### Phase 25: Invitation Primitive
 **Goal**: A user can `POST /api/v1/invitations` with RSVP-focused fields (host, event, date, time, venue, RSVP contact) and a brand kit, and the API returns a 5×7 portrait invitation PNG at 300 DPI rendered through one of three visually-distinct templates.
 **Depends on**: Phase 22
