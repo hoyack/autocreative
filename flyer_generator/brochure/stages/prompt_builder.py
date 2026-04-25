@@ -17,11 +17,17 @@ from flyer_generator.presets import UNIVERSAL_NEGATIVE, PresetRegistry
 from flyer_generator.stages.prompt_builder import ComfyWorkflow
 
 BROCHURE_COVER_DIRECTIVES: list[str] = [
+    # Mirror FLYER_DIRECTIVES: describe the IMAGE shape, never the function it serves.
+    # Words like "title", "subtitle", "headline", "overlay", "brochure", "flyer"
+    # bias SDXL-class models to bake text into the output even with a strong
+    # negative prompt — the model has seen too many stock images of those things
+    # *with text in them*. Strip those words; rely on UNIVERSAL_NEGATIVE.
     "Landscape composition, 16:9 aspect ratio.",
     "Main subject centred in the middle third of the frame.",
-    "Clean, low-detail areas along the left and right edges for title and subtitle overlay.",
-    "Soft gradient or calm sky toward the top third to anchor a large overlaid headline.",
-    "No text, no writing, no letters, no signs, no graphic design elements.",
+    "Smooth clean bokeh areas along the left and right edges of the frame.",
+    "Soft gradient or calm sky in the upper third of the frame.",
+    "No text, no writing, no letters, no signs, no symbols.",
+    "Pure background art with no graphic design elements.",
     "Visually balanced — no single corner dominating attention.",
 ]
 

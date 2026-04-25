@@ -38,9 +38,14 @@ def test_positive_prompt_contains_brochure_directives_not_flyer() -> None:
     wf = _builder().build(MINIMAL_BROCHURE, attempt=1)
     for directive in BROCHURE_COVER_DIRECTIVES:
         assert directive in wf.positive_prompt
-    # Flyer-specific directives must NOT appear.
-    for flyer_directive in FLYER_DIRECTIVES:
-        assert flyer_directive not in wf.positive_prompt
+    # The portrait/landscape distinction is the real differentiator —
+    # brochure prompts must NOT carry the flyer's portrait directive.
+    # (Anti-text language like "No text, no writing..." is now shared
+    # between flyer and brochure on purpose — quick task 260425-mvu.)
+    portrait_only = [d for d in FLYER_DIRECTIVES if "portrait" in d.lower()]
+    assert portrait_only, "FLYER_DIRECTIVES is expected to include a portrait line"
+    for directive in portrait_only:
+        assert directive not in wf.positive_prompt
 
 
 def test_negative_prompt_includes_universal_negative() -> None:
@@ -84,3 +89,34 @@ def test_seed_varies_between_calls() -> None:
     builder = _builder()
     seeds = {builder.build(MINIMAL_BROCHURE, attempt=1).seed for _ in range(5)}
     assert len(seeds) >= 2  # vanishingly unlikely to all collide
+
+
+def test_directives_have_no_text_priming_function_words() -> None:
+    """Regression: BROCHURE_COVER_DIRECTIVES must not contain words like
+    'title', 'subtitle', 'headline', 'overlay', 'brochure', 'flyer'.
+    These function-words bias SDXL-class models to bake text into the
+    generated image even with the universal negative prompt — vision gate
+    then rejects them and we exhaust the retry budget. Quick task
+    260425-mvu-brochure-directives-fix removed those words; this guard
+    keeps them out.
+    """
+    forbidden = {
+        "title",
+        "subtitle",
+        "headline",
+        "overlay",
+        "overlaid",
+        "brochure",
+        "flyer",
+        "card",
+        "magazine",
+        "poster",
+    }
+    blob = " ".join(BROCHURE_COVER_DIRECTIVES).lower()
+    found = sorted(w for w in forbidden if w in blob.split() or f" {w} " in f" {blob} " or blob.endswith(f" {w}") or blob.startswith(f"{w} "))
+    assert not found, (
+        f"BROCHURE_COVER_DIRECTIVES contains text-priming function-words {found}; "
+        f"these bias the model to render text into the image. Describe the image, "
+        f"not the function. See "
+        f".planning/quick/260425-mvu-brochure-directives-fix/SUMMARY.md."
+    )
