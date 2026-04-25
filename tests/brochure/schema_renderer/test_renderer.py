@@ -1,4 +1,31 @@
-"""End-to-end rendering tests for all 3 starter templates."""
+"""End-to-end rendering tests for all 3 starter templates.
+
+PLF-02 investigation (2026-04-25):
+- tasks/brochure.py worker: INTACT — calls
+  ``BrochureContent.model_validate(payload["content"])`` and passes the
+  resulting model unchanged into ``render_schema_brochure(template, content,
+  images=...)``. Sections are not mutated or dropped between request parsing
+  and renderer call.
+- schema_renderer/renderer.py sections iteration: INTACT —
+  ``_resolve_text_content`` calls ``content.resolve_key(el.content_key,
+  el.section_index)`` (line 200), and ``BrochureContent.resolve_key`` parses
+  the ``sections[N].field`` form correctly (content_model.py lines 258-269).
+  Each inner panel's text element supplies an explicit ``section_index`` so
+  the renderer iterates the right section per panel.
+- editorial_classic.json sections content_keys present: YES — inner_left
+  references ``sections[0].heading``, ``sections[0].lead_paragraph``,
+  ``sections[0].bullets``, ``sections[0].quote``,
+  ``sections[0].quote_attribution``; inner_center references
+  ``sections[1].*``; inner_right references ``sections[2].*``. All carry
+  explicit ``"section_index": 0|1|2``.
+- Conclusion: JSON-only kicker fix sufficient (Task 2 Path A). The PLF-02
+  perception report's "no sections visible" finding was likely a brief that
+  did not have the right shape OR a vision misread on a render that DID
+  contain sections; the rendering path itself is wired correctly. The
+  ``test_editorial_classic_renders_all_supplied_sections`` test below proves
+  this by passing 3 distinctive headings and asserting they appear in the
+  inside-sheet SVG.
+"""
 
 from __future__ import annotations
 
@@ -431,3 +458,94 @@ def test_accent_override_none_preserves_template_default() -> None:
     # Sanity: accent_override=None is the same render
     outside_none, _ = render_schema_brochure(t, c, accent_override=None)
     assert outside_default == outside_none
+
+
+# --------------------------------------------------------------------------- #
+# PLF-02 — kicker derivation + sections rendering (Plan 24.1-02 Task 1 RED)
+# --------------------------------------------------------------------------- #
+
+
+def _plf02_content(*, tagline: str | None, sections: list[ContentSection] | None = None) -> BrochureContent:
+    """Minimal BrochureContent for PLF-02 kicker / sections assertions."""
+    return BrochureContent(
+        title="Spring Update Title",
+        subtitle="A clear subtitle for testing",
+        tagline=tagline,
+        org="Acme Test Co",
+        sections=sections
+        or [
+            ContentSection(heading="Default One"),
+            ContentSection(heading="Default Two"),
+            ContentSection(heading="Default Three"),
+        ],
+    )
+
+
+def test_editorial_classic_kicker_uses_tagline() -> None:
+    """PLF-02 acceptance #3: kicker is derived from content.tagline, not hardcoded."""
+    t = load_template("editorial_classic")
+    c = _plf02_content(tagline="Spring Update")
+    outside, inside = render_schema_brochure(t, c)
+    combined = outside + inside
+    # Kicker has uppercase=true, so the tagline should appear uppercased.
+    assert "SPRING UPDATE" in outside, (
+        "Expected 'SPRING UPDATE' (uppercased tagline) on the outside sheet — "
+        "kicker should derive from content.tagline."
+    )
+    # The hardcoded fallback string MUST be absent everywhere.
+    assert "ESTATE PLANNING" not in combined, (
+        "PLF-02 regression: hardcoded 'ESTATE PLANNING' string still appears in "
+        "rendered SVG. Schema must use content_key='tagline' instead of "
+        "static_text."
+    )
+
+
+def test_editorial_classic_kicker_blank_when_tagline_none() -> None:
+    """PLF-02: when tagline is None, the kicker renders blank — never falls back to 'ESTATE PLANNING'."""
+    t = load_template("editorial_classic")
+    c = _plf02_content(tagline=None)
+    outside, inside = render_schema_brochure(t, c)
+    combined = outside + inside
+    # Renderer should not crash and must not print the legacy hardcoded string.
+    assert "ESTATE PLANNING" not in combined
+    # Sanity: outside SVG still rendered (other elements present).
+    assert outside.startswith("<svg") and outside.endswith("</svg>")
+
+
+def test_editorial_classic_renders_all_supplied_sections() -> None:
+    """PLF-02 acceptance #1 + #2: every supplied section's heading + lead_paragraph
+    appears in the inside-sheet SVG.
+
+    Three distinctive headings + lead paragraphs are passed; each must appear
+    on inner_left / inner_center / inner_right.
+    """
+    t = load_template("editorial_classic")
+    sections = [
+        ContentSection(
+            heading="Our Vision",
+            lead_paragraph="Distinctive lead text alpha alpha alpha.",
+        ),
+        ContentSection(
+            heading="By the Numbers",
+            lead_paragraph="Distinctive lead text beta beta beta.",
+        ),
+        ContentSection(
+            heading="Looking Forward",
+            lead_paragraph="Distinctive lead text gamma gamma gamma.",
+        ),
+    ]
+    c = _plf02_content(tagline="Spring Update", sections=sections)
+    outside, inside = render_schema_brochure(t, c)
+
+    # All three section headings must appear on the inside sheet.
+    for heading in ("Our Vision", "By the Numbers", "Looking Forward"):
+        assert heading in inside, (
+            f"Expected section heading {heading!r} in inside-sheet SVG. "
+            "Sections-rendering path may be broken."
+        )
+
+    # All three lead paragraphs (or at least a unique substring) must appear.
+    for lead_marker in ("alpha alpha alpha", "beta beta beta", "gamma gamma gamma"):
+        assert lead_marker in inside, (
+            f"Expected unique lead-paragraph marker {lead_marker!r} in inside SVG."
+        )
