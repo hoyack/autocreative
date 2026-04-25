@@ -39,9 +39,15 @@ if TYPE_CHECKING:
     from flyer_generator.flyer.schema_renderer.schema_model import FlyerTemplateSchema
 
 
-# Safe margins: text must stay within this horizontal band (px from each edge)
-_CANVAS_WIDTH = 1080
-_MARGIN_PX = 60  # 60px margin on each side = text fits in 960px
+# Design coordinate system. Zone coords / scrims / accent stripe were
+# authored against an 1080×1920 canvas; ``PosterComposer.canvas_width`` is
+# parameterized but defaults to 1080 so existing call sites keep byte-
+# identical output. Phase 24-02 moved the runtime canvas/margin from
+# module-level constants into instance attributes (self._canvas_width and
+# self._margin_px) so the poster pipeline can render at larger canvases.
+_DESIGN_CANVAS_WIDTH = 1080
+_DESIGN_CANVAS_HEIGHT = 1920
+_DESIGN_MARGIN_PX = 60  # 60px margin on each side = text fits in 960px
 
 # Hardcoded back-compat defaults (used when template is None) — match the
 # Phase-21 behavior exactly so existing callers see byte-identical output.
@@ -51,12 +57,24 @@ _DEFAULT_SCRIM_OPACITY_TOP = 0.75
 _DEFAULT_SCRIM_OPACITY_BOTTOM = 0.85
 
 
-def _title_params(title: str, anchor: str = "middle", anchor_x: int = 540) -> tuple[int, int]:
+def _title_params(
+    title: str,
+    anchor: str = "middle",
+    anchor_x: int = 540,
+    *,
+    canvas_width: int = _DESIGN_CANVAS_WIDTH,
+    margin_px: int = _DESIGN_MARGIN_PX,
+) -> tuple[int, int]:
     """Return (font_size, max_chars_per_line) for the UPPERCASED title.
 
     D-06: measure AFTER .upper().
     Enforces margin safety: computes the actual available width from the
     anchor position to the nearest edge, then limits max_chars to fit.
+
+    ``canvas_width`` and ``margin_px`` are kwargs so the composer can pass
+    instance-level values (Phase 24-02). Their defaults preserve the
+    pre-refactor behavior for any direct callers (the test suite imports
+    this function directly).
     """
     length = len(title)
     if length <= 14:
@@ -73,11 +91,11 @@ def _title_params(title: str, anchor: str = "middle", anchor_x: int = 540) -> tu
     # "end" text extends leftward from anchor_x to left margin.
     # "middle" text extends both ways from anchor_x.
     if anchor == "start":
-        available_width = (_CANVAS_WIDTH - _MARGIN_PX) - max(anchor_x, _MARGIN_PX)
+        available_width = (canvas_width - margin_px) - max(anchor_x, margin_px)
     elif anchor == "end":
-        available_width = min(anchor_x, _CANVAS_WIDTH - _MARGIN_PX) - _MARGIN_PX
+        available_width = min(anchor_x, canvas_width - margin_px) - margin_px
     else:  # middle
-        half_to_edge = min(anchor_x - _MARGIN_PX, (_CANVAS_WIDTH - _MARGIN_PX) - anchor_x)
+        half_to_edge = min(anchor_x - margin_px, (canvas_width - margin_px) - anchor_x)
         available_width = half_to_edge * 2
 
     # Approx 0.75 * font_size per uppercase char (Arial Black is very wide,
@@ -186,13 +204,48 @@ class PosterComposer:
     """SVG composition engine.
 
     Combines background image, text overlays, scrim gradients, fee badge,
-    accent elements, and org credit into a complete 1080x1920 SVG.
+    accent elements, and org credit into a complete SVG poster.
 
     Phase 22: composer is template-driven (typography / scrim / accent
     read from `FlyerTemplateSchema` when supplied) and subtype-aware
     (info flyers render description + call_to_action instead of date /
     time / venue / fees).
+
+    Phase 24-02: composer accepts a ``canvas_width`` constructor kwarg
+    (default 1080 — flyer canvas; preserves Phase 21–23 byte-identical
+    output for the no-arg call site). When called with a larger canvas
+    (e.g. 5400 for an 18×24" poster at 300 DPI), the margin scales
+    proportionally as ``canvas_width × 60 / 1080`` and the SVG outer
+    width / height / viewBox + scaled positions follow suit. Layout
+    zones still come from the 1080×1920 design grid (zones.py); the
+    rasterizer takes the final pixel dimensions, so absolute pixel
+    coordinates inside the SVG remain consistent with that grid for
+    canvas_width=1080. For other canvas widths a scale factor is
+    applied to all SVG positions / sizes derived from the design grid.
     """
+
+    def __init__(self, canvas_width: int = 1080) -> None:
+        """Construct a PosterComposer for ``canvas_width``-pixel-wide output.
+
+        Args:
+            canvas_width: Output SVG width in pixels. Defaults to 1080
+                (the flyer canvas) for back-compat. ``self._margin_px`` is
+                derived as ``round(canvas_width × 60 / 1080)`` so the
+                relative margin stays constant across sizes.
+        """
+        self._canvas_width = canvas_width
+        # Margin scales proportionally to keep the visual ratio constant.
+        self._margin_px = round(canvas_width * _DESIGN_MARGIN_PX / _DESIGN_CANVAS_WIDTH)
+        # Canvas height derives from the design 1080:1920 ratio. The
+        # rasterizer is the source of truth for the final raster
+        # dimensions (cairosvg's output_width / output_height override
+        # the SVG width / height attributes).
+        self._canvas_height = round(
+            canvas_width * _DESIGN_CANVAS_HEIGHT / _DESIGN_CANVAS_WIDTH
+        )
+        # Scale factor applied to design-grid coords (zones, scrim
+        # positions, accent stripe, org credit) when emitting SVG.
+        self._scale = canvas_width / _DESIGN_CANVAS_WIDTH
 
     # ------------------------------------------------------------------
     # Template helpers — back-compat fallbacks when template is None
@@ -350,7 +403,11 @@ class PosterComposer:
         # ----- d. Build title block -----
         t_anchor = layout.title.anchor
         bucket_font_size, max_chars = _title_params(
-            title_upper, t_anchor, layout.title.x
+            title_upper,
+            t_anchor,
+            layout.title.x,
+            canvas_width=_DESIGN_CANVAS_WIDTH,
+            margin_px=_DESIGN_MARGIN_PX,
         )
         # Template's cover_title_size overrides the bucket default when supplied.
         font_size = self._template_cover_title_size(template, bucket_font_size)
@@ -359,12 +416,13 @@ class PosterComposer:
         total_height = len(lines) * line_height
         start_y = layout.title.y - (total_height / 2) + font_size * 0.8
 
-        # Clamp title x to respect safe margins
+        # Clamp title x to respect safe margins (in design-grid coords; the
+        # SVG output is scaled at the end so the design coords stay 1080-wide).
         tx = layout.title.x
         if t_anchor == "start":
-            tx = max(tx, _MARGIN_PX)
+            tx = max(tx, _DESIGN_MARGIN_PX)
         elif t_anchor == "end":
-            tx = min(tx, _CANVAS_WIDTH - _MARGIN_PX)
+            tx = min(tx, _DESIGN_CANVAS_WIDTH - _DESIGN_MARGIN_PX)
 
         title_elements: list[str] = []
         for i, line in enumerate(lines):
@@ -410,23 +468,23 @@ class PosterComposer:
                 f'fill="{accent_color}" opacity="0.9"/>'
             )
         elif layout_variant == "editorial":
-            # Thin full-width line with accent dot
+            # Thin full-width line with accent dot (design-grid coords).
             accent_line = (
-                f'<line x1="{_MARGIN_PX}" y1="{accent_line_y:.1f}" '
-                f'x2="{_CANVAS_WIDTH - _MARGIN_PX}" y2="{accent_line_y:.1f}" '
+                f'<line x1="{_DESIGN_MARGIN_PX}" y1="{accent_line_y:.1f}" '
+                f'x2="{_DESIGN_CANVAS_WIDTH - _DESIGN_MARGIN_PX}" y2="{accent_line_y:.1f}" '
                 f'stroke="{accent_color}" stroke-width="1.5" opacity="0.6"/>'
                 f'<circle cx="{tx}" cy="{accent_line_y:.1f}" r="4" '
                 f'fill="{accent_color}" opacity="0.9"/>'
             )
         elif layout_variant == "sidebar":
-            # Vertical accent bar to the left of title
+            # Vertical accent bar to the left of title (design-grid coords).
             bar_x = (
                 tx - 20
                 if t_anchor == "start"
                 else (tx - max(len(lines[0]) * font_size * 0.65 / 2, 100) - 20)
             )
             accent_line = (
-                f'<rect x="{max(bar_x, _MARGIN_PX - 20):.0f}" '
+                f'<rect x="{max(bar_x, _DESIGN_MARGIN_PX - 20):.0f}" '
                 f'y="{start_y - font_size * 0.3:.1f}" '
                 f'width="4" height="{total_height + 10:.1f}" rx="2" '
                 f'fill="{accent_color}" opacity="0.9"/>'
@@ -579,10 +637,18 @@ class PosterComposer:
                 title_elements + [accent_line] + details_elements + fee_elements
             )
 
+        # SVG outer width / height scale with self._canvas_width while the
+        # viewBox stays in design-grid coords (0 0 1080 1920) so all interior
+        # coordinates (zones, scrims, accent stripe, bg image, org credit)
+        # keep producing byte-identical output at canvas_width=1080. For
+        # larger canvases the cairosvg rasterizer's output_width /
+        # output_height (set by Rasterizer.__init__) is the source of truth
+        # for the final raster dimensions.
         parts = [
             '<svg xmlns="http://www.w3.org/2000/svg" '
             'xmlns:xlink="http://www.w3.org/1999/xlink" '
-            'width="1080" height="1920" viewBox="0 0 1080 1920">',
+            f'width="{self._canvas_width}" height="{self._canvas_height}" '
+            f'viewBox="0 0 {_DESIGN_CANVAS_WIDTH} {_DESIGN_CANVAS_HEIGHT}">',
             defs,
             bg_image,
             *scrim_elements,
@@ -633,12 +699,12 @@ class PosterComposer:
         else:
             sep_x = dx
 
-        # Clamp details x to safe margins
+        # Clamp details x to safe margins (design-grid coords).
         if d_anchor == "start":
-            dx = max(dx, _MARGIN_PX)
+            dx = max(dx, _DESIGN_MARGIN_PX)
             sep_x = dx
         elif d_anchor == "end":
-            dx = min(dx, _CANVAS_WIDTH - _MARGIN_PX)
+            dx = min(dx, _DESIGN_CANVAS_WIDTH - _DESIGN_MARGIN_PX)
             sep_x = dx - 140
 
         if layout_variant == "editorial":
@@ -730,11 +796,11 @@ class PosterComposer:
         # Anchor description below the title, with breathing room.
         anchor = layout.title.anchor
         anchor_x = layout.title.x
-        # Clamp x to safe margins to mirror title clamping.
+        # Clamp x to safe margins to mirror title clamping (design-grid coords).
         if anchor == "start":
-            anchor_x = max(anchor_x, _MARGIN_PX)
+            anchor_x = max(anchor_x, _DESIGN_MARGIN_PX)
         elif anchor == "end":
-            anchor_x = min(anchor_x, _CANVAS_WIDTH - _MARGIN_PX)
+            anchor_x = min(anchor_x, _DESIGN_CANVAS_WIDTH - _DESIGN_MARGIN_PX)
 
         # Start ~80px below the title's bottom edge (room for accent line).
         y0 = title_bottom_y + 80
