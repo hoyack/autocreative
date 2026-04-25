@@ -1,8 +1,17 @@
-"""PDF assembly for the brochure — 2-page print-ready PDF with crop marks.
+"""PDF assembly for the brochure — 2-page consumer-printer-friendly PDF.
 
-Takes the two rasterized sheet PNGs (outside + inside) and assembles them into
-a single 2-page PDF sized to the bleed canvas at 300 DPI. Crop marks are drawn
-onto the bleed area at each trim corner.
+Takes the two rasterized sheet PNGs (outside + inside, each rendered at the
+bleed canvas) and assembles them into a 2-page PDF whose page size is the
+TRIM dimensions (11 × 8.5 in letter landscape = 792 × 612 pt), not the bleed
+canvas. The bleed-canvas PNG is drawn with a -BLEED_PX offset so the bleed
+clips off the page edges and only the trim content is visible. This produces
+a PDF that prints correctly on a standard letter sheet without the printer
+scaling/padding to fit the 0.125" bleed margins (which caused black bars and
+visible stretching pre-260425-nwj).
+
+Crop marks are intentionally omitted — they belong to the bleed area which
+is no longer part of the PDF page. If a print-shop variant ever lands, it
+would re-emit the bleed canvas + crop marks behind a new request flag.
 
 Depends on `reportlab` (pure-Python PDF toolkit) for drawing + page assembly.
 """
@@ -75,23 +84,26 @@ def assemble_brochure_pdf(
 ) -> bytes:
     """Build a 2-page PDF: page 1 = outside sheet, page 2 = inside sheet.
 
-    Design canvas is the bleed canvas (3376 x 2626 px at 300 DPI). Page size
-    is the bleed canvas converted to PostScript points via ``PT_PER_PX``
-    (72pt/in / 300px/in = 0.24); after ``canvas.scale(PT_PER_PX, PT_PER_PX)``
-    the user-space coordinate system is 300dpi pixels, so all subsequent
-    ``drawImage`` and crop-mark calls use pixel units. The PNG is placed to
-    fill the entire bleed canvas — caller is responsible for having
-    pre-rasterized at the bleed-canvas dimensions.
+    Page size is the TRIM dimensions (11 × 8.5 in = 792 × 612 pt) so the PDF
+    prints correctly on a standard letter sheet. The bleed-canvas PNG
+    (3376 × 2626 px) is drawn at a ``-BLEED_PX`` offset on both axes so the
+    bleed area extends past the visible page boundary and clips off; only
+    the trim portion of the PNG (the central TRIM_WIDTH × TRIM_HEIGHT region)
+    appears on the page.
+
+    Caller still rasterizes at the bleed canvas dimensions (no upstream
+    contract change) — the trim/bleed split is a PDF-assembly concern.
     """
     if not outside_png_bytes:
         raise BrochurePDFError("outside_png_bytes must be non-empty")
     if not inside_png_bytes:
         raise BrochurePDFError("inside_png_bytes must be non-empty")
 
-    page_w = BLEED_CANVAS_WIDTH
-    page_h = BLEED_CANVAS_HEIGHT
-    page_w_pt = page_w * PT_PER_PX
-    page_h_pt = page_h * PT_PER_PX
+    # Page is sized to the TRIM (consumer-printer-friendly).
+    page_w = TRIM_WIDTH_PX   # 3300 px = 11 in
+    page_h = TRIM_HEIGHT_PX  # 2550 px = 8.5 in
+    page_w_pt = page_w * PT_PER_PX  # 792 pt
+    page_h_pt = page_h * PT_PER_PX  # 612 pt
 
     buf = io.BytesIO()
     try:
@@ -99,24 +111,25 @@ def assemble_brochure_pdf(
         # User-space stays in 300dpi pixels; pagesize is in points.
         canvas.scale(PT_PER_PX, PT_PER_PX)
         # --- Page 1: outside sheet ---
+        # Draw at (-BLEED_PX, -BLEED_PX) so the bleed area extends past the
+        # page edges; only the trim portion (BLEED_PX..BLEED_PX+TRIM in the
+        # source PNG) is visible on the page.
         canvas.drawImage(
             ImageReader(io.BytesIO(outside_png_bytes)),
-            0, 0,
-            width=page_w, height=page_h,
+            -BLEED_PX, -BLEED_PX,
+            width=BLEED_CANVAS_WIDTH, height=BLEED_CANVAS_HEIGHT,
             preserveAspectRatio=False,
         )
-        _draw_crop_marks(canvas, page_h)
         canvas.showPage()
         # --- Page 2: inside sheet ---
         # showPage() resets the CTM, so re-apply the user-space scale.
         canvas.scale(PT_PER_PX, PT_PER_PX)
         canvas.drawImage(
             ImageReader(io.BytesIO(inside_png_bytes)),
-            0, 0,
-            width=page_w, height=page_h,
+            -BLEED_PX, -BLEED_PX,
+            width=BLEED_CANVAS_WIDTH, height=BLEED_CANVAS_HEIGHT,
             preserveAspectRatio=False,
         )
-        _draw_crop_marks(canvas, page_h)
         canvas.showPage()
         canvas.save()
     except Exception as exc:

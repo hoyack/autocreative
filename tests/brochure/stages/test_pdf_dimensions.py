@@ -23,6 +23,8 @@ from pypdf import PdfReader
 from flyer_generator.brochure.stages.layout import (
     BLEED_CANVAS_HEIGHT,
     BLEED_CANVAS_WIDTH,
+    TRIM_HEIGHT_PX,
+    TRIM_WIDTH_PX,
 )
 from flyer_generator.brochure.stages.pdf import assemble_brochure_pdf
 
@@ -40,10 +42,14 @@ def _fake_sheet_png(color: tuple[int, int, int] = (200, 200, 255)) -> bytes:
 
 
 def test_brochure_pdf_mediabox_is_in_points_not_pixels() -> None:
-    """Mediabox width is BLEED_CANVAS_WIDTH * 72/300 (= 810.24 pt), NOT 3376 px.
+    """Mediabox width is TRIM_WIDTH_PX * 72/300 (= 792 pt), NOT 3300 px.
 
-    Anti-regression: the bug expressed itself as ``float(box.width) == 3376.0``
-    (pixels treated as points). After the fix the value should be ~810.24.
+    Anti-regression for two layered bugs:
+      - RM-01 (260425, fixed): pagesize tuple was passed as pixels (3376),
+        treated by reportlab as points → 46.89 in mediabox.
+      - 260425-nwj (this fix): pagesize was the bleed canvas (810.24 pt =
+        11.25 in) which doesn't match consumer letter paper (11 × 8.5) and
+        forced printers to scale/pad with bars. Page is now the trim size.
     """
     outside = _fake_sheet_png((240, 240, 255))
     inside = _fake_sheet_png((255, 240, 240))
@@ -51,29 +57,34 @@ def test_brochure_pdf_mediabox_is_in_points_not_pixels() -> None:
 
     reader = PdfReader(io.BytesIO(pdf_bytes))
     page = reader.pages[0]
-    expected_width_pt = BLEED_CANVAS_WIDTH * PT_PER_PX  # 810.24
-    expected_height_pt = BLEED_CANVAS_HEIGHT * PT_PER_PX  # 630.24
+    expected_width_pt = TRIM_WIDTH_PX * PT_PER_PX  # 792.0
+    expected_height_pt = TRIM_HEIGHT_PX * PT_PER_PX  # 612.0
 
     assert abs(float(page.mediabox.width) - expected_width_pt) < 0.01, (
-        f"mediabox.width should be {expected_width_pt:.4f} pt, "
-        f"got {float(page.mediabox.width):.4f} (likely the pixel-as-point bug)"
+        f"mediabox.width should be {expected_width_pt:.4f} pt (TRIM_WIDTH_PX * PT_PER_PX), "
+        f"got {float(page.mediabox.width):.4f}"
     )
     assert abs(float(page.mediabox.height) - expected_height_pt) < 0.01, (
-        f"mediabox.height should be {expected_height_pt:.4f} pt, "
+        f"mediabox.height should be {expected_height_pt:.4f} pt (TRIM_HEIGHT_PX * PT_PER_PX), "
         f"got {float(page.mediabox.height):.4f}"
     )
-    # Strong anti-regression: explicitly NOT the pixel value.
-    assert float(page.mediabox.width) != float(BLEED_CANVAS_WIDTH), (
-        "mediabox.width still equals the pixel value — the PT_PER_PX scale was "
-        "not applied"
+    # Anti-regression: explicitly NOT the pixel value.
+    assert float(page.mediabox.width) != float(TRIM_WIDTH_PX), (
+        "mediabox.width still equals the pixel value — the PT_PER_PX scale was not applied"
+    )
+    # Anti-regression: explicitly NOT the bleed canvas size.
+    assert abs(float(page.mediabox.width) - BLEED_CANVAS_WIDTH * PT_PER_PX) > 0.5, (
+        "mediabox is still the bleed canvas size; consumer printers will scale or pad — "
+        "see /tmp/perception/brochure-v3.pdf for the symptom that motivated 260425-nwj"
     )
 
 
 def test_brochure_pdf_mediabox_in_inches() -> None:
-    """11.25in x 8.75in = letter landscape (11x8.5) + 0.125in bleed each edge.
+    """11 × 8.5 in = letter landscape, the actual paper size most users print on.
 
-    Letter-landscape trim is 11.0 x 8.5 in; bleed adds 0.125in on every side
-    (BLEED_INCHES in layout.py). 11.0 + 2*0.125 = 11.25, 8.5 + 2*0.125 = 8.75.
+    The previous contract was 11.25 × 8.75 (bleed canvas) which print shops
+    want but consumer printers can't fit on a letter sheet. 260425-nwj moved
+    the bleed area outside the page boundary so only the trim shows.
     """
     pdf_bytes = assemble_brochure_pdf(_fake_sheet_png(), _fake_sheet_png())
     reader = PdfReader(io.BytesIO(pdf_bytes))
@@ -82,13 +93,11 @@ def test_brochure_pdf_mediabox_in_inches() -> None:
     width_in = float(page.mediabox.width) / 72.0
     height_in = float(page.mediabox.height) / 72.0
 
-    assert abs(width_in - 11.253333) < 0.01, (
-        f"mediabox width in inches should be ~11.25 (letter landscape + bleed), "
-        f"got {width_in:.4f}"
+    assert abs(width_in - 11.0) < 0.01, (
+        f"mediabox width in inches should be 11.0 (letter landscape trim), got {width_in:.4f}"
     )
-    assert abs(height_in - 8.753333) < 0.01, (
-        f"mediabox height in inches should be ~8.75 (letter landscape + bleed), "
-        f"got {height_in:.4f}"
+    assert abs(height_in - 8.5) < 0.01, (
+        f"mediabox height in inches should be 8.5 (letter landscape trim), got {height_in:.4f}"
     )
 
 

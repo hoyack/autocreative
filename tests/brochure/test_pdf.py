@@ -11,6 +11,8 @@ from pypdf import PdfReader
 from flyer_generator.brochure.stages.layout import (
     BLEED_CANVAS_HEIGHT,
     BLEED_CANVAS_WIDTH,
+    TRIM_HEIGHT_PX,
+    TRIM_WIDTH_PX,
 )
 from flyer_generator.brochure.stages.pdf import (
     BrochurePDFError,
@@ -40,22 +42,23 @@ def test_pdf_has_exactly_two_pages() -> None:
     assert len(reader.pages) == 2
 
 
-def test_pdf_page_size_matches_bleed_canvas() -> None:
-    """Mediabox is the bleed canvas converted to PostScript points (RM-01).
+def test_pdf_page_size_matches_letter_trim() -> None:
+    """Mediabox is the TRIM size (11 × 8.5 in letter landscape = 792 × 612 pt).
 
-    reportlab interprets ``pagesize`` as PostScript points; we now pass
-    72/300-scaled values, so the mediabox is in points (= pixels * 0.24),
-    NOT pixels. Letter-landscape + 0.125in bleed each edge → 11.25 x 8.75 in
-    → 810.24 x 630.24 pt.
+    Quick task 260425-nwj: PDF is now consumer-printer-friendly. The bleed
+    canvas (810.24 × 630.24 pt = 11.25 × 8.75 in) is no longer the page
+    boundary — the bleed-canvas PNG is drawn at a -BLEED_PX offset so the
+    bleed extends past the page edges and clips off, leaving only the trim
+    portion visible. This makes the PDF print correctly on a standard letter
+    sheet without the printer scaling/padding to fit the bleed margins.
     """
     pdf_bytes = assemble_brochure_pdf(_fake_sheet_png(), _fake_sheet_png())
     reader = PdfReader(io.BytesIO(pdf_bytes))
     pt_per_px = 72.0 / 300.0
-    expected_w_pt = BLEED_CANVAS_WIDTH * pt_per_px
-    expected_h_pt = BLEED_CANVAS_HEIGHT * pt_per_px
+    expected_w_pt = TRIM_WIDTH_PX * pt_per_px   # 792
+    expected_h_pt = TRIM_HEIGHT_PX * pt_per_px  # 612
     for page in reader.pages:
         box = page.mediabox
-        # Compare as floats since pypdf may return Decimal.
         assert abs(float(box.width) - expected_w_pt) < 0.01
         assert abs(float(box.height) - expected_h_pt) < 0.01
 
