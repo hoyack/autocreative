@@ -356,10 +356,11 @@ Plans:
   3. Renders gallery shows a trash icon on every card; clicking opens a confirmation modal ("Delete render? This cannot be undone."); confirming triggers DELETE + optimistic refresh of the list; rejected renders stay visible until backend confirms
   4. No regressions: 1787 backend pytests + 43 frontend tests still pass; OpenAPI snapshot regenerated to expose the DELETE route + typed client alias
 **Depends on:** Phase 24.1
-**Plans:** 0 plans
+**Plans:** 2/2 plans (single-wave parallel)
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 24.2 to break down)
+- [ ] 24.2-01-PLAN.md — Postcard + brochure PDF page-size fix (RM-01) [Wave 1]
+- [ ] 24.2-02-PLAN.md — Render delete capability: DELETE route + FE trash icon (RM-02) [Wave 1]
 
 ### Phase 25: Invitation Primitive
 **Goal**: A user can `POST /api/v1/invitations` with RSVP-focused fields (host, event, date, time, venue, RSVP contact) and a brand kit, and the API returns a 5×7 portrait invitation PNG at 300 DPI rendered through one of three visually-distinct templates.
