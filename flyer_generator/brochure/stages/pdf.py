@@ -45,6 +45,26 @@ def _png_size(png_bytes: bytes) -> tuple[int, int]:
         return img.size
 
 
+def _flatten_to_white(png_bytes: bytes) -> bytes:
+    """If the PNG has alpha, composite onto a white background.
+
+    The schema renderer can emit RGBA PNGs whose top/bottom bands are fully
+    transparent (alpha=0). Without flattening, those transparent regions
+    print as either black bars (some viewers/printers) or unpredictable
+    paper-color (others). Compositing onto white guarantees consistent
+    output on every printer. PNGs without alpha are returned unchanged.
+    """
+    with Image.open(io.BytesIO(png_bytes)) as img:
+        if img.mode != "RGBA" and not (img.mode == "P" and "transparency" in img.info):
+            return png_bytes
+        rgba = img.convert("RGBA")
+        bg = Image.new("RGB", rgba.size, (255, 255, 255))
+        bg.paste(rgba, mask=rgba.split()[3])
+        out = io.BytesIO()
+        bg.save(out, "PNG")
+        return out.getvalue()
+
+
 def assemble_brochure_pdf(
     outside_png_bytes: bytes,
     inside_png_bytes: bytes,
@@ -77,6 +97,11 @@ def assemble_brochure_pdf(
             f"outside and inside PNGs must share dimensions; got "
             f"outside={outside_size} inside={inside_size}"
         )
+
+    # Flatten any alpha channel onto white so transparent canvas regions
+    # print clean instead of as black bars.
+    outside_png_bytes = _flatten_to_white(outside_png_bytes)
+    inside_png_bytes = _flatten_to_white(inside_png_bytes)
 
     page_w_px, page_h_px = outside_size
     page_w_pt = page_w_px * PT_PER_PX
