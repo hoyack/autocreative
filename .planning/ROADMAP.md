@@ -37,7 +37,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 21: React Frontend Dashboard** - React + Vite + ShadCN + Tailwind SPA consuming the Phase 20 API. Full dashboard: brand-kit list/detail + scrape, flyer creator, brochure creator, social post creator, campaign creator, job list + status stream, render gallery. Depends on Phase 20. (completed 2026-04-23)
 - [x] **Phase 22: Flyer Templates & Subtype Split** - Flyer rendering becomes template-driven via a JSON-schema registry (5+ templates ship at launch) and splits into `event` and `info` subtypes on a single `FlyerInput`; FE flyer creator gains template and subtype pickers with conditional fields (completed 2026-04-25)
 - [x] **Phase 23: Postcard Primitive** - `POST /api/v1/postcards` produces a front PNG + back PNG + print PDF (3 artifacts) with optional recipient address block; mirrors brochure's parallel-id / compensating-enqueue / detail-route pattern and lands in the editorial dashboard (completed 2026-04-25)
-- [ ] **Phase 24: Poster Primitive** - `POST /api/v1/posters` renders a larger-canvas flyer variant at 18×24 / 24×36 / 27×40, reusing the flyer pipeline with injected canvas dimensions and a dedicated poster template registry
+- [x] **Phase 24: Poster Primitive** - `POST /api/v1/posters` renders a larger-canvas flyer variant at 18×24 / 24×36 / 27×40, reusing the flyer pipeline with injected canvas dimensions and a dedicated poster template registry (completed 2026-04-25)
 - [ ] **Phase 25: Invitation Primitive** - `POST /api/v1/invitations` renders a 5×7 portrait RSVP card at 300 DPI with heavy brand-kit conditioning; 3+ visually-distinct templates (`classic_serif`, `modern_sans`, `ornamental`) share the same RSVP schema
 - [ ] **Phase 26: Adversarial Hardening Sweep** - Dedicated adversarial test suite covering prompt injection, path traversal, unicode/emoji stress, oversize payloads, PDF bombs, concurrent enqueue, and visual regression across every existing and v1.1 asset
 
@@ -318,14 +318,14 @@ Plans:
   2. `FlyerGenerator.__init__` accepts injected canvas dimensions and the poster worker reuses the flyer pipeline (Comfy + vision + composer + rasterizer) end-to-end, with no forked rendering code path
   3. The poster template registry at `flyer_generator/poster/schemas/*.json` ships 3+ templates whose typography scale is tuned for print (headlines sized for 18"+ reading distance)
   4. `/posters/new` exposes size and template `<Select>`s; the status page uses `JobStatusCard` directly; a sidebar nav entry is added; Jobs filter + Renders gallery filter both include `poster` and `poster_final`
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans complete
 Plans:
 - [x] 24-01-PLAN.md — Poster schema_renderer foundation (PosterTemplateSchema + loader + 3 JSON templates) [Wave 1]
 - [x] 24-02-PLAN.md — FlyerGenerator pipeline refactor (canvas_dimensions kwarg, non-breaking) [Wave 1]
 - [x] 24-03-PLAN.md — API schemas + PosterRecord ORM + JobKind.POSTER + alembic f24t01 [Wave 1]
 - [x] 24-04-PLAN.md — Worker (task_generate_poster) + POST /api/v1/posters route [Wave 2]
 - [x] 24-05-PLAN.md — Frontend creator + status + nav + Jobs/Renders KINDS additions [Wave 3]
-- [ ] 24-06-PLAN.md — 9-permutation render-smoke + HTTP perms + Playwright harness [Wave 4]
+- [x] 24-06-PLAN.md — 9-permutation render-smoke + HTTP perms + Playwright harness [Wave 4]
 **UI hint**: yes
 
 ### Phase 25: Invitation Primitive
@@ -374,6 +374,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 21. React Frontend Dashboard | 14/14 | Complete   | 2026-04-23 |
 | 22. Flyer Templates & Subtype Split | 7/7 | Complete    | 2026-04-25 |
 | 23. Postcard Primitive | 6/6 | Complete    | 2026-04-25 |
-| 24. Poster Primitive | 5/6 | In Progress|  |
+| 24. Poster Primitive | 6/6 | Complete   | 2026-04-25 |
 | 25. Invitation Primitive | 0/? | Not Started | - |
 | 26. Adversarial Hardening Sweep | 0/? | Not Started | - |
