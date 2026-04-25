@@ -28,6 +28,7 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
+import httpx
 import structlog
 
 from flyer_generator.api.models import (
@@ -47,6 +48,9 @@ from flyer_generator.api.tasks._state import (
 from flyer_generator.postcard.schema_renderer.content_model import (
     PostcardAddressBlock,
     PostcardContent,
+)
+from flyer_generator.postcard.schema_renderer.image_gate import (
+    generate_postcard_hero,
 )
 from flyer_generator.postcard.schema_renderer.loader import load_template
 from flyer_generator.postcard.schema_renderer.renderer import render_postcard
@@ -131,6 +135,10 @@ async def task_generate_postcard(
     """
     sessionmaker = ctx["sessionmaker"]
     settings = ctx["settings"]
+    # ctx["http_client"] is the worker-startup-shared httpx client when
+    # arq runs in production; tests pass None and the helper below builds
+    # a one-shot client per task invocation.
+    ctx_http_client = ctx.get("http_client")
 
     log = logger.bind(job_id=job_id, kind="postcard")
     log.info("task_start")
@@ -149,12 +157,59 @@ async def task_generate_postcard(
 
         log = log.bind(template=template_name)
 
-        # 1) Render the two SVGs (SYNC — wrap in to_thread).
+        # 1) Phase 24.1 (PLF-01): generate Comfy hero image when image_hint
+        # is supplied. Mirrors the brochure worker's
+        # ``generate_template_images`` step but kept lightweight (single
+        # slot, no vision gate). Failures fall back to the placeholder
+        # gradient — postcards must always render.
+        images: dict[str, bytes] = {}
+        if (
+            payload.get("generate_images", True)
+            and content.image_hint is not None
+        ):
+            if ctx_http_client is not None:
+                images = await generate_postcard_hero(
+                    template,
+                    content,
+                    settings=settings,
+                    http_client=ctx_http_client,
+                    workflow_name=payload.get("workflow", "turbo_landscape"),
+                    style_preset=payload.get(
+                        "style_preset", "photorealistic"
+                    ),
+                )
+            else:
+                # ComfyCloud jobs take 30-90s; default httpx 5s timeout
+                # would ReadTimeout on every attempt. Mirrors
+                # ``social/generator.py``'s 180s budget.
+                async with httpx.AsyncClient(
+                    follow_redirects=True, timeout=180.0
+                ) as http:
+                    images = await generate_postcard_hero(
+                        template,
+                        content,
+                        settings=settings,
+                        http_client=http,
+                        workflow_name=payload.get(
+                            "workflow", "turbo_landscape"
+                        ),
+                        style_preset=payload.get(
+                            "style_preset", "photorealistic"
+                        ),
+                    )
+
+        # 2) Render the two SVGs (SYNC — wrap in to_thread). Pass the
+        # generated images dict as a kwarg so the front-panel hero
+        # placeholder is hydrated when Comfy succeeded; empty dict falls
+        # back to the placeholder's gradient fill. ``images`` is supplied
+        # via keyword so pre-existing test stubs that mock
+        # ``render_postcard`` with a ``(template, content)`` signature
+        # remain compatible (Phase 24.1 PLF-01 back-compat).
         front_svg, back_svg = await asyncio.to_thread(
-            render_postcard, template, content
+            lambda: render_postcard(template, content, images=images)
         )
 
-        # 2) Rasterize each panel at the template canvas dims (SYNC — to_thread).
+        # 3) Rasterize each panel at the template canvas dims (SYNC — to_thread).
         rast = Rasterizer(
             width=template.canvas.width, height=template.canvas.height
         )
@@ -164,7 +219,7 @@ async def task_generate_postcard(
 
         front_png, back_png = await asyncio.to_thread(_rasterize_both)
 
-        # 3) Assemble PDF (SYNC — to_thread).
+        # 4) Assemble PDF (SYNC — to_thread).
         pdf_bytes = await asyncio.to_thread(
             assemble_postcard_pdf,
             front_png,
@@ -173,7 +228,7 @@ async def task_generate_postcard(
             template.canvas.height,
         )
 
-        # 4) Write 3 artifacts under <artifact_root_brochure>/postcards/<job_id>/.
+        # 5) Write 3 artifacts under <artifact_root_brochure>/postcards/<job_id>/.
         # Reusing artifact_root_brochure rather than adding a new env var
         # (CONTEXT.md Claude's discretion). The directory is namespaced by
         # /postcards/ so it does not collide with brochure outputs.
@@ -186,7 +241,7 @@ async def task_generate_postcard(
         back_path.write_bytes(back_png)
         pdf_path.write_bytes(pdf_bytes)
 
-        # 5) Persist 3 RenderRecords + 1 PostcardRecord.
+        # 6) Persist 3 RenderRecords + 1 PostcardRecord.
         async with sessionmaker() as s:
             r_front = RenderRecord(
                 kind="postcard_front", file_path=str(front_path.resolve())

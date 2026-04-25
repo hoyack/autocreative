@@ -21,11 +21,12 @@
   },
   "panels": {
     "front": {
-      "description": "Full-bleed hero image with bottom-scrim gradient and serif title overlay.",
+      "description": "Full-bleed hero image with bottom-scrim gradient, serif title overlay, and body copy beneath.",
       "elements": [
-        { "type": "image_placeholder", "bbox": [0, 0, 1200, 1800], "slot": "hero", "show_placeholder_label": true, "z": 0 },
+        { "type": "image_placeholder", "bbox": [0, 0, 1200, 1800], "slot": "hero", "show_placeholder_label": false, "z": 0 },
         { "type": "shape", "kind": "rect", "rect": [0, 1300, 1200, 500], "fill": { "type": "linear_gradient", "stops": [{ "offset": 0, "color": "#000000", "opacity": 0.0 }, { "offset": 1, "color": "#000000", "opacity": 0.65 }], "angle": 0 }, "z": 3 },
-        { "type": "text", "bbox": [80, 1380, 1040, 300], "role": "cover_title", "content_key": "headline", "color": "#FAFAF7", "valign": "top", "z": 10 },
+        { "type": "text", "bbox": [80, 1340, 1040, 220], "role": "cover_title", "content_key": "headline", "color": "#FAFAF7", "valign": "top", "z": 10 },
+        { "type": "text", "bbox": [80, 1580, 1040, 190], "role": "body", "content_key": "body", "color": "#FAFAF7", "valign": "top", "z": 11 },
         { "type": "shape", "kind": "rect", "rect": [0, 1788, 1200, 12], "fill": { "type": "solid", "color": "#1E3A5F" }, "z": 5 }
       ]
     },

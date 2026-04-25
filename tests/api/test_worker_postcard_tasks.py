@@ -312,9 +312,12 @@ async def test_task_generate_postcard_threads_address_block(
 
     seen_args: dict = {}
 
-    def fake_render(template, content):
+    def fake_render(template, content, images=None):
+        # Phase 24.1 (PLF-01) added the optional ``images`` kwarg to
+        # ``render_postcard``; accept it here for forward compat.
         seen_args["template"] = template
         seen_args["content"] = content
+        seen_args["images"] = images
         return ("<svg>front</svg>", "<svg>back</svg>")
 
     fake_template = _FakeTemplate()
@@ -361,8 +364,10 @@ async def test_task_generate_postcard_no_address(
 
     seen_args: dict = {}
 
-    def fake_render(template, content):
+    def fake_render(template, content, images=None):
+        # Phase 24.1 (PLF-01) added the optional ``images`` kwarg.
         seen_args["content"] = content
+        seen_args["images"] = images
         return ("<svg>front</svg>", "<svg>back</svg>")
 
     fake_template = _FakeTemplate()

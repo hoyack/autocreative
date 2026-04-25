@@ -21,11 +21,12 @@
   },
   "panels": {
     "front": {
-      "description": "Hero full-bleed; left third blacked out for headline; bottom red accent stripe.",
+      "description": "Hero full-bleed; left third blacked out for headline + body; bottom red accent stripe.",
       "elements": [
-        { "type": "image_placeholder", "bbox": [0, 0, 1800, 1200], "slot": "hero", "show_placeholder_label": true, "z": 0 },
+        { "type": "image_placeholder", "bbox": [0, 0, 1800, 1200], "slot": "hero", "show_placeholder_label": false, "z": 0 },
         { "type": "shape", "kind": "rect", "rect": [0, 0, 820, 1200], "fill": { "type": "solid", "color": "#0D0D0D", "opacity": 0.78 }, "z": 3 },
-        { "type": "text", "bbox": [80, 400, 720, 500], "role": "cover_title", "content_key": "headline", "color": "#FFFFFF", "valign": "top", "z": 10, "weight": "bold" },
+        { "type": "text", "bbox": [80, 320, 720, 480], "role": "cover_title", "content_key": "headline", "color": "#FFFFFF", "valign": "top", "z": 10, "weight": "bold" },
+        { "type": "text", "bbox": [80, 820, 720, 280], "role": "body", "content_key": "body", "color": "#FFFFFF", "valign": "top", "z": 11 },
         { "type": "shape", "kind": "rect", "rect": [0, 1140, 1800, 60], "fill": { "type": "solid", "color": "#FF2E4D" }, "z": 5 }
       ]
     },

@@ -24,10 +24,21 @@ with a (0, 0) -> (W, H) coordinate system.
 Trust boundary: every interpolated user string passes through
 ``xml_escape`` before insertion into ``<text>`` content. Threat T-23-09
 (SVG injection via headline / body / address_block) is mitigated here.
+
+Phase 24.1 (PLF-01) — image hydration
+-------------------------------------
+``render_postcard`` now accepts an optional
+``images: dict[str, bytes] | None`` mapping. When the worker (or any
+caller) supplies it, image_placeholder elements whose ``slot`` matches a
+key are rendered as ``<image>`` tags with the bytes base64-embedded
+inline (mirrors the brochure renderer's ``_embed_image`` helper). When
+the slot is missing, the placeholder falls back to its ``fallback_fill``
+gradient as before — back-compat preserved.
 """
 
 from __future__ import annotations
 
+import base64
 from xml.sax.saxutils import escape as xml_escape
 
 from flyer_generator.brochure.schema_renderer.shapes import (
@@ -312,17 +323,78 @@ def _render_bullets_element(
     return "".join(parts)
 
 
+def _embed_image(
+    el: ImagePlaceholder,
+    image_bytes: bytes,
+    salt: str,
+) -> str:
+    """Embed ``image_bytes`` as a base64 PNG inside the placeholder's bbox.
+
+    Mirrors ``flyer_generator.brochure.schema_renderer.renderer._embed_image``:
+    uses ``preserveAspectRatio="xMidYMid slice"`` so the image always fills
+    the bbox (cropping the overflowing side), and applies a clipPath when
+    the placeholder requests a rounded or circle mask.
+
+    Phase 24.1 (PLF-01): gives the postcard renderer parity with the
+    brochure renderer's image hydration path so a Comfy-generated PNG can
+    replace the gradient fallback when supplied by the worker.
+    """
+    x, y, w, h = el.bbox
+    b64 = base64.b64encode(image_bytes).decode("ascii")
+    href = f"data:image/png;base64,{b64}"
+    image_tag = (
+        f'<image x="{x}" y="{y}" width="{w}" height="{h}" '
+        f'preserveAspectRatio="xMidYMid slice" href="{href}"'
+    )
+
+    if el.mask == "circle":
+        r = min(w, h) / 2
+        cx = x + w / 2
+        cy = y + h / 2
+        clip_id = f"img-clip-{salt}"
+        clip = (
+            f'<defs><clipPath id="{clip_id}">'
+            f'<circle cx="{cx}" cy="{cy}" r="{r}"/>'
+            f"</clipPath></defs>"
+        )
+        return f'{clip}{image_tag} clip-path="url(#{clip_id})"/>'
+
+    if el.mask == "rounded":
+        rx = el.corner_radius if el.corner_radius else 40
+        clip_id = f"img-clip-{salt}"
+        clip = (
+            f'<defs><clipPath id="{clip_id}">'
+            f'<rect x="{x}" y="{y}" width="{w}" height="{h}" '
+            f'rx="{rx}" ry="{rx}"/>'
+            f"</clipPath></defs>"
+        )
+        return f'{clip}{image_tag} clip-path="url(#{clip_id})"/>'
+
+    # mask == "none"
+    return f"{image_tag}/>"
+
+
 def _render_image_placeholder(
     el: ImagePlaceholder,
     content: PostcardContent,
     schema: PostcardTemplateSchema,
     salt: str,
+    images: dict[str, bytes] | None = None,
 ) -> str:
-    """Render an image_placeholder using its ``fallback_fill`` (or the
-    default accent->neutral_light gradient) plus an optional placeholder
-    label. The postcard renderer in this plan does NOT accept actual image
-    bytes — slot content embedding is a worker concern (Phase 23-04).
+    """Render an image_placeholder.
+
+    When ``images`` contains this element's ``slot`` (Phase 24.1 PLF-01),
+    embed the PNG bytes as a base64 ``<image>`` tag — gives the postcard
+    renderer parity with the brochure renderer's hydration path.
+
+    Otherwise render the ``fallback_fill`` (or the default
+    ``accent->neutral_light`` gradient) plus an optional placeholder
+    label, preserving back-compat with all existing callers that pass no
+    images dict.
     """
+    if images is not None and el.slot in images:
+        return _embed_image(el, images[el.slot], salt)
+
     del content  # placeholder-only path; content not needed for fallback
     x, y, w, h = el.bbox
 
@@ -464,11 +536,16 @@ def _render_canvas(
     panel: PanelSchema,
     template: PostcardTemplateSchema,
     content: PostcardContent,
+    images: dict[str, bytes] | None = None,
 ) -> str:
     """Render a single panel ("front" or "back") to a complete SVG document.
 
     The panel IS the canvas — coordinates are absolute (no
     ``<g transform="translate(...)">`` wrapper, no bleed math).
+
+    Phase 24.1 (PLF-01): ``images`` is threaded through to the
+    image_placeholder renderer so a Comfy-generated hero PNG can replace
+    the placeholder's gradient fallback. ``None`` keeps legacy behavior.
     """
     W = template.canvas.width
     H = template.canvas.height
@@ -499,7 +576,9 @@ def _render_canvas(
         elif isinstance(el, BulletsElement):
             parts.append(_render_bullets_element(el, content, template))
         elif isinstance(el, ImagePlaceholder):
-            parts.append(_render_image_placeholder(el, content, template, salt))
+            parts.append(
+                _render_image_placeholder(el, content, template, salt, images)
+            )
         elif isinstance(el, LogoPlaceholder):
             parts.append(_render_logo_placeholder(el, content, template, salt))
         elif isinstance(el, DividerElement):
@@ -518,6 +597,7 @@ def _render_canvas(
 def render_postcard(
     template: PostcardTemplateSchema,
     content: PostcardContent,
+    images: dict[str, bytes] | None = None,
 ) -> tuple[str, str]:
     """Render ``(front_svg, back_svg)`` from a template + content pair.
 
@@ -538,6 +618,14 @@ def render_postcard(
         The runtime content payload. ``address_block`` may be None — in
         that case any address-block TextElements in the back panel render
         as empty text rather than raising.
+    images:
+        Optional ``{slot: png_bytes}`` mapping. When supplied, image
+        placeholders whose ``slot`` matches a key are rendered as inline
+        ``<image>`` tags with the bytes base64-embedded; otherwise the
+        placeholder falls back to its ``fallback_fill`` gradient.
+        Default ``None`` preserves all pre-Phase-24.1 callers (every
+        existing test passes ``render_postcard(template, content)`` with
+        positional args). Phase 24.1 (PLF-01) added this kwarg.
 
     Returns
     -------
@@ -548,6 +636,6 @@ def render_postcard(
     front_panel = template.panels["front"]
     back_panel = template.panels["back"]
 
-    front_svg = _render_canvas("front", front_panel, template, content)
-    back_svg = _render_canvas("back", back_panel, template, content)
+    front_svg = _render_canvas("front", front_panel, template, content, images)
+    back_svg = _render_canvas("back", back_panel, template, content, images)
     return front_svg, back_svg
