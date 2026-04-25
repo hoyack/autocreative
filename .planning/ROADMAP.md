@@ -338,13 +338,13 @@ Plans:
   3. `POST /api/v1/flyers` with `template="bold_modern"` produces a render where the headline and the date/time/venue text do not visually overlap; the layout-collision pytest catches the overlap (RED→GREEN)
   4. `POST /api/v1/posters` with any size completes successfully end-to-end on a 100Mbps consumer connection within `FLYER_VISION_TIMEOUT_SECONDS=60`; vision input is downsampled (e.g., to ≤1920px on long edge) before base64-encoding for the LLM call; the existing 9 render-smoke pytests still pass
 **Depends on:** Phase 24
-**Plans:** 4/4 plans (all Wave 1, parallel)
+**Plans:** 4/4 plans complete
 
 Plans:
-- [ ] 24.1-01-PLAN.md — Postcard Comfy generation + body text rendering (PLF-01) [Wave 1]
-- [ ] 24.1-02-PLAN.md — Brochure sections + kicker derivation + generate_images wiring (PLF-02) [Wave 1]
-- [ ] 24.1-03-PLAN.md — Poster vision input downsampling (PLF-04) [Wave 1]
-- [ ] 24.1-04-PLAN.md — Flyer bold_modern z-order layout fix (PLF-03) [Wave 1]
+- [x] 24.1-01-PLAN.md — Postcard Comfy generation + body text rendering (PLF-01) [Wave 1]
+- [x] 24.1-02-PLAN.md — Brochure sections + kicker derivation + generate_images wiring (PLF-02) [Wave 1]
+- [x] 24.1-03-PLAN.md — Poster vision input downsampling (PLF-04) [Wave 1]
+- [x] 24.1-04-PLAN.md — Flyer bold_modern z-order layout fix (PLF-03) [Wave 1]
 
 ### Phase 25: Invitation Primitive
 **Goal**: A user can `POST /api/v1/invitations` with RSVP-focused fields (host, event, date, time, venue, RSVP contact) and a brand kit, and the API returns a 5×7 portrait invitation PNG at 300 DPI rendered through one of three visually-distinct templates.
