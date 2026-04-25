@@ -109,3 +109,67 @@ def test_render_smoke_xml_escapes_headline() -> None:
     assert "&amp;" in front_svg
     assert "&lt;X&gt;" in front_svg
     assert "<X>" not in front_svg
+
+
+# ---------------------------------------------------------------------------
+# PLF-01 (Phase 24.1) -- body must render on the FRONT panel, not just back.
+# RED test: today neither shipped schema places `body` on the front, so the
+# perception loop got a [ hero ]-only render with NO body copy visible.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("template_name", _TEMPLATES)
+def test_postcard_renders_body_on_front(template_name: str) -> None:
+    """PLF-01: ``body`` field must appear on the rendered FRONT SVG.
+
+    Before this fix neither ``classic_portrait.json`` nor
+    ``modern_landscape.json`` placed a TextElement bound to ``content_key:
+    body`` on the front panel — only the headline rendered, leaving the
+    rest of the message invisible until the user flipped the card. This
+    locks the contract that the body always appears on the public-facing
+    front panel.
+    """
+    template = load_template(template_name)
+    body_marker = "Garden Tour starts at 11am"
+    content = PostcardContent(headline="Save the Date", body=body_marker)
+
+    front_svg, _back_svg = render_postcard(template, content)
+
+    assert body_marker in front_svg, (
+        f"body copy {body_marker!r} must render on the FRONT panel of "
+        f"{template_name}; today the schema only places it on the back."
+    )
+
+
+@pytest.mark.parametrize("template_name", _TEMPLATES)
+def test_postcard_no_hero_placeholder_label_when_image_hint_present(
+    template_name: str,
+) -> None:
+    """PLF-01: literal ``[ hero ]`` label must never reach the front SVG.
+
+    The perception loop revealed that even when ``image_hint`` is supplied
+    by the user (the user's signal "please render an AI image here"), the
+    front PNG still contains the literal placeholder text ``[ hero ]`` —
+    proof the worker never reached Comfy AND the schema's
+    ``show_placeholder_label`` was on. After the fix the label is off in
+    both shipped schemas and a real PNG is hydrated when supplied.
+    """
+    template = load_template(template_name)
+    content = PostcardContent(
+        headline="Save the Date",
+        body="Garden Tour starts at 11am",
+        image_hint="lush spring garden",
+    )
+
+    # Pretend Comfy succeeded — pass a tiny PNG-shaped byte blob through the
+    # renderer's new `images` kwarg (added in Task 2). The renderer must
+    # NOT emit the literal "[ hero ]" label when the slot is hydrated.
+    fake_png = b"\x89PNG\r\n\x1a\nfakepayload"
+    front_svg, _back_svg = render_postcard(
+        template, content, images={"hero": fake_png}
+    )
+
+    assert "[ hero ]" not in front_svg, (
+        f"literal '[ hero ]' must never appear in {template_name}'s front SVG "
+        "once a hero image is supplied (or with show_placeholder_label=False)."
+    )

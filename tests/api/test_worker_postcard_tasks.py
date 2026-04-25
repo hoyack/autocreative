@@ -14,7 +14,7 @@ emission with kinds ``postcard_front`` / ``postcard_back`` / ``postcard_pdf``.
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from sqlalchemy import select
@@ -26,6 +26,8 @@ from flyer_generator.api.models import (
     PostcardRecord,
     RenderRecord,
 )
+from flyer_generator.models import ComfyJob
+from flyer_generator.stages.comfy_client import ComfyClient
 
 
 # ---------------------------------------------------------------------------
@@ -551,3 +553,119 @@ def test_task_registered_in_all_tasks() -> None:
     from flyer_generator.api.tasks import ALL_TASKS, task_generate_postcard
 
     assert task_generate_postcard in ALL_TASKS
+
+
+# ---------------------------------------------------------------------------
+# PLF-01 (Phase 24.1) — Comfy invocation contract.
+#
+# These two tests patch ``ComfyClient.generate`` directly — the lowest
+# integration seam — so a green pass proves the worker actually wires
+# Comfy when ``image_hint`` is supplied. Patching a not-yet-existing
+# symbol on the worker module would auto-create a stand-in attribute and
+# pass trivially, defeating the contract.
+# ---------------------------------------------------------------------------
+
+
+def _fake_comfy_job() -> ComfyJob:
+    from datetime import datetime, timezone
+
+    return ComfyJob(
+        prompt_id="fake-prompt-id",
+        submitted_at=datetime.now(tz=timezone.utc),
+        positive_prompt="lush spring garden",
+        negative_prompt="",
+        seed=42,
+        attempt_number=1,
+    )
+
+
+@pytest.mark.asyncio
+async def test_task_generate_postcard_invokes_comfy_when_image_hint_set(
+    sessionmaker_fx, tmp_path
+) -> None:
+    """PLF-01: worker MUST call Comfy when payload supplies ``image_hint``.
+
+    Patches ``ComfyClient.generate`` at the lowest seam; the assertion is
+    that the await happened at least once. Mirrors the brochure worker's
+    ``generate_template_images`` -> ``ComfyClient.generate`` chain.
+    """
+    from flyer_generator.api.tasks.postcard import task_generate_postcard
+
+    jid = "01HPLF01HASIMAGEHINT0000001"
+    payload = _payload(template="classic_portrait")
+    payload["image_hint"] = "lush spring garden, soft morning light"
+    payload["generate_images"] = True
+    await _seed_job(sessionmaker_fx, jid, payload)
+    ctx = _build_ctx(sessionmaker_fx, tmp_path)
+
+    fake_template = _FakeTemplate()
+    fake_png = b"\x89PNG\r\n\x1a\nfake-payload"
+
+    with patch.object(
+        ComfyClient,
+        "generate",
+        new=AsyncMock(return_value=(_fake_comfy_job(), fake_png)),
+    ) as mock_generate, patch(
+        "flyer_generator.api.tasks.postcard.load_template",
+        return_value=fake_template,
+    ), patch(
+        "flyer_generator.api.tasks.postcard.render_postcard",
+        return_value=("<svg>front</svg>", "<svg>back</svg>"),
+    ), patch(
+        "flyer_generator.api.tasks.postcard.Rasterizer"
+    ) as RastCls, patch(
+        "flyer_generator.api.tasks.postcard.assemble_postcard_pdf",
+        return_value=b"%PDF-1.4 fake",
+    ):
+        RastCls.return_value.rasterize.return_value = b"\x89PNG\r\n"
+        await task_generate_postcard(ctx, job_id=jid, payload=payload)
+
+    assert mock_generate.await_count >= 1, (
+        "ComfyClient.generate must be awaited at least once when image_hint "
+        "is supplied — the postcard worker is failing to wire Comfy. "
+        "Mirror the brochure worker's generate_template_images path."
+    )
+
+
+@pytest.mark.asyncio
+async def test_task_generate_postcard_skips_comfy_when_image_hint_missing(
+    sessionmaker_fx, tmp_path
+) -> None:
+    """PLF-01: worker MUST NOT call Comfy when ``image_hint`` is None.
+
+    Same seam as the positive-path test, asserts call_count == 0.
+    """
+    from flyer_generator.api.tasks.postcard import task_generate_postcard
+
+    jid = "01HPLF01NOIMAGEHINT00000001"
+    payload = _payload(template="classic_portrait")
+    payload["image_hint"] = None
+    payload["generate_images"] = True
+    await _seed_job(sessionmaker_fx, jid, payload)
+    ctx = _build_ctx(sessionmaker_fx, tmp_path)
+
+    fake_template = _FakeTemplate()
+
+    with patch.object(
+        ComfyClient,
+        "generate",
+        new=AsyncMock(return_value=(_fake_comfy_job(), b"")),
+    ) as mock_generate, patch(
+        "flyer_generator.api.tasks.postcard.load_template",
+        return_value=fake_template,
+    ), patch(
+        "flyer_generator.api.tasks.postcard.render_postcard",
+        return_value=("<svg>front</svg>", "<svg>back</svg>"),
+    ), patch(
+        "flyer_generator.api.tasks.postcard.Rasterizer"
+    ) as RastCls, patch(
+        "flyer_generator.api.tasks.postcard.assemble_postcard_pdf",
+        return_value=b"%PDF-1.4 fake",
+    ):
+        RastCls.return_value.rasterize.return_value = b"\x89PNG\r\n"
+        await task_generate_postcard(ctx, job_id=jid, payload=payload)
+
+    assert mock_generate.await_count == 0, (
+        "ComfyClient.generate must NOT be awaited when image_hint is None — "
+        "the worker is incorrectly calling Comfy without a user hint."
+    )
