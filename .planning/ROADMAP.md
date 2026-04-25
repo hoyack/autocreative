@@ -318,11 +318,11 @@ Plans:
   2. `FlyerGenerator.__init__` accepts injected canvas dimensions and the poster worker reuses the flyer pipeline (Comfy + vision + composer + rasterizer) end-to-end, with no forked rendering code path
   3. The poster template registry at `flyer_generator/poster/schemas/*.json` ships 3+ templates whose typography scale is tuned for print (headlines sized for 18"+ reading distance)
   4. `/posters/new` exposes size and template `<Select>`s; the status page uses `JobStatusCard` directly; a sidebar nav entry is added; Jobs filter + Renders gallery filter both include `poster` and `poster_final`
-**Plans:** 6 plans
+**Plans:** 3/6 plans executed
 Plans:
-- [ ] 24-01-PLAN.md — Poster schema_renderer foundation (PosterTemplateSchema + loader + 3 JSON templates) [Wave 1]
-- [ ] 24-02-PLAN.md — FlyerGenerator pipeline refactor (canvas_dimensions kwarg, non-breaking) [Wave 1]
-- [ ] 24-03-PLAN.md — API schemas + PosterRecord ORM + JobKind.POSTER + alembic f24t01 [Wave 1]
+- [x] 24-01-PLAN.md — Poster schema_renderer foundation (PosterTemplateSchema + loader + 3 JSON templates) [Wave 1]
+- [x] 24-02-PLAN.md — FlyerGenerator pipeline refactor (canvas_dimensions kwarg, non-breaking) [Wave 1]
+- [x] 24-03-PLAN.md — API schemas + PosterRecord ORM + JobKind.POSTER + alembic f24t01 [Wave 1]
 - [ ] 24-04-PLAN.md — Worker (task_generate_poster) + POST /api/v1/posters route [Wave 2]
 - [ ] 24-05-PLAN.md — Frontend creator + status + nav + Jobs/Renders KINDS additions [Wave 3]
 - [ ] 24-06-PLAN.md — 9-permutation render-smoke + HTTP perms + Playwright harness [Wave 4]
@@ -374,6 +374,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
 | 21. React Frontend Dashboard | 14/14 | Complete   | 2026-04-23 |
 | 22. Flyer Templates & Subtype Split | 7/7 | Complete    | 2026-04-25 |
 | 23. Postcard Primitive | 6/6 | Complete    | 2026-04-25 |
-| 24. Poster Primitive | 0/? | Not Started | - |
+| 24. Poster Primitive | 3/6 | In Progress|  |
 | 25. Invitation Primitive | 0/? | Not Started | - |
 | 26. Adversarial Hardening Sweep | 0/? | Not Started | - |
