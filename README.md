@@ -1,10 +1,12 @@
-# Flyer, Brochure, Social Post & Brand Kit Generator
+# autocreative — Flyer / Postcard / Poster / Brochure / Social Post & Brand Kit Generator
 
 AI-assisted creative production for small-to-mid-sized brands. The repo takes a
 website URL, a JSON brief, or a plain-English sentence and produces:
 
 - **Event flyers** — 1080×1920 PNG, AI hero image + vision-placed text
-- **Tri-fold brochures** — print-ready outside + inside PNGs + PDF (prompt-driven or schema-driven)
+- **Postcards** — 4×6 / 6×4 in front + back PNGs + print-ready PDF (Phase 23)
+- **Posters** — single PNG at 18×24, 24×36, or 27×40 in (300 dpi) using the flyer pipeline with injected canvas dimensions (Phase 24)
+- **Tri-fold brochures** — print-ready outside + inside PNGs + landscape letter PDF (prompt-driven or schema-driven)
 - **Social-media posts** — platform-correct LinkedIn, Twitter/X, Instagram, Facebook posts with brand-aware backdrops, copy, and adversarial audit
 - **Brand kits** — scrape a website → extracted palette, typography, logos, voice directive → apply to any template
 
@@ -21,6 +23,8 @@ is a library module AND a CLI.
 | `python -m flyer_generator.brochure.schema_renderer` | Tri-fold brochure | **Schema-driven.** JSON template + content → SVG → PNG/PDF. Optional AI image fills. |
 | `python -m flyer_generator.brand_kit` | Untracked brand kit under `.brand-kits/<slug>/` | Scrape palette / typography / logos / voice from a URL (Playwright primary, BS4 fallback) |
 | `python -m flyer_generator.social` | Platform-compliant social-media posts (+ audit sidecar) | Brand-kit slug + post brief → voice-aware copy + AI backdrop + platform validator |
+
+Postcards and posters are HTTP-only today (no dedicated CLI module — they share the flyer pipeline). Use `POST /api/v1/postcards` and `POST /api/v1/posters`; see [API server](#api-server-phase-20).
 
 ---
 
@@ -85,7 +89,13 @@ FLYER_LOG_FORMAT=console                  # or "json"
 ## Quick smoke test
 
 ```bash
-python -m pytest tests/ -q -m "not slow"   # 1136 pass, 2 slow deselected
+python -m pytest tests/ -q -m "not slow"   # 1801 pass (Phase 24.2 + quick tasks)
+```
+
+For the optional frontend dashboard:
+
+```bash
+cd frontend && pnpm test --run             # 47 pass
 ```
 
 ---
@@ -663,17 +673,49 @@ FLYER_DATABASE_URL="postgresql+asyncpg://flyer:flyer@localhost:5432/flyer" make 
 - Run only the Phase 20 tests: `make test-api`
 - Run the full non-slow suite: `make test-all` (target: 1186+ passing)
 
+### Endpoints (live as of Phase 24.2)
+
+```
+POST   /api/v1/flyers                       # Phase 22 — flyer pipeline + 6 templates + event/info subtypes
+POST   /api/v1/postcards                    # Phase 23 — 3 artifacts (front PNG, back PNG, print PDF)
+GET    /api/v1/postcards/{postcard_id}      # detail route returns 3 render URLs
+POST   /api/v1/posters                      # Phase 24 — single PNG at 18×24 / 24×36 / 27×40 in
+POST   /api/v1/brochures                    # 3 artifacts; schema-driven with optional AI hero
+GET    /api/v1/brochures/{brochure_id}
+POST   /api/v1/social/posts                 # platform-compliant single post
+POST   /api/v1/social/campaigns             # 4-platform shared-hero fan-out
+
+POST   /api/v1/brand-kits/fetch             # async scrape
+GET    /api/v1/brand-kits
+GET    /api/v1/brand-kits/{slug}
+GET    /api/v1/brand-kits/{slug}/logos/{filename}
+
+GET    /api/v1/jobs                         # paginated list
+GET    /api/v1/jobs/{job_id}                # status poll
+GET    /api/v1/renders                      # paginated list
+GET    /api/v1/renders/{render_id}/image    # PNG / PDF bytes (path-traversal guarded)
+DELETE /api/v1/renders/{render_id}          # Phase 24.2 — 204/404, cascades parent FK columns to NULL
+
+GET    /healthz
+```
+
 ### Request lifecycle
 
 1. Client POSTs to a creative endpoint (e.g. `POST /api/v1/flyers`).
 2. API handler validates the Pydantic body, inserts a `JobRecord(status=queued)`,
    commits, and enqueues an arq job. Returns `202 {job_id}`.
 3. The `arq` worker picks up the job, flips status to `running`, runs the
-   existing Python generator, writes artifacts to disk, inserts
-   `RenderRecord` rows, and flips status to `succeeded` (or `failed`).
+   existing Python generator, writes artifacts to disk, inserts one or more
+   `RenderRecord` rows (3 for postcard/brochure, 1 for flyer/poster, N for
+   campaign), and flips status to `succeeded` (or `failed`).
 4. Client polls `GET /api/v1/jobs/{job_id}` until status is terminal, reads
-   `result_ref` (single URL or list of `{platform, url}`), then fetches
-   `GET /api/v1/renders/{render_id}/image` to get the artifact bytes.
+   `result_ref` (single URL or parallel-id pointing at a detail route), then
+   fetches `GET /api/v1/renders/{render_id}/image` for the artifact bytes.
+5. To remove an artifact from the gallery, client calls
+   `DELETE /api/v1/renders/{render_id}` — returns 204, deletes the on-disk
+   file, and NULLs FK columns on the parent record. Frontend `/renders`
+   gallery exposes this via a Trash2 icon + AlertDialog confirmation
+   (Phase 24.2).
 
 ### SECURITY — prerequisites for public deployment
 
