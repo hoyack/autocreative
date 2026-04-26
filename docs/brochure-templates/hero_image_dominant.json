@@ -1,0 +1,319 @@
+{
+  "schema_version": "1",
+  "name": "hero_image_dominant",
+  "description": "Photo-forward brochure template with large image surfaces and restrained supporting text panels.",
+  "tone_keywords": ["photo", "hero", "showcase", "retail", "travel"],
+  "canvas": {
+    "width": 1100,
+    "height": 2550
+  },
+  "palette": {
+    "accent_default": "#E49D37",
+    "neutral_dark": "#101828",
+    "neutral_light": "#F6F1E8",
+    "muted": "#D6D0C6",
+    "extras": {
+      "slate_overlay": "#223047",
+      "sand": "#E8D7BF"
+    }
+  },
+  "typography": {
+    "heading_family": "'Bebas Neue', 'Arial Narrow', sans-serif",
+    "body_family": "'Inter', 'Helvetica Neue', sans-serif",
+    "cover_title_size": 128,
+    "cover_subtitle_size": 34,
+    "heading_size": 48,
+    "body_size": 28,
+    "body_line_height": 40,
+    "body_max_chars_per_line": 31,
+    "bullet_size": 26,
+    "bullet_line_height": 36
+  },
+  "panels": {
+    "front_cover": {
+      "description": "Full-bleed hero with a dark title plate near the bottom.",
+      "background": {
+        "type": "solid",
+        "color": "#101828"
+      },
+      "elements": [
+        {
+          "type": "image_placeholder",
+          "bbox": [0, 0, 1100, 2550],
+          "slot": "hero",
+          "mask": "none",
+          "fallback_fill": {
+            "type": "linear_gradient",
+            "angle": 180,
+            "stops": [
+              { "offset": 0.0, "color": "#223047" },
+              { "offset": 1.0, "color": "#101828" }
+            ]
+          },
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "rounded_rect",
+          "rect": [90, 1750, 760, 480],
+          "path_params": { "corner_radius": 18 },
+          "fill": { "type": "solid", "color": "#101828", "opacity": 0.82 },
+          "z": 2
+        },
+        {
+          "type": "text",
+          "bbox": [140, 1830, 620, 190],
+          "role": "cover_title",
+          "content_key": "title",
+          "font_size": 128,
+          "line_height": 108,
+          "weight": "bold",
+          "uppercase": true,
+          "letter_spacing": 1.2,
+          "color": "#F6F1E8"
+        },
+        {
+          "type": "text",
+          "bbox": [140, 2050, 600, 90],
+          "role": "cover_subtitle",
+          "content_key": "subtitle",
+          "font_size": 34,
+          "line_height": 42,
+          "color": "#F6F1E8"
+        }
+      ]
+    },
+    "back_cover": {
+      "description": "Back panel mixes a landscape strip with CTA and contact lines.",
+      "background": {
+        "type": "solid",
+        "color": "#F6F1E8"
+      },
+      "elements": [
+        {
+          "type": "image_placeholder",
+          "bbox": [90, 120, 920, 540],
+          "slot": "spot_2",
+          "mask": "rounded",
+          "corner_radius": 18,
+          "fallback_fill": {
+            "type": "linear_gradient",
+            "angle": 25,
+            "stops": [
+              { "offset": 0.0, "color": "#E8D7BF" },
+              { "offset": 1.0, "color": "#D6D0C6" }
+            ]
+          },
+          "z": 1
+        },
+        {
+          "type": "text",
+          "bbox": [110, 760, 760, 140],
+          "role": "cta_heading",
+          "content_key": "back_panel.heading",
+          "font_size": 48,
+          "line_height": 54,
+          "weight": "bold",
+          "color": "#101828"
+        },
+        {
+          "type": "text",
+          "bbox": [110, 960, 760, 280],
+          "role": "cta_body",
+          "content_key": "back_panel.body",
+          "font_size": 28,
+          "line_height": 40,
+          "color": "#101828"
+        },
+        {
+          "type": "text",
+          "bbox": [110, 1360, 760, 60],
+          "role": "contact_url",
+          "content_key": "contact.url",
+          "font_size": 24,
+          "line_height": 30,
+          "color": "#E49D37"
+        }
+      ]
+    },
+    "tuck_flap": {
+      "description": "Tall image-first flap with restrained org label.",
+      "background": {
+        "type": "solid",
+        "color": "#F6F1E8"
+      },
+      "elements": [
+        {
+          "type": "image_placeholder",
+          "bbox": [120, 160, 620, 900],
+          "slot": "spot_3",
+          "mask": "rounded",
+          "corner_radius": 18,
+          "fallback_fill": {
+            "type": "linear_gradient",
+            "angle": 15,
+            "stops": [
+              { "offset": 0.0, "color": "#E8D7BF" },
+              { "offset": 1.0, "color": "#D6D0C6" }
+            ]
+          },
+          "z": 1
+        },
+        {
+          "type": "text",
+          "bbox": [120, 1130, 620, 60],
+          "role": "org_name",
+          "content_key": "org",
+          "font_size": 34,
+          "line_height": 40,
+          "weight": "bold",
+          "uppercase": true,
+          "letter_spacing": 1.6,
+          "color": "#101828"
+        }
+      ]
+    },
+    "inner_left": {
+      "description": "Image-led feature panel with caption copy below.",
+      "background": {
+        "type": "solid",
+        "color": "#F6F1E8"
+      },
+      "elements": [
+        {
+          "type": "image_placeholder",
+          "bbox": [90, 120, 920, 960],
+          "slot": "spot_1",
+          "mask": "rounded",
+          "corner_radius": 22,
+          "fallback_fill": {
+            "type": "linear_gradient",
+            "angle": 20,
+            "stops": [
+              { "offset": 0.0, "color": "#E8D7BF" },
+              { "offset": 1.0, "color": "#FFFFFF" }
+            ]
+          },
+          "z": 1
+        },
+        {
+          "type": "text",
+          "bbox": [100, 1170, 760, 130],
+          "role": "section_heading",
+          "content_key": "sections[0].heading",
+          "font_size": 48,
+          "line_height": 54,
+          "weight": "bold",
+          "color": "#101828"
+        },
+        {
+          "type": "text",
+          "bbox": [100, 1360, 760, 260],
+          "role": "body",
+          "content_key": "sections[0].lead_paragraph",
+          "font_size": 28,
+          "line_height": 40,
+          "color": "#101828"
+        }
+      ]
+    },
+    "inner_center": {
+      "description": "Second image-led panel with bullets underneath.",
+      "background": {
+        "type": "solid",
+        "color": "#F6F1E8"
+      },
+      "elements": [
+        {
+          "type": "image_placeholder",
+          "bbox": [90, 120, 920, 820],
+          "slot": "spot_2",
+          "mask": "rounded",
+          "corner_radius": 22,
+          "fallback_fill": {
+            "type": "linear_gradient",
+            "angle": 20,
+            "stops": [
+              { "offset": 0.0, "color": "#D6D0C6" },
+              { "offset": 1.0, "color": "#FFFFFF" }
+            ]
+          },
+          "z": 1
+        },
+        {
+          "type": "text",
+          "bbox": [100, 1040, 760, 130],
+          "role": "section_heading",
+          "content_key": "sections[1].heading",
+          "font_size": 48,
+          "line_height": 54,
+          "weight": "bold",
+          "color": "#101828"
+        },
+        {
+          "type": "bullets",
+          "bbox": [100, 1240, 760, 520],
+          "content_key": "sections[1].bullets",
+          "max_items": 6,
+          "bullet_style": "numbered",
+          "bullet_color": "#E49D37",
+          "text_color": "#101828",
+          "font_size": 26,
+          "line_height": 36
+        }
+      ]
+    },
+    "inner_right": {
+      "description": "Closing panel with large photograph and compact text block.",
+      "background": {
+        "type": "solid",
+        "color": "#F6F1E8"
+      },
+      "elements": [
+        {
+          "type": "image_placeholder",
+          "bbox": [90, 120, 920, 1100],
+          "slot": "spot_3",
+          "mask": "rounded",
+          "corner_radius": 22,
+          "fallback_fill": {
+            "type": "linear_gradient",
+            "angle": 18,
+            "stops": [
+              { "offset": 0.0, "color": "#E8D7BF" },
+              { "offset": 1.0, "color": "#FFFFFF" }
+            ]
+          },
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "rounded_rect",
+          "rect": [120, 1340, 760, 420],
+          "path_params": { "corner_radius": 18 },
+          "fill": { "type": "solid", "color": "#FFFFFF", "opacity": 0.95 },
+          "z": 2
+        },
+        {
+          "type": "text",
+          "bbox": [170, 1420, 640, 110],
+          "role": "section_heading",
+          "content_key": "sections[2].heading",
+          "font_size": 46,
+          "line_height": 52,
+          "weight": "bold",
+          "color": "#101828"
+        },
+        {
+          "type": "text",
+          "bbox": [170, 1570, 620, 180],
+          "role": "body",
+          "content_key": "sections[2].lead_paragraph",
+          "font_size": 28,
+          "line_height": 40,
+          "color": "#101828"
+        }
+      ]
+    }
+  }
+}

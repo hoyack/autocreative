@@ -6,8 +6,8 @@
 
 ## 1. Quick orientation
 
-- **Branch:** `master`, all work committed.
-- **Tests:** `.venv/bin/python -m pytest -q -m "not slow"` → **1801 passing**, ~3 min.
+- **Branch:** `master`. Committed work matches the snapshot below; **4 untracked exploration drafts** sit in `docs/` (see §9).
+- **Tests:** `.venv/bin/python -m pytest -q -m "not slow"` → **1799 selected / 1801 collected** (2 slow deselected), ~3 min.
 - **Latest 10 commits (newest first):**
   ```
   fdc387a fix(260425-nwj): brochure rasterizer now uses bleed canvas dims, not flyer default
@@ -261,3 +261,18 @@ This is **verification work**, not a new build phase. The expectation is to driv
 All five creative subsystems ship: **flyer + postcard + brochure + poster + social**, each available as both a Python module and an HTTP route. 1801 backend tests + 47 frontend tests pass. The most recent quality work (Phase 24.1 + 24.2 + 2 quick tasks) closed real product bugs surfaced by a perception loop. Brochure PDFs now print cleanly on letter landscape with proper tri-fold orientation. Next session is verification on flyer + social. Safe to `/clear`.
 
 Spec for the verification session is §7. Memory notes (`feedback_worker_recycle.md`, `feedback_comfy_prompt_engineering.md`) are saved so future sessions don't re-discover the same operational gotchas.
+
+---
+
+## 9. Untracked exploration drafts (post-handoff drift)
+
+These appeared in `git status` after commit `f9058f9` and represent in-flight ideation, not committed phase work. None are wired into the running stack.
+
+| Path | Contents | Status |
+|---|---|---|
+| `docs/brochure-gallery-plan.md` | 330-line design spec sketching a next-gen brochure schema-grammar (intended to power a Codex-style template generator). Not a phase plan yet. | Draft, awaiting GSD intake |
+| `docs/brochure-templates/` | 10 new brochure JSON templates (`bold_diagonal_split`, `edge_anchored_geometry`, `editorial_spread`, `hero_image_dominant`, `layered_depth_stack`, `minimal_panel_overlay`, `modular_grid_system`, `pattern_overlay_hybrid`, `radial_feature`, `technical_futuristic_grid`) — separate from the 13 production templates in `flyer_generator/brochure/schemas/` | Exploration; not loaded by the renderer |
+| `docs/workflows-pending/` | 5 ComfyUI workflow JSONs for alternative image models (`ernie_image`, `ernie_image_turbo`, `flux2`, `longcat_text_to_image`, `qwen_Image_2512`) | Exploration; current default Comfy workflow unchanged |
+| `.claude/` | Local Claude Code state (`scheduled_tasks.lock`, `worktrees`) | Always untracked, expected |
+
+Recommend either committing these under a `chore(docs): stash brochure-system exploration` commit, or moving them into `.planning/quick/` if they're going to seed the next phase. Either way, decide before next code change so `git status` stays clean.

@@ -1,0 +1,324 @@
+{
+  "schema_version": "1",
+  "name": "radial_feature",
+  "description": "Arc- and circle-led tri-fold with large radial anchors that push the eye across the spread.",
+  "tone_keywords": ["radial", "playful", "lifestyle", "wellness", "directional"],
+  "canvas": {
+    "width": 1100,
+    "height": 2550
+  },
+  "palette": {
+    "accent_default": "#0E9F9A",
+    "neutral_dark": "#12313F",
+    "neutral_light": "#F5FCFB",
+    "muted": "#D7ECE9",
+    "extras": {
+      "warm_pop": "#FF8A5B",
+      "seafoam": "#CDEFEA"
+    }
+  },
+  "typography": {
+    "heading_family": "'Poppins', 'Avenir Next', sans-serif",
+    "body_family": "'Nunito Sans', 'Helvetica Neue', sans-serif",
+    "cover_title_size": 112,
+    "cover_subtitle_size": 38,
+    "heading_size": 54,
+    "body_size": 30,
+    "body_line_height": 42,
+    "body_max_chars_per_line": 29,
+    "bullet_size": 28,
+    "bullet_line_height": 38
+  },
+  "panels": {
+    "front_cover": {
+      "description": "Circular hero lens with overscaled off-page rings.",
+      "background": {
+        "type": "radial_gradient",
+        "center": [0.55, 0.2],
+        "radius": 1.2,
+        "stops": [
+          { "offset": 0.0, "color": "#F5FCFB" },
+          { "offset": 1.0, "color": "#D7ECE9" }
+        ]
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "circle",
+          "rect": [-220, -120, 980, 980],
+          "fill": { "type": "solid", "color": "#CDEFEA", "opacity": 1.0 },
+          "bleed": "all",
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "circle",
+          "rect": [640, -180, 600, 600],
+          "fill": { "type": "solid", "color": "#FF8A5B", "opacity": 0.18 },
+          "bleed": "top",
+          "z": 2
+        },
+        {
+          "type": "image_placeholder",
+          "bbox": [170, 250, 680, 680],
+          "slot": "hero",
+          "mask": "circle",
+          "fallback_fill": {
+            "type": "linear_gradient",
+            "angle": 45,
+            "stops": [
+              { "offset": 0.0, "color": "#CDEFEA" },
+              { "offset": 1.0, "color": "#FFFFFF" }
+            ]
+          },
+          "z": 3
+        },
+        {
+          "type": "text",
+          "bbox": [120, 1090, 720, 250],
+          "role": "cover_title",
+          "content_key": "title",
+          "font_size": 112,
+          "line_height": 98,
+          "weight": "bold",
+          "color": "#12313F"
+        },
+        {
+          "type": "text",
+          "bbox": [120, 1370, 700, 140],
+          "role": "cover_subtitle",
+          "content_key": "subtitle",
+          "font_size": 38,
+          "line_height": 46,
+          "color": "#12313F"
+        }
+      ]
+    },
+    "back_cover": {
+      "description": "Back CTA nested into a radial field.",
+      "background": {
+        "type": "solid",
+        "color": "#F5FCFB"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "circle",
+          "rect": [380, 1500, 900, 900],
+          "fill": { "type": "solid", "color": "#0E9F9A", "opacity": 1.0 },
+          "bleed": "right",
+          "z": 1
+        },
+        {
+          "type": "text",
+          "bbox": [120, 220, 740, 170],
+          "role": "cta_heading",
+          "content_key": "back_panel.heading",
+          "font_size": 54,
+          "line_height": 58,
+          "weight": "bold",
+          "color": "#12313F"
+        },
+        {
+          "type": "text",
+          "bbox": [120, 450, 740, 300],
+          "role": "cta_body",
+          "content_key": "back_panel.body",
+          "font_size": 30,
+          "line_height": 42,
+          "color": "#12313F"
+        },
+        {
+          "type": "text",
+          "bbox": [120, 1640, 560, 80],
+          "role": "static",
+          "content_key": "back_panel.cta_label",
+          "font_size": 34,
+          "line_height": 40,
+          "weight": "bold",
+          "color": "#F5FCFB"
+        },
+        {
+          "type": "text",
+          "bbox": [120, 1760, 520, 70],
+          "role": "contact_email",
+          "content_key": "contact.email",
+          "font_size": 24,
+          "line_height": 30,
+          "color": "#F5FCFB"
+        }
+      ]
+    },
+    "tuck_flap": {
+      "description": "Short brand statement framed by a top-left circle.",
+      "background": {
+        "type": "solid",
+        "color": "#F5FCFB"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "circle",
+          "rect": [-160, -80, 520, 520],
+          "fill": { "type": "solid", "color": "#0E9F9A", "opacity": 1.0 },
+          "bleed": "all",
+          "z": 1
+        },
+        {
+          "type": "text",
+          "bbox": [120, 520, 640, 70],
+          "role": "org_name",
+          "content_key": "org",
+          "font_size": 40,
+          "line_height": 48,
+          "weight": "bold",
+          "color": "#12313F"
+        },
+        {
+          "type": "text",
+          "bbox": [120, 620, 700, 220],
+          "role": "tagline",
+          "content_key": "tagline",
+          "font_size": 28,
+          "line_height": 40,
+          "color": "#12313F"
+        }
+      ]
+    },
+    "inner_left": {
+      "description": "Top-left circle carries the section heading into the body copy.",
+      "background": {
+        "type": "solid",
+        "color": "#F5FCFB"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "circle",
+          "rect": [-170, 80, 540, 540],
+          "fill": { "type": "solid", "color": "#CDEFEA", "opacity": 1.0 },
+          "bleed": "left",
+          "z": 1
+        },
+        {
+          "type": "text",
+          "bbox": [130, 220, 650, 160],
+          "role": "section_heading",
+          "content_key": "sections[0].heading",
+          "font_size": 54,
+          "line_height": 58,
+          "weight": "bold",
+          "color": "#12313F"
+        },
+        {
+          "type": "text",
+          "bbox": [130, 470, 690, 360],
+          "role": "lead_paragraph",
+          "content_key": "sections[0].lead_paragraph",
+          "font_size": 30,
+          "line_height": 42,
+          "color": "#12313F"
+        }
+      ]
+    },
+    "inner_center": {
+      "description": "Center panel uses a lower-right radial anchor and bullets.",
+      "background": {
+        "type": "solid",
+        "color": "#F5FCFB"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "circle",
+          "rect": [560, 1640, 620, 620],
+          "fill": { "type": "solid", "color": "#FF8A5B", "opacity": 0.22 },
+          "bleed": "right",
+          "z": 1
+        },
+        {
+          "type": "text",
+          "bbox": [120, 200, 700, 160],
+          "role": "section_heading",
+          "content_key": "sections[1].heading",
+          "font_size": 54,
+          "line_height": 58,
+          "weight": "bold",
+          "color": "#12313F"
+        },
+        {
+          "type": "text",
+          "bbox": [120, 450, 700, 220],
+          "role": "lead_paragraph",
+          "content_key": "sections[1].lead_paragraph",
+          "font_size": 30,
+          "line_height": 42,
+          "color": "#12313F"
+        },
+        {
+          "type": "bullets",
+          "bbox": [120, 760, 700, 500],
+          "content_key": "sections[1].bullets",
+          "max_items": 5,
+          "bullet_style": "disc",
+          "bullet_color": "#0E9F9A",
+          "text_color": "#12313F",
+          "font_size": 28,
+          "line_height": 38
+        }
+      ]
+    },
+    "inner_right": {
+      "description": "Image-plus-copy panel with a warm pop circle against the edge.",
+      "background": {
+        "type": "solid",
+        "color": "#F5FCFB"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "circle",
+          "rect": [650, -120, 500, 500],
+          "fill": { "type": "solid", "color": "#FF8A5B", "opacity": 0.22 },
+          "bleed": "top",
+          "z": 1
+        },
+        {
+          "type": "image_placeholder",
+          "bbox": [120, 240, 700, 520],
+          "slot": "spot_1",
+          "mask": "rounded",
+          "corner_radius": 24,
+          "fallback_fill": {
+            "type": "linear_gradient",
+            "angle": 25,
+            "stops": [
+              { "offset": 0.0, "color": "#CDEFEA" },
+              { "offset": 1.0, "color": "#F5FCFB" }
+            ]
+          },
+          "z": 2
+        },
+        {
+          "type": "text",
+          "bbox": [120, 860, 700, 160],
+          "role": "section_heading",
+          "content_key": "sections[2].heading",
+          "font_size": 54,
+          "line_height": 58,
+          "weight": "bold",
+          "color": "#12313F"
+        },
+        {
+          "type": "text",
+          "bbox": [120, 1060, 700, 300],
+          "role": "body",
+          "content_key": "sections[2].lead_paragraph",
+          "font_size": 30,
+          "line_height": 42,
+          "color": "#12313F"
+        }
+      ]
+    }
+  }
+}

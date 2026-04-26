@@ -1,0 +1,361 @@
+{
+  "schema_version": "1",
+  "name": "pattern_overlay_hybrid",
+  "description": "Hybrid brochure template that contrasts busy geometric pattern fields with calm overlay panels for readable content.",
+  "tone_keywords": ["pattern", "hybrid", "contrast", "creative", "youthful"],
+  "canvas": {
+    "width": 1100,
+    "height": 2550
+  },
+  "palette": {
+    "accent_default": "#118AB2",
+    "neutral_dark": "#0D1F2D",
+    "neutral_light": "#FFFDF7",
+    "muted": "#E7E0CF",
+    "extras": {
+      "sun": "#F4B942",
+      "mint": "#CBEFE7"
+    }
+  },
+  "typography": {
+    "heading_family": "'Space Grotesk', 'Inter', sans-serif",
+    "body_family": "'Inter', 'Helvetica Neue', sans-serif",
+    "cover_title_size": 102,
+    "cover_subtitle_size": 34,
+    "heading_size": 50,
+    "body_size": 28,
+    "body_line_height": 40,
+    "body_max_chars_per_line": 30,
+    "bullet_size": 26,
+    "bullet_line_height": 36
+  },
+  "panels": {
+    "front_cover": {
+      "description": "Pattern field under a white overlay card.",
+      "background": {
+        "type": "solid",
+        "color": "#FFFDF7"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "circle",
+          "rect": [40, 120, 180, 180],
+          "fill": { "type": "solid", "color": "#CBEFE7" },
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "circle",
+          "rect": [320, 210, 140, 140],
+          "fill": { "type": "solid", "color": "#F4B942", "opacity": 0.75 },
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "circle",
+          "rect": [640, 100, 220, 220],
+          "fill": { "type": "solid", "color": "#118AB2", "opacity": 0.22 },
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "line",
+          "rect": [80, 430, 860, 6],
+          "fill": { "type": "solid", "color": "#118AB2" },
+          "rotation": -8,
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "rounded_rect",
+          "rect": [110, 520, 780, 760],
+          "path_params": { "corner_radius": 26 },
+          "fill": { "type": "solid", "color": "#FFFFFF", "opacity": 0.95 },
+          "z": 2
+        },
+        {
+          "type": "text",
+          "bbox": [170, 620, 620, 220],
+          "role": "cover_title",
+          "content_key": "title",
+          "font_size": 102,
+          "line_height": 90,
+          "weight": "bold",
+          "color": "#0D1F2D"
+        },
+        {
+          "type": "text",
+          "bbox": [170, 870, 600, 120],
+          "role": "cover_subtitle",
+          "content_key": "subtitle",
+          "font_size": 34,
+          "line_height": 42,
+          "color": "#0D1F2D"
+        }
+      ]
+    },
+    "back_cover": {
+      "description": "Patterned backdrop with a calm CTA slab.",
+      "background": {
+        "type": "solid",
+        "color": "#FFFDF7"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "circle",
+          "rect": [760, 80, 260, 260],
+          "fill": { "type": "solid", "color": "#F4B942", "opacity": 0.65 },
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "circle",
+          "rect": [680, 360, 180, 180],
+          "fill": { "type": "solid", "color": "#CBEFE7" },
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "rounded_rect",
+          "rect": [110, 240, 760, 1020],
+          "path_params": { "corner_radius": 24 },
+          "fill": { "type": "solid", "color": "#FFFFFF", "opacity": 0.96 },
+          "z": 2
+        },
+        {
+          "type": "text",
+          "bbox": [160, 320, 620, 140],
+          "role": "cta_heading",
+          "content_key": "back_panel.heading",
+          "font_size": 50,
+          "line_height": 56,
+          "weight": "bold",
+          "color": "#0D1F2D"
+        },
+        {
+          "type": "text",
+          "bbox": [160, 520, 620, 300],
+          "role": "cta_body",
+          "content_key": "back_panel.body",
+          "font_size": 28,
+          "line_height": 40,
+          "color": "#0D1F2D"
+        },
+        {
+          "type": "text",
+          "bbox": [160, 940, 620, 60],
+          "role": "contact_url",
+          "content_key": "contact.url",
+          "font_size": 24,
+          "line_height": 30,
+          "color": "#118AB2"
+        }
+      ]
+    },
+    "tuck_flap": {
+      "description": "Small pattern band with brand lockup.",
+      "background": {
+        "type": "solid",
+        "color": "#FFFDF7"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "circle",
+          "rect": [110, 160, 120, 120],
+          "fill": { "type": "solid", "color": "#118AB2", "opacity": 0.25 },
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "circle",
+          "rect": [260, 220, 80, 80],
+          "fill": { "type": "solid", "color": "#F4B942", "opacity": 0.8 },
+          "z": 1
+        },
+        {
+          "type": "text",
+          "bbox": [120, 400, 620, 70],
+          "role": "org_name",
+          "content_key": "org",
+          "font_size": 34,
+          "line_height": 40,
+          "weight": "bold",
+          "color": "#0D1F2D"
+        },
+        {
+          "type": "text",
+          "bbox": [120, 500, 660, 180],
+          "role": "tagline",
+          "content_key": "tagline",
+          "font_size": 24,
+          "line_height": 34,
+          "color": "#0D1F2D"
+        }
+      ]
+    },
+    "inner_left": {
+      "description": "Pattern remains on the margin while content stays on a white slab.",
+      "background": {
+        "type": "solid",
+        "color": "#FFFDF7"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "circle",
+          "rect": [-40, 180, 240, 240],
+          "fill": { "type": "solid", "color": "#CBEFE7" },
+          "bleed": "left",
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "circle",
+          "rect": [20, 460, 140, 140],
+          "fill": { "type": "solid", "color": "#F4B942", "opacity": 0.75 },
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "rounded_rect",
+          "rect": [180, 180, 760, 1320],
+          "path_params": { "corner_radius": 24 },
+          "fill": { "type": "solid", "color": "#FFFFFF", "opacity": 0.96 },
+          "z": 2
+        },
+        {
+          "type": "text",
+          "bbox": [240, 270, 580, 140],
+          "role": "section_heading",
+          "content_key": "sections[0].heading",
+          "font_size": 50,
+          "line_height": 56,
+          "weight": "bold",
+          "color": "#0D1F2D"
+        },
+        {
+          "type": "text",
+          "bbox": [240, 470, 560, 320],
+          "role": "lead_paragraph",
+          "content_key": "sections[0].lead_paragraph",
+          "font_size": 28,
+          "line_height": 40,
+          "color": "#0D1F2D"
+        }
+      ]
+    },
+    "inner_center": {
+      "description": "Center panel shifts the pattern to the top and uses bullets below.",
+      "background": {
+        "type": "solid",
+        "color": "#FFFDF7"
+      },
+      "elements": [
+        {
+          "type": "shape",
+          "kind": "circle",
+          "rect": [120, 90, 160, 160],
+          "fill": { "type": "solid", "color": "#F4B942", "opacity": 0.75 },
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "circle",
+          "rect": [360, 70, 220, 220],
+          "fill": { "type": "solid", "color": "#118AB2", "opacity": 0.18 },
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "rounded_rect",
+          "rect": [110, 320, 780, 1280],
+          "path_params": { "corner_radius": 24 },
+          "fill": { "type": "solid", "color": "#FFFFFF", "opacity": 0.96 },
+          "z": 2
+        },
+        {
+          "type": "text",
+          "bbox": [170, 420, 620, 140],
+          "role": "section_heading",
+          "content_key": "sections[1].heading",
+          "font_size": 50,
+          "line_height": 56,
+          "weight": "bold",
+          "color": "#0D1F2D"
+        },
+        {
+          "type": "bullets",
+          "bbox": [170, 630, 620, 520],
+          "content_key": "sections[1].bullets",
+          "max_items": 5,
+          "bullet_style": "accent_block",
+          "bullet_color": "#118AB2",
+          "text_color": "#0D1F2D",
+          "font_size": 26,
+          "line_height": 36
+        }
+      ]
+    },
+    "inner_right": {
+      "description": "Patterned footer balances a calm image-plus-copy stack.",
+      "background": {
+        "type": "solid",
+        "color": "#FFFDF7"
+      },
+      "elements": [
+        {
+          "type": "image_placeholder",
+          "bbox": [120, 180, 700, 500],
+          "slot": "spot_1",
+          "mask": "rounded",
+          "corner_radius": 22,
+          "fallback_fill": {
+            "type": "linear_gradient",
+            "angle": 18,
+            "stops": [
+              { "offset": 0.0, "color": "#CBEFE7" },
+              { "offset": 1.0, "color": "#FFFFFF" }
+            ]
+          },
+          "z": 2
+        },
+        {
+          "type": "text",
+          "bbox": [120, 760, 680, 140],
+          "role": "section_heading",
+          "content_key": "sections[2].heading",
+          "font_size": 50,
+          "line_height": 56,
+          "weight": "bold",
+          "color": "#0D1F2D"
+        },
+        {
+          "type": "text",
+          "bbox": [120, 970, 660, 260],
+          "role": "body",
+          "content_key": "sections[2].lead_paragraph",
+          "font_size": 28,
+          "line_height": 40,
+          "color": "#0D1F2D"
+        },
+        {
+          "type": "shape",
+          "kind": "circle",
+          "rect": [740, 1820, 220, 220],
+          "fill": { "type": "solid", "color": "#F4B942", "opacity": 0.75 },
+          "z": 1
+        },
+        {
+          "type": "shape",
+          "kind": "circle",
+          "rect": [520, 1920, 140, 140],
+          "fill": { "type": "solid", "color": "#118AB2", "opacity": 0.2 },
+          "z": 1
+        }
+      ]
+    }
+  }
+}
