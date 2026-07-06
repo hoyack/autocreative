@@ -6,8 +6,11 @@ from flyer_generator.config import Settings
 
 
 class TestSettings:
-    def test_settings_defaults(self):
-        s = Settings()
+    def test_settings_defaults(self, monkeypatch):
+        # Isolate from any .env overrides in the dev environment.
+        for key in ("FLYER_COMFYCLOUD_BASE_URL", "FLYER_WORKFLOW"):
+            monkeypatch.delenv(key, raising=False)
+        s = Settings(_env_file=None)
         assert s.comfycloud_base_url == "https://cloud.comfy.org"
         assert s.max_bg_attempts == 3
         assert s.vision_confidence_threshold == 0.6
@@ -33,10 +36,10 @@ class TestOllamaSettings:
                      "FLYER_OLLAMA_VISION_MODEL", "FLYER_OLLAMA_TEXT_MODEL"):
             monkeypatch.delenv(key, raising=False)
         s = Settings(_env_file=None)
-        assert s.vision_provider == "anthropic"
+        assert s.vision_provider == "ollama"
         assert s.ollama_base_url == "https://ollama.com"
-        assert s.ollama_vision_model == "llama3.2-vision"
-        assert s.ollama_text_model == "llama3.2"
+        assert s.ollama_vision_model == "qwen3.6:27b"
+        assert s.ollama_text_model == "qwen3.6:27b"
         assert isinstance(s.ollama_api_key, SecretStr)
         assert s.ollama_api_key.get_secret_value() == ""
 

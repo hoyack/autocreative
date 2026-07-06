@@ -178,14 +178,17 @@ class VisionEvaluator:
         self._require_zones = require_zones
         if settings.vision_provider == "ollama":
             self._anthropic_client: AsyncAnthropic | None = None
+            headers: dict[str, str] = {
+                "Content-Type": "application/json",
+            }
+            api_key = settings.ollama_api_key.get_secret_value()
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
             self._httpx_client: httpx.AsyncClient | None = httpx.AsyncClient(
                 base_url=settings.ollama_base_url.rstrip("/"),
                 timeout=settings.vision_timeout_seconds,
                 follow_redirects=True,
-                headers={
-                    "Authorization": f"Bearer {settings.ollama_api_key.get_secret_value()}",
-                    "Content-Type": "application/json",
-                },
+                headers=headers,
             )
         else:
             self._anthropic_client = AsyncAnthropic(
@@ -469,6 +472,7 @@ class VisionEvaluator:
             base_delay=self._settings.llm_retry_base_delay,
             max_delay=self._settings.llm_retry_max_delay,
             log=logger,
+            keep_alive=self._settings.ollama_keep_alive,
         )
         try:
             return data["choices"][0]["message"]["content"]

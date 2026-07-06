@@ -112,22 +112,40 @@ class ComfyClient:
     # ------------------------------------------------------------------
 
     async def wait_for_completion(self, prompt_id: str) -> None:
-        """Poll /api/job/{id}/status until terminal state.
+        """Poll until terminal state.
 
+        Comfy Cloud exposes /api/job/{id}/status; local ComfyUI does not.
+        For local servers we poll /history/{id} and inspect status_str.
         Recognizes 'success' and 'completed' as terminal success states.
-        Raises ComfyJobFailedError on 'failed'/'cancelled'.
+        Raises ComfyJobFailedError on 'failed'/'error'/'cancelled'.
         Raises ComfyJobTimeoutError after max attempts.
         """
         await asyncio.sleep(self._settings.poll_initial_wait_seconds)
         start = asyncio.get_event_loop().time()
 
+        is_cloud = self._base_url.endswith("cloud.comfy.org")
+
         for attempt in range(1, self._settings.poll_max_attempts + 1):
             elapsed = asyncio.get_event_loop().time() - start
-            resp = await self._request_with_backoff(
-                "GET",
-                f"{self._base_url}/api/job/{prompt_id}/status",
-            )
-            status = resp.json().get("status", "unknown")
+
+            if is_cloud:
+                resp = await self._request_with_backoff(
+                    "GET",
+                    f"{self._base_url}/api/job/{prompt_id}/status",
+                )
+                status = resp.json().get("status", "unknown")
+            else:
+                resp = await self._request_with_backoff(
+                    "GET",
+                    f"{self._base_url}/history/{prompt_id}",
+                )
+                history = resp.json()
+                entry = history.get(prompt_id, {})
+                status_obj = entry.get("status", {})
+                # Local history uses status_str. Treat 'error' as failure.
+                status = status_obj.get("status_str", "unknown")
+                if status == "error":
+                    status = "failed"
 
             logger.info(
                 "comfy_poll",
@@ -158,12 +176,22 @@ class ComfyClient:
     # ------------------------------------------------------------------
 
     async def download_result(self, prompt_id: str) -> bytes:
-        """Fetch the generated image via history_v2 + /api/view.
+        """Fetch the generated image via history + /view.
 
+        Comfy Cloud uses /api/history_v2/{prompt_id} and /api/view.
+        Local ComfyUI uses /history/{prompt_id} and /view (no /api prefix).
         Raises ComfyDownloadError on any failure.
         """
+        is_cloud = self._base_url.endswith("cloud.comfy.org")
+
         # Step 1: Get output filename from history
-        history_url = f"{self._base_url}/api/history_v2/{prompt_id}"
+        if is_cloud:
+            history_url = f"{self._base_url}/api/history_v2/{prompt_id}"
+            view_url = f"{self._base_url}/api/view"
+        else:
+            history_url = f"{self._base_url}/history/{prompt_id}"
+            view_url = f"{self._base_url}/view"
+
         resp = await self._http.get(history_url, headers=self._headers)
         if resp.status_code != 200:
             raise ComfyDownloadError(
@@ -172,8 +200,7 @@ class ComfyClient:
 
         filename = self._extract_filename(resp.json(), prompt_id)
 
-        # Step 2: Download image via /api/view
-        view_url = f"{self._base_url}/api/view"
+        # Step 2: Download image via /view or /api/view
         resp = await self._http.get(
             view_url,
             params={"filename": filename},
@@ -235,10 +262,15 @@ class ComfyClient:
 
     @staticmethod
     def _extract_filename(history_data: dict, prompt_id: str) -> str:
-        """Walk history_v2 response to find the first image filename."""
+        """Walk history response to find the first image filename.
+
+        Handles both Comfy Cloud history_v2 (nested under prompt_id with
+        ``outputs``) and local ComfyUI history (entry under prompt_id with
+        ``outputs``).
+        """
         image_extensions = (".png", ".jpg", ".jpeg", ".webp")
 
-        # history_v2 response can be nested under the prompt_id key
+        # history_v2 / local history response is nested under the prompt_id key
         data = history_data.get(prompt_id, history_data)
 
         # Walk outputs looking for images
@@ -251,5 +283,5 @@ class ComfyClient:
                     return fname
 
         raise ComfyDownloadError(
-            f"No image filename found in history_v2 response for {prompt_id}",
+            f"No image filename found in history response for {prompt_id}",
         )

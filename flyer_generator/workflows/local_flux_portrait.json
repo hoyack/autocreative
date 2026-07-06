@@ -1,0 +1,94 @@
+{
+  "_flyer_meta": {
+    "name": "local_flux_portrait",
+    "description": "Flux.1-dev local ComfyUI portrait 832x1472, 20 steps, T5xxl + clip_l",
+    "latent_dimensions": [832, 1472],
+    "injection_points": {
+      "positive_prompt": "30:6",
+      "negative_prompt": "30:7",
+      "seed": "30:3"
+    }
+  },
+  "9": {
+    "inputs": {
+      "filename_prefix": "flyer-bg",
+      "images": ["30:9", 0]
+    },
+    "class_type": "SaveImage",
+    "_meta": {"title": "Save Image"}
+  },
+  "30:1": {
+    "inputs": {
+      "unet_name": "flux1-dev.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {"title": "Load Diffusion Model"}
+  },
+  "30:2": {
+    "inputs": {
+      "clip_name1": "t5xxl_fp8_e4m3fn.safetensors",
+      "clip_name2": "clip_l.safetensors",
+      "type": "flux",
+      "device": "default"
+    },
+    "class_type": "DualCLIPLoader",
+    "_meta": {"title": "Load Dual CLIP"}
+  },
+  "30:4": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {"title": "Load VAE"}
+  },
+  "30:6": {
+    "inputs": {
+      "text": "",
+      "clip": ["30:2", 0]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {"title": "Positive Prompt"}
+  },
+  "30:7": {
+    "inputs": {
+      "text": "",
+      "clip": ["30:2", 0]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {"title": "Negative Prompt"}
+  },
+  "30:5": {
+    "inputs": {
+      "width": 832,
+      "height": 1472,
+      "batch_size": 1
+    },
+    "class_type": "EmptySD3LatentImage",
+    "_meta": {"title": "Empty Latent Image"}
+  },
+  "30:3": {
+    "inputs": {
+      "seed": 0,
+      "steps": 20,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": ["30:1", 0],
+      "positive": ["30:6", 0],
+      "negative": ["30:7", 0],
+      "latent_image": ["30:5", 0]
+    },
+    "class_type": "KSampler",
+    "_meta": {"title": "KSampler"}
+  },
+  "30:9": {
+    "inputs": {
+      "samples": ["30:3", 0],
+      "vae": ["30:4", 0]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {"title": "VAE Decode"}
+  }
+}

@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     comfycloud_base_url: str = "https://cloud.comfy.org"
 
     # Vision provider selector
-    vision_provider: Literal["anthropic", "ollama"] = "anthropic"
+    vision_provider: Literal["anthropic", "ollama"] = "ollama"
 
     # Vision model (Anthropic)
     vision_model: str = "claude-sonnet-4-5"
@@ -36,28 +36,33 @@ class Settings(BaseSettings):
     # brochure schema-renderer asks the LLM to produce ~20 structured fields
     # which regularly exceeds 1024 tokens and gets truncated mid-JSON.
     text_max_tokens: int = 8192
-    vision_timeout_seconds: int = 60
+    vision_timeout_seconds: int = 300
 
     # Ollama / OpenAI-compatible provider
     ollama_api_key: SecretStr = SecretStr("")
     ollama_base_url: str = "https://ollama.com"
-    ollama_vision_model: str = "llama3.2-vision"
-    ollama_text_model: str = "llama3.2"  # future use — not wired to any stage
+    ollama_vision_model: str = "qwen3.6:27b"
+    ollama_text_model: str = "qwen3.6:27b"
 
     # --- Fallback model chains (comma-separated in env, e.g.
-    # FLYER_OLLAMA_TEXT_MODEL_FALLBACKS="kimi-k2.6:cloud,qwen3.6:35b").
+    # FLYER_OLLAMA_TEXT_MODEL_FALLBACKS="qwen3.6:27b,qwen3.6:35b").
     # Pydantic-settings parses bare comma-separated strings into list[str].
     ollama_text_model_fallbacks: list[str] = Field(
-        default_factory=lambda: ["kimi-k2.6:cloud"]
+        default_factory=lambda: ["qwen3.6:27b"]
     )
     ollama_vision_model_fallbacks: list[str] = Field(
-        default_factory=lambda: ["kimi-k2.6:cloud"]
+        default_factory=lambda: ["qwen3.6:27b"]
     )
 
     # --- LLM retry policy (applies to both text and vision Ollama calls).
-    llm_retry_max_attempts: int = 3
+    llm_retry_max_attempts: int = 2
     llm_retry_base_delay: float = 1.0  # seconds
-    llm_retry_max_delay: float = 10.0  # seconds
+    llm_retry_max_delay: float = 30.0  # seconds
+
+    # Ollama keep_alive duration (e.g. "30m", "1h") forwarded in chat payloads.
+    # Set to keep a model loaded between sequential vision/text calls and reduce
+    # model-loading thrashing when multiple large models cannot fit in VRAM.
+    ollama_keep_alive: str = "30m"
 
     # ComfyUI workflow (name or path to .json)
     workflow: str = "turbo_portrait"

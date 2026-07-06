@@ -29,7 +29,7 @@ from tests.fixtures.comfy_responses import (
     TINY_PNG,
 )
 
-BASE_URL = "https://test.comfy.org"
+BASE_URL = "https://cloud.comfy.org"
 
 
 @dataclass
@@ -51,7 +51,6 @@ def settings() -> Settings:
         poll_interval_seconds=0.01,
         poll_max_attempts=3,
     )
-
 
 @pytest.fixture()
 def mock_router():

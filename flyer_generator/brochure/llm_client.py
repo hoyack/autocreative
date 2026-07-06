@@ -69,14 +69,15 @@ class OllamaTextClient:
     def __init__(self, settings: Settings, http_client: httpx.AsyncClient | None = None) -> None:
         self._settings = settings
         self._owns_http = http_client is None
+        headers: dict[str, str] = {"Content-Type": "application/json"}
+        api_key = settings.ollama_api_key.get_secret_value()
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
         self._http = http_client or httpx.AsyncClient(
             base_url=settings.ollama_base_url.rstrip("/"),
             timeout=settings.vision_timeout_seconds,
             follow_redirects=True,
-            headers={
-                "Authorization": f"Bearer {settings.ollama_api_key.get_secret_value()}",
-                "Content-Type": "application/json",
-            },
+            headers=headers,
         )
 
     async def complete(
@@ -120,6 +121,7 @@ class OllamaTextClient:
             max_attempts=self._settings.llm_retry_max_attempts,
             base_delay=self._settings.llm_retry_base_delay,
             max_delay=self._settings.llm_retry_max_delay,
+            keep_alive=self._settings.ollama_keep_alive,
         )
         try:
             return data["choices"][0]["message"]["content"]

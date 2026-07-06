@@ -129,6 +129,7 @@ async def _call_with_retry(
     base_delay: float,
     max_delay: float,
     log: Any | None = None,
+    keep_alive: str | None = None,
 ) -> dict[str, Any]:
     """POST `payload` to `url`, retrying transient failures and falling through models.
 
@@ -140,6 +141,10 @@ async def _call_with_retry(
         - model_unavailable: advance to next model in chain.
       - On success: return parsed JSON body.
 
+    ``keep_alive`` is forwarded to Ollama-compatible servers so the requested
+    model stays loaded across sequential vision/text calls, reducing model
+    thrashing when multiple models cannot fit in memory at once.
+
     If the entire chain exhausts, raise the last-seen LLMAPIError subclass.
     """
     if not model_chain:
@@ -150,6 +155,8 @@ async def _call_with_retry(
 
     for model_idx, model in enumerate(model_chain):
         call_payload = {**payload, "model": model}
+        if keep_alive is not None:
+            call_payload["keep_alive"] = keep_alive
         for attempt in range(1, max_attempts + 1):
             bound = log.bind(model=model, attempt=attempt, max_attempts=max_attempts)
             try:
